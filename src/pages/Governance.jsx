@@ -7,15 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Vote, Plus, ThumbsUp, ThumbsDown, Clock, CheckCircle, XCircle, Users } from "lucide-react";
-import { format, formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
+import { formatDistanceToNow } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import TokenBalance from "@/components/common/TokenBalance";
+import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function Governance() {
+  const { t, language } = useLanguage();
   const [user, setUser] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProposal, setNewProposal] = useState({ title: '', description: '', category: 'platform_upgrade' });
@@ -67,14 +68,6 @@ export default function Governance() {
     }
   });
 
-  const categoryLabels = {
-    asset_acquisition: '资产收购',
-    fee_adjustment: '费用调整',
-    partnership: '合作伙伴',
-    platform_upgrade: '平台升级',
-    esg_initiative: 'ESG倡议'
-  };
-
   const categoryColors = {
     asset_acquisition: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     fee_adjustment: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
@@ -83,11 +76,24 @@ export default function Governance() {
     esg_initiative: 'bg-green-500/20 text-green-400 border-green-500/30'
   };
 
-  const statusConfig = {
-    active: { label: '投票中', icon: Clock, color: 'text-amber-400' },
-    passed: { label: '已通过', icon: CheckCircle, color: 'text-emerald-400' },
-    rejected: { label: '已否决', icon: XCircle, color: 'text-red-400' },
-    executed: { label: '已执行', icon: CheckCircle, color: 'text-sky-400' }
+  const getStatusIcon = (status) => {
+    switch(status) {
+      case 'active': return Clock;
+      case 'passed': return CheckCircle;
+      case 'rejected': return XCircle;
+      case 'executed': return CheckCircle;
+      default: return Clock;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'active': return 'text-amber-400';
+      case 'passed': return 'text-emerald-400';
+      case 'rejected': return 'text-red-400';
+      case 'executed': return 'text-sky-400';
+      default: return 'text-slate-400';
+    }
   };
 
   return (
@@ -98,9 +104,9 @@ export default function Governance() {
           <div>
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
               <Vote className="w-8 h-8 text-amber-400" />
-              DAO治理
+              {t('governance.title')}
             </h1>
-            <p className="text-slate-400">参与平台决策，您的DRA代币即您的投票权</p>
+            <p className="text-slate-400">{t('governance.subtitle')}</p>
           </div>
           
           {user && (
@@ -108,25 +114,24 @@ export default function Governance() {
               <DialogTrigger asChild>
                 <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
                   <Plus className="w-4 h-4 mr-2" />
-                  发起提案
+                  {t('governance.createProposal')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-slate-900 border-slate-800">
                 <DialogHeader>
-                  <DialogTitle className="text-white">发起新提案</DialogTitle>
+                  <DialogTitle className="text-white">{t('governance.createProposal')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div>
-                    <Label className="text-slate-400">提案标题</Label>
+                    <Label className="text-slate-400">{t('governance.proposalTitle')}</Label>
                     <Input
                       value={newProposal.title}
                       onChange={(e) => setNewProposal({ ...newProposal, title: e.target.value })}
                       className="bg-slate-800 border-slate-700 text-white mt-2"
-                      placeholder="输入提案标题"
                     />
                   </div>
                   <div>
-                    <Label className="text-slate-400">提案类别</Label>
+                    <Label className="text-slate-400">{t('governance.proposalCategory')}</Label>
                     <Select 
                       value={newProposal.category} 
                       onValueChange={(v) => setNewProposal({ ...newProposal, category: v })}
@@ -135,19 +140,19 @@ export default function Governance() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-800 border-slate-700">
-                        {Object.entries(categoryLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        {Object.keys(categoryColors).map((key) => (
+                          <SelectItem key={key} value={key}>{t(`governance.categories.${key}`)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-slate-400">提案描述</Label>
+                    <Label className="text-slate-400">{t('governance.proposalDescription')}</Label>
                     <Textarea
                       value={newProposal.description}
                       onChange={(e) => setNewProposal({ ...newProposal, description: e.target.value })}
                       className="bg-slate-800 border-slate-700 text-white mt-2 min-h-32"
-                      placeholder="详细描述您的提案..."
+                      placeholder={t('governance.descriptionPlaceholder')}
                     />
                   </div>
                   <Button 
@@ -155,7 +160,7 @@ export default function Governance() {
                     onClick={() => createProposalMutation.mutate()}
                     disabled={createProposalMutation.isPending || !newProposal.title}
                   >
-                    {createProposalMutation.isPending ? '提交中...' : '提交提案'}
+                    {createProposalMutation.isPending ? t('governance.submitting') : t('governance.submitProposal')}
                   </Button>
                 </div>
               </DialogContent>
@@ -177,19 +182,19 @@ export default function Governance() {
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">活跃提案</p>
+            <p className="text-slate-400 text-sm">{t('governance.activeProposals')}</p>
             <p className="text-2xl font-bold text-white mt-1">{proposals.filter(p => p.status === 'active').length}</p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">已通过</p>
+            <p className="text-slate-400 text-sm">{t('governance.passed')}</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">{proposals.filter(p => p.status === 'passed').length}</p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">总投票权</p>
+            <p className="text-slate-400 text-sm">{t('governance.totalVotingPower')}</p>
             <p className="text-2xl font-bold text-amber-400 mt-1">2.5M DRA</p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">参与人数</p>
+            <p className="text-slate-400 text-sm">{t('governance.participants')}</p>
             <p className="text-2xl font-bold text-violet-400 mt-1">1,234</p>
           </Card>
         </div>
@@ -205,11 +210,10 @@ export default function Governance() {
             ))
           ) : proposals.length > 0 ? (
             proposals.map((proposal) => {
-              const status = statusConfig[proposal.status];
-              const StatusIcon = status.icon;
+              const StatusIcon = getStatusIcon(proposal.status);
+              const statusColor = getStatusColor(proposal.status);
               const totalVotes = proposal.total_votes || 0;
               const forPercentage = totalVotes > 0 ? (proposal.votes_for / totalVotes) * 100 : 50;
-              const quorumReached = totalVotes >= (proposal.quorum_required || 1000);
               
               return (
                 <Card key={proposal.id} className="bg-slate-900/50 border-slate-800 p-6 hover:border-slate-700 transition-colors">
@@ -217,11 +221,11 @@ export default function Governance() {
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <Badge className={`${categoryColors[proposal.category]} border`}>
-                          {categoryLabels[proposal.category]}
+                          {t(`governance.categories.${proposal.category}`)}
                         </Badge>
-                        <Badge variant="outline" className={`border-slate-700 ${status.color}`}>
+                        <Badge variant="outline" className={`border-slate-700 ${statusColor}`}>
                           <StatusIcon className="w-3 h-3 mr-1" />
-                          {status.label}
+                          {t(`governance.status.${proposal.status}`)}
                         </Badge>
                       </div>
                       <h3 className="text-xl font-semibold text-white mb-2">{proposal.title}</h3>
@@ -238,7 +242,7 @@ export default function Governance() {
                           disabled={voteMutation.isPending}
                         >
                           <ThumbsUp className="w-4 h-4 mr-1" />
-                          赞成
+                          {t('governance.voteFor')}
                         </Button>
                         <Button 
                           variant="outline" 
@@ -248,7 +252,7 @@ export default function Governance() {
                           disabled={voteMutation.isPending}
                         >
                           <ThumbsDown className="w-4 h-4 mr-1" />
-                          反对
+                          {t('governance.voteAgainst')}
                         </Button>
                       </div>
                     )}
@@ -257,29 +261,23 @@ export default function Governance() {
                   {/* Voting Progress */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-emerald-400">赞成 {(proposal.votes_for || 0).toLocaleString()}</span>
-                      <span className="text-red-400">反对 {(proposal.votes_against || 0).toLocaleString()}</span>
+                      <span className="text-emerald-400">{t('governance.voteFor')} {(proposal.votes_for || 0).toLocaleString()}</span>
+                      <span className="text-red-400">{t('governance.voteAgainst')} {(proposal.votes_against || 0).toLocaleString()}</span>
                     </div>
                     <div className="h-2 bg-slate-800 rounded-full overflow-hidden flex">
-                      <div 
-                        className="bg-emerald-500 h-full transition-all"
-                        style={{ width: `${forPercentage}%` }}
-                      />
-                      <div 
-                        className="bg-red-500 h-full transition-all"
-                        style={{ width: `${100 - forPercentage}%` }}
-                      />
+                      <div className="bg-emerald-500 h-full transition-all" style={{ width: `${forPercentage}%` }} />
+                      <div className="bg-red-500 h-full transition-all" style={{ width: `${100 - forPercentage}%` }} />
                     </div>
                     <div className="flex justify-between text-xs text-slate-500">
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        总投票: {totalVotes.toLocaleString()} / {(proposal.quorum_required || 1000).toLocaleString()} (法定人数)
+                        {t('governance.totalVotes')}: {totalVotes.toLocaleString()} / {(proposal.quorum_required || 1000).toLocaleString()} ({t('governance.quorum')})
                       </span>
                       {proposal.voting_end_date && (
                         <span>
                           {new Date(proposal.voting_end_date) > new Date() 
-                            ? `剩余 ${formatDistanceToNow(new Date(proposal.voting_end_date), { locale: zhCN })}`
-                            : '投票已结束'
+                            ? `${t('governance.remaining')} ${formatDistanceToNow(new Date(proposal.voting_end_date), { locale: language === 'zh' ? zhCN : enUS })}`
+                            : t('governance.votingEnded')
                           }
                         </span>
                       )}
@@ -291,8 +289,8 @@ export default function Governance() {
           ) : (
             <Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
               <Vote className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl text-white mb-2">暂无提案</h3>
-              <p className="text-slate-400">成为第一个发起提案的人</p>
+              <h3 className="text-xl text-white mb-2">{t('governance.noProposals')}</h3>
+              <p className="text-slate-400">{t('governance.beFirst')}</p>
             </Card>
           )}
         </div>
