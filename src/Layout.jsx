@@ -5,7 +5,7 @@ import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { 
-  Home, Building2, Wallet, Calendar, Vote, Leaf, User, LogOut, Menu, X, ChevronDown
+  Home, Building2, Wallet, Calendar, Vote, Leaf, LogOut, Menu, ChevronDown, Globe
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -14,23 +14,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LanguageProvider, useLanguage } from '@/components/common/LanguageContext';
 
-export default function Layout({ children }) {
+function LayoutContent({ children }) {
   const [user, setUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { language, toggleLanguage, t } = useLanguage();
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => setUser(null));
   }, []);
 
   const navigation = [
-    { name: '首页', href: 'Home', icon: Home },
-    { name: '资产市场', href: 'Marketplace', icon: Building2 },
-    { name: '我的投资', href: 'Portfolio', icon: Wallet },
-    { name: '预订酒店', href: 'Booking', icon: Calendar },
-    { name: 'DAO治理', href: 'Governance', icon: Vote },
-    { name: 'ESG奖励', href: 'ESGRewards', icon: Leaf },
+    { name: t('nav.home'), href: 'Home', icon: Home },
+    { name: t('nav.marketplace'), href: 'Marketplace', icon: Building2 },
+    { name: t('nav.portfolio'), href: 'Portfolio', icon: Wallet },
+    { name: t('nav.booking'), href: 'Booking', icon: Calendar },
+    { name: t('nav.governance'), href: 'Governance', icon: Vote },
+    { name: t('nav.esgRewards'), href: 'ESGRewards', icon: Leaf },
   ];
 
   const isActive = (href) => {
@@ -55,7 +57,7 @@ export default function Layout({ children }) {
             <div className="hidden lg:flex items-center gap-1">
               {navigation.map((item) => (
                 <Link
-                  key={item.name}
+                  key={item.href}
                   to={createPageUrl(item.href)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
                     isActive(item.href)
@@ -70,7 +72,18 @@ export default function Layout({ children }) {
             </div>
 
             {/* Right Side */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {/* Language Switcher */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleLanguage}
+                className="text-slate-400 hover:text-white hover:bg-slate-800 gap-1.5"
+              >
+                <Globe className="w-4 h-4" />
+                <span className="font-medium text-xs">{language === 'zh' ? 'EN' : '中文'}</span>
+              </Button>
+
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -80,20 +93,20 @@ export default function Layout({ children }) {
                           {user.full_name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="hidden md:inline">{user.full_name || '用户'}</span>
+                      <span className="hidden md:inline">{user.full_name || t('nav.user')}</span>
                       <ChevronDown className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-slate-800">
                     <div className="px-3 py-2">
-                      <p className="text-white font-medium">{user.full_name || '用户'}</p>
+                      <p className="text-white font-medium">{user.full_name || t('nav.user')}</p>
                       <p className="text-slate-400 text-sm truncate">{user.email}</p>
                     </div>
                     <DropdownMenuSeparator className="bg-slate-800" />
                     <DropdownMenuItem asChild className="text-slate-300 hover:text-white focus:bg-slate-800">
                       <Link to={createPageUrl('Portfolio')} className="flex items-center gap-2">
                         <Wallet className="w-4 h-4" />
-                        我的投资
+                        {t('nav.portfolio')}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-slate-800" />
@@ -102,7 +115,7 @@ export default function Layout({ children }) {
                       onClick={() => base44.auth.logout()}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
-                      退出登录
+                      {t('nav.logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -111,7 +124,7 @@ export default function Layout({ children }) {
                   className="bg-amber-500 hover:bg-amber-600 text-slate-900"
                   onClick={() => base44.auth.redirectToLogin()}
                 >
-                  登录
+                  {t('nav.login')}
                 </Button>
               )}
 
@@ -136,7 +149,7 @@ export default function Layout({ children }) {
                     <nav className="flex-1 space-y-1">
                       {navigation.map((item) => (
                         <Link
-                          key={item.name}
+                          key={item.href}
                           to={createPageUrl(item.href)}
                           onClick={() => setMobileMenuOpen(false)}
                           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
@@ -151,6 +164,18 @@ export default function Layout({ children }) {
                       ))}
                     </nav>
 
+                    {/* Language Switch in Mobile */}
+                    <div className="border-t border-slate-800 pt-4 mt-4">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800"
+                        onClick={toggleLanguage}
+                      >
+                        <Globe className="w-4 h-4 mr-2" />
+                        {language === 'zh' ? 'Switch to English' : '切换到中文'}
+                      </Button>
+                    </div>
+
                     {user && (
                       <div className="border-t border-slate-800 pt-4 mt-4">
                         <div className="flex items-center gap-3 px-4 mb-4">
@@ -160,7 +185,7 @@ export default function Layout({ children }) {
                             </span>
                           </div>
                           <div>
-                            <p className="text-white font-medium">{user.full_name || '用户'}</p>
+                            <p className="text-white font-medium">{user.full_name || t('nav.user')}</p>
                             <p className="text-slate-400 text-sm truncate">{user.email}</p>
                           </div>
                         </div>
@@ -170,7 +195,7 @@ export default function Layout({ children }) {
                           onClick={() => base44.auth.logout()}
                         >
                           <LogOut className="w-4 h-4 mr-2" />
-                          退出登录
+                          {t('nav.logout')}
                         </Button>
                       </div>
                     )}
@@ -195,18 +220,26 @@ export default function Layout({ children }) {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
                 <span className="text-slate-900 font-bold text-xs">DR</span>
               </div>
-              <span className="text-slate-400 text-sm">© 2025 DIGIREAL ASSETS. 香港合规运营.</span>
+              <span className="text-slate-400 text-sm">{t('footer.copyright')}</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-slate-500">
-              <span>Base链</span>
+              <span>{t('footer.baseChain')}</span>
               <span>•</span>
-              <span>SFC合规</span>
+              <span>{t('footer.sfcCompliant')}</span>
               <span>•</span>
-              <span>x402协议</span>
+              <span>{t('footer.x402Protocol')}</span>
             </div>
           </div>
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function Layout({ children }) {
+  return (
+    <LanguageProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </LanguageProvider>
   );
 }

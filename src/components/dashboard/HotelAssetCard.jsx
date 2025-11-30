@@ -6,8 +6,10 @@ import { Progress } from "@/components/ui/progress";
 import { Star, MapPin, Leaf, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function HotelAssetCard({ hotel }) {
+  const { t } = useLanguage();
   const soldPercentage = (hotel.tokens_sold / hotel.total_tokens) * 100;
   
   const statusColors = {
@@ -16,10 +18,8 @@ export default function HotelAssetCard({ hotel }) {
     sold_out: "bg-slate-500/20 text-slate-400 border-slate-500/30"
   };
 
-  const statusLabels = {
-    upcoming: "即将上线",
-    active: "募集中",
-    sold_out: "已售罄"
+  const getStatusLabel = (status) => {
+    return t(`hotelCard.${status === 'sold_out' ? 'soldOut' : status}`);
   };
 
   return (
@@ -32,7 +32,7 @@ export default function HotelAssetCard({ hotel }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
         <Badge className={`absolute top-3 right-3 ${statusColors[hotel.status]} border`}>
-          {statusLabels[hotel.status]}
+          {getStatusLabel(hotel.status)}
         </Badge>
         {hotel.esg_score >= 80 && (
           <Badge className="absolute top-3 left-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -61,11 +61,11 @@ export default function HotelAssetCard({ hotel }) {
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="bg-slate-800/50 rounded-lg p-2.5">
-            <p className="text-slate-400 text-xs">代币价格</p>
+            <p className="text-slate-400 text-xs">{t('hotelCard.tokenPrice')}</p>
             <p className="text-white font-semibold">${hotel.token_price}</p>
           </div>
           <div className="bg-slate-800/50 rounded-lg p-2.5">
-            <p className="text-slate-400 text-xs">年化收益</p>
+            <p className="text-slate-400 text-xs">{t('hotelCard.apy')}</p>
             <p className="text-emerald-400 font-semibold flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
               {hotel.apy}%
@@ -75,18 +75,18 @@ export default function HotelAssetCard({ hotel }) {
 
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="text-slate-400">募集进度</span>
+            <span className="text-slate-400">{t('hotelCard.progress')}</span>
             <span className="text-white">{soldPercentage.toFixed(1)}%</span>
           </div>
           <Progress value={soldPercentage} className="h-1.5 bg-slate-800" />
           <p className="text-xs text-slate-500">
-            {hotel.tokens_sold?.toLocaleString()} / {hotel.total_tokens?.toLocaleString()} 代币
+            {hotel.tokens_sold?.toLocaleString()} / {hotel.total_tokens?.toLocaleString()} {t('hotelCard.tokens')}
           </p>
         </div>
 
         <Link to={createPageUrl(`HotelDetail?id=${hotel.id}`)}>
           <Button className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold">
-            查看详情
+            {t('hotelCard.viewDetails')}
           </Button>
         </Link>
       </div>
