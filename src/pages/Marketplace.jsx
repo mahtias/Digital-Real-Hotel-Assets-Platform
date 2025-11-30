@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Building2, SlidersHorizontal } from "lucide-react";
 import HotelAssetCard from "@/components/dashboard/HotelAssetCard";
+import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function Marketplace() {
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -45,9 +47,9 @@ export default function Marketplace() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
             <Building2 className="w-8 h-8 text-amber-400" />
-            酒店资产市场
+            {t('marketplace.title')}
           </h1>
-          <p className="text-slate-400">探索全球优质代币化酒店资产，开始您的投资之旅</p>
+          <p className="text-slate-400">{t('marketplace.subtitle')}</p>
         </div>
 
         {/* Filters */}
@@ -56,7 +58,7 @@ export default function Marketplace() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
-                placeholder="搜索酒店名称、地区..."
+                placeholder={t('marketplace.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
@@ -70,10 +72,10 @@ export default function Marketplace() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
-                  <SelectItem value="all">全部状态 ({statusCounts.all})</SelectItem>
-                  <SelectItem value="active">募集中 ({statusCounts.active})</SelectItem>
-                  <SelectItem value="upcoming">即将上线 ({statusCounts.upcoming})</SelectItem>
-                  <SelectItem value="sold_out">已售罄 ({statusCounts.sold_out})</SelectItem>
+                  <SelectItem value="all">{t('marketplace.allStatus')} ({statusCounts.all})</SelectItem>
+                  <SelectItem value="active">{t('marketplace.fundraising')} ({statusCounts.active})</SelectItem>
+                  <SelectItem value="upcoming">{t('marketplace.upcoming')} ({statusCounts.upcoming})</SelectItem>
+                  <SelectItem value="sold_out">{t('marketplace.soldOut')} ({statusCounts.sold_out})</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -83,10 +85,10 @@ export default function Marketplace() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
-                  <SelectItem value="newest">最新上架</SelectItem>
-                  <SelectItem value="apy">收益最高</SelectItem>
-                  <SelectItem value="price_low">价格从低到高</SelectItem>
-                  <SelectItem value="price_high">价格从高到低</SelectItem>
+                  <SelectItem value="newest">{t('marketplace.newest')}</SelectItem>
+                  <SelectItem value="apy">{t('marketplace.highestApy')}</SelectItem>
+                  <SelectItem value="price_low">{t('marketplace.priceLowHigh')}</SelectItem>
+                  <SelectItem value="price_high">{t('marketplace.priceHighLow')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -94,21 +96,24 @@ export default function Marketplace() {
 
           {/* Status Badges */}
           <div className="flex flex-wrap gap-2 mt-4">
-            {['all', 'active', 'upcoming', 'sold_out'].map((status) => (
+            {[
+              { key: 'all', label: t('common.all') },
+              { key: 'active', label: t('marketplace.fundraising') },
+              { key: 'upcoming', label: t('marketplace.upcoming') },
+              { key: 'sold_out', label: t('marketplace.soldOut') },
+            ].map((status) => (
               <Badge
-                key={status}
-                variant={statusFilter === status ? "default" : "outline"}
+                key={status.key}
+                variant={statusFilter === status.key ? "default" : "outline"}
                 className={`cursor-pointer transition-all ${
-                  statusFilter === status 
+                  statusFilter === status.key 
                     ? 'bg-amber-500 text-slate-900 hover:bg-amber-600' 
                     : 'border-slate-700 text-slate-400 hover:border-amber-500/50 hover:text-amber-400'
                 }`}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => setStatusFilter(status.key)}
               >
-                {status === 'all' ? '全部' : 
-                 status === 'active' ? '募集中' : 
-                 status === 'upcoming' ? '即将上线' : '已售罄'}
-                <span className="ml-1 opacity-70">({statusCounts[status]})</span>
+                {status.label}
+                <span className="ml-1 opacity-70">({statusCounts[status.key]})</span>
               </Badge>
             ))}
           </div>
@@ -130,8 +135,8 @@ export default function Marketplace() {
         ) : (
           <div className="text-center py-20">
             <Building2 className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-            <h3 className="text-xl text-white mb-2">未找到匹配的酒店资产</h3>
-            <p className="text-slate-400">请尝试调整筛选条件</p>
+            <h3 className="text-xl text-white mb-2">{t('marketplace.noResults')}</h3>
+            <p className="text-slate-400">{t('marketplace.adjustFilters')}</p>
           </div>
         )}
       </div>

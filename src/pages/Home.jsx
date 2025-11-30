@@ -10,9 +10,11 @@ import { createPageUrl } from "@/utils";
 import StatsOverview from "@/components/dashboard/StatsOverview";
 import HotelAssetCard from "@/components/dashboard/HotelAssetCard";
 import PortfolioSummary from "@/components/dashboard/PortfolioSummary";
+import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function Home() {
   const [user, setUser] = useState(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => setUser(null));
@@ -33,10 +35,10 @@ export default function Home() {
   const totalRewards = investments.reduce((acc, inv) => acc + (inv.earned_rewards || 0), 0);
 
   const features = [
-    { icon: Sparkles, title: "低门槛投资", desc: "最低$1起投，人人可参与优质酒店资产" },
-    { icon: TrendingUp, title: "稳定收益", desc: "6-10% APY，基于真实酒店租金收入" },
-    { icon: Shield, title: "香港合规", desc: "符合SFC A-S-P-I-Re监管框架" },
-    { icon: Globe, title: "全球流通", desc: "Base链代币化，随时买卖无锁定" },
+    { icon: Sparkles, ...t('home.features.lowEntry') },
+    { icon: TrendingUp, ...t('home.features.stableYield') },
+    { icon: Shield, ...t('home.features.hkCompliant') },
+    { icon: Globe, ...t('home.features.globalLiquidity') },
   ];
 
   return (
@@ -49,30 +51,27 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-4 pt-16 pb-24">
           <div className="text-center max-w-3xl mx-auto mb-12">
             <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-6">
-              香港首个酒店RWA代币化平台
+              {t('home.badge')}
             </Badge>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              投资全球优质酒店
+              {t('home.title1')}
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">
-                从$1开始
+                {t('home.title2')}
               </span>
             </h1>
             <p className="text-lg text-slate-400 mb-8">
-              DIGIREAL ASSETS将酒店资产代币化，让您轻松参与高端酒店投资，
-              享受稳定租金收益和资产增值。
+              {t('home.subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to={createPageUrl('Marketplace')}>
                 <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
-                  探索酒店资产 <ArrowRight className="ml-2 w-5 h-5" />
+                  {t('home.exploreBtn')} <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Link to={createPageUrl('About')}>
-                <Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                  了解更多
-                </Button>
-              </Link>
+              <Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                {t('home.learnMore')}
+              </Button>
             </div>
           </div>
 
@@ -104,11 +103,11 @@ export default function Home() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                 <Building2 className="w-6 h-6 text-amber-400" />
-                热门酒店资产
+                {t('home.hotHotels')}
               </h2>
               <Link to={createPageUrl('Marketplace')}>
                 <Button variant="ghost" className="text-amber-400 hover:text-amber-300">
-                  查看全部 <ArrowRight className="w-4 h-4 ml-1" />
+                  {t('home.viewAll')} <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
             </div>
@@ -122,8 +121,7 @@ export default function Home() {
             {hotels.length === 0 && (
               <Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
                 <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400">暂无可投资的酒店资产</p>
-                <p className="text-slate-500 text-sm mt-2">敬请期待更多优质项目上线</p>
+                <p className="text-slate-400">{t('common.noData')}</p>
               </Card>
             )}
           </div>
@@ -138,21 +136,21 @@ export default function Home() {
 
             {/* Quick Actions */}
             <Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
-              <h3 className="text-white font-semibold mb-4">快速操作</h3>
+              <h3 className="text-white font-semibold mb-4">{t('home.quickActions')}</h3>
               <div className="space-y-3">
                 <Link to={createPageUrl('Booking')} className="block">
                   <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
-                    🏨 预订酒店房间
+                    {t('home.bookRoom')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Governance')} className="block">
                   <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
-                    🗳️ 参与DAO治理
+                    {t('home.joinDao')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('ESGRewards')} className="block">
                   <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
-                    🌿 ESG节能奖励
+                    {t('home.esgRewards')}
                   </Button>
                 </Link>
               </div>

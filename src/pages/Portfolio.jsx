@@ -4,14 +4,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, TrendingUp, Gift, Lock, Unlock, Building2, ArrowRight, CheckCircle } from "lucide-react";
+import { Wallet, TrendingUp, Gift, Lock, Building2, ArrowRight, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import TokenBalance from "@/components/common/TokenBalance";
+import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function Portfolio() {
+  const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const queryClient = useQueryClient();
 
@@ -62,13 +63,13 @@ export default function Portfolio() {
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
         <Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
           <Wallet className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <h2 className="text-xl text-white font-semibold mb-2">请先登录</h2>
-          <p className="text-slate-400 mb-4">登录后查看您的投资组合</p>
+          <h2 className="text-xl text-white font-semibold mb-2">{t('portfolio.loginRequired')}</h2>
+          <p className="text-slate-400 mb-4">{t('portfolio.loginToView')}</p>
           <Button 
             onClick={() => base44.auth.redirectToLogin()}
             className="bg-amber-500 hover:bg-amber-600 text-slate-900"
           >
-            登录
+            {t('common.login')}
           </Button>
         </Card>
       </div>
@@ -82,9 +83,9 @@ export default function Portfolio() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
             <Wallet className="w-8 h-8 text-amber-400" />
-            我的投资组合
+            {t('portfolio.title')}
           </h1>
-          <p className="text-slate-400">管理您的酒店代币投资和收益</p>
+          <p className="text-slate-400">{t('portfolio.subtitle')}</p>
         </div>
 
         {/* Token Balance */}
@@ -99,25 +100,25 @@ export default function Portfolio() {
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">总投资额</p>
+            <p className="text-slate-400 text-sm">{t('portfolio.totalInvested')}</p>
             <p className="text-2xl font-bold text-white mt-1">${totalInvested.toLocaleString()}</p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">累计收益</p>
+            <p className="text-slate-400 text-sm">{t('portfolio.totalEarned')}</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1 flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
               ${totalEarned.toFixed(2)}
             </p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">待领取收益</p>
+            <p className="text-slate-400 text-sm">{t('portfolio.pendingRewards')}</p>
             <p className="text-2xl font-bold text-amber-400 mt-1 flex items-center gap-2">
               <Gift className="w-5 h-5" />
               ${totalPending.toFixed(2)}
             </p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
-            <p className="text-slate-400 text-sm">已质押代币</p>
+            <p className="text-slate-400 text-sm">{t('portfolio.stakedTokens')}</p>
             <p className="text-2xl font-bold text-violet-400 mt-1 flex items-center gap-2">
               <Lock className="w-5 h-5" />
               {totalStaked.toLocaleString()}
@@ -129,10 +130,10 @@ export default function Portfolio() {
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="bg-slate-900/50 border border-slate-800">
             <TabsTrigger value="active" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">
-              活跃投资 ({enrichedInvestments.filter(i => i.status === 'active').length})
+              {t('portfolio.activeInvestments')} ({enrichedInvestments.filter(i => i.status === 'active').length})
             </TabsTrigger>
             <TabsTrigger value="staked" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">
-              质押中 ({enrichedInvestments.filter(i => i.status === 'staked').length})
+              {t('portfolio.staking')} ({enrichedInvestments.filter(i => i.status === 'staked').length})
             </TabsTrigger>
           </TabsList>
 
@@ -151,7 +152,7 @@ export default function Portfolio() {
                           />
                         </div>
                         <div>
-                          <h3 className="text-white font-semibold">{inv.hotel?.name || '酒店资产'}</h3>
+                          <h3 className="text-white font-semibold">{inv.hotel?.name || 'Hotel Asset'}</h3>
                           <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs">
                             {inv.hotel?.token_symbol || 'HAT'}
                           </Badge>
@@ -160,15 +161,15 @@ export default function Portfolio() {
                       
                       <div className="grid grid-cols-3 gap-6 text-center">
                         <div>
-                          <p className="text-slate-400 text-xs">持有代币</p>
+                          <p className="text-slate-400 text-xs">{t('portfolio.holdingTokens')}</p>
                           <p className="text-white font-semibold">{inv.token_amount?.toLocaleString()}</p>
                         </div>
                         <div>
-                          <p className="text-slate-400 text-xs">投资金额</p>
+                          <p className="text-slate-400 text-xs">{t('portfolio.totalInvested')}</p>
                           <p className="text-white font-semibold">${inv.invested_amount?.toLocaleString()}</p>
                         </div>
                         <div>
-                          <p className="text-slate-400 text-xs">待领收益</p>
+                          <p className="text-slate-400 text-xs">{t('portfolio.pendingRewards')}</p>
                           <p className="text-emerald-400 font-semibold">${inv.pending_rewards?.toFixed(2) || '0.00'}</p>
                         </div>
                       </div>
@@ -182,12 +183,12 @@ export default function Portfolio() {
                             disabled={claimRewardsMutation.isPending}
                           >
                             <CheckCircle className="w-4 h-4 mr-1" />
-                            领取
+                            {t('portfolio.claim')}
                           </Button>
                         )}
                         <Link to={createPageUrl(`HotelDetail?id=${inv.hotel_asset_id}`)}>
                           <Button size="sm" variant="outline" className="border-slate-700 text-slate-300">
-                            详情 <ArrowRight className="w-4 h-4 ml-1" />
+                            {t('portfolio.details')} <ArrowRight className="w-4 h-4 ml-1" />
                           </Button>
                         </Link>
                       </div>
@@ -198,11 +199,11 @@ export default function Portfolio() {
             ) : (
               <Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
                 <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl text-white mb-2">暂无投资</h3>
-                <p className="text-slate-400 mb-4">开始投资代币化酒店资产，享受稳定收益</p>
+                <h3 className="text-xl text-white mb-2">{t('portfolio.noInvestments')}</h3>
+                <p className="text-slate-400 mb-4">{t('portfolio.startInvesting')}</p>
                 <Link to={createPageUrl('Marketplace')}>
                   <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
-                    浏览酒店资产
+                    {t('portfolio.browseAssets')}
                   </Button>
                 </Link>
               </Card>
@@ -212,8 +213,8 @@ export default function Portfolio() {
           <TabsContent value="staked" className="mt-6">
             <Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
               <Lock className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl text-white mb-2">暂无质押</h3>
-              <p className="text-slate-400">质押您的代币以获得更高收益和投票权</p>
+              <h3 className="text-xl text-white mb-2">{t('common.noData')}</h3>
+              <p className="text-slate-400">{t('portfolio.startInvesting')}</p>
             </Card>
           </TabsContent>
         </Tabs>
