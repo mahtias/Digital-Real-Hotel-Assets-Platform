@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LanguageProvider, useLanguage } from '@/components/common/LanguageContext';
+import WalletConnect from '@/components/common/WalletConnect';
 
 function LayoutContent({ children }) {
   const [user, setUser] = useState(null);
@@ -73,6 +74,9 @@ function LayoutContent({ children }) {
 
             {/* Right Side */}
             <div className="flex items-center gap-2">
+              {/* Wallet Connect */}
+              <WalletConnect />
+
               {/* Language Switcher */}
               <Button
                 variant="ghost"
