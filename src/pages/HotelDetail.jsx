@@ -12,12 +12,14 @@ import { Star, MapPin, Leaf, TrendingUp, Calendar, Home, Users, Shield, FileText
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from 'date-fns';
+import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function HotelDetail() {
   const urlParams = new URLSearchParams(window.location.search);
   const hotelId = urlParams.get('id');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const [user, setUser] = useState(null);
   const [investAmount, setInvestAmount] = useState(100);
@@ -50,7 +52,6 @@ export default function HotelDetail() {
         pending_rewards: 0,
         status: 'active'
       });
-      // Update hotel tokens sold
       await base44.entities.HotelAsset.update(hotel.id, {
         tokens_sold: (hotel.tokens_sold || 0) + tokenAmount
       });
@@ -93,7 +94,7 @@ export default function HotelDetail() {
           onClick={() => navigate(-1)}
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          返回
+          {t('hotelDetail.back')}
         </Button>
       </div>
 
@@ -127,15 +128,14 @@ export default function HotelDetail() {
                   ))}
                 </div>
               </div>
-
               <p className="text-slate-300 leading-relaxed">{hotel.description}</p>
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="bg-slate-900/50 border border-slate-800 w-full justify-start">
-                <TabsTrigger value="overview" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">资产概览</TabsTrigger>
-                <TabsTrigger value="performance" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">收益表现</TabsTrigger>
-                <TabsTrigger value="documents" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">相关文档</TabsTrigger>
+                <TabsTrigger value="overview" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">{t('hotelDetail.overview')}</TabsTrigger>
+                <TabsTrigger value="performance" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">{t('hotelDetail.performance')}</TabsTrigger>
+                <TabsTrigger value="documents" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">{t('hotelDetail.documents')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="mt-6">
@@ -145,16 +145,16 @@ export default function HotelDetail() {
                       <div className="p-2 rounded-lg bg-amber-500/10">
                         <Home className="w-5 h-5 text-amber-400" />
                       </div>
-                      <span className="text-slate-400">房间数量</span>
+                      <span className="text-slate-400">{t('hotelDetail.rooms')}</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">{hotel.room_count || 120} 间</p>
+                    <p className="text-2xl font-bold text-white">{hotel.room_count || 120}</p>
                   </Card>
                   <Card className="bg-slate-900/50 border-slate-800 p-4">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="p-2 rounded-lg bg-emerald-500/10">
                         <Users className="w-5 h-5 text-emerald-400" />
                       </div>
-                      <span className="text-slate-400">入住率</span>
+                      <span className="text-slate-400">{t('hotelDetail.occupancy')}</span>
                     </div>
                     <p className="text-2xl font-bold text-white">{hotel.occupancy_rate || 85}%</p>
                   </Card>
@@ -163,7 +163,7 @@ export default function HotelDetail() {
                       <div className="p-2 rounded-lg bg-sky-500/10">
                         <TrendingUp className="w-5 h-5 text-sky-400" />
                       </div>
-                      <span className="text-slate-400">RevPAR</span>
+                      <span className="text-slate-400">{t('hotelDetail.revpar')}</span>
                     </div>
                     <p className="text-2xl font-bold text-white">${hotel.revpar || 125}</p>
                   </Card>
@@ -172,7 +172,7 @@ export default function HotelDetail() {
                       <div className="p-2 rounded-lg bg-violet-500/10">
                         <Calendar className="w-5 h-5 text-violet-400" />
                       </div>
-                      <span className="text-slate-400">租赁到期</span>
+                      <span className="text-slate-400">{t('hotelDetail.leaseEnd')}</span>
                     </div>
                     <p className="text-2xl font-bold text-white">
                       {hotel.lease_end_date ? format(new Date(hotel.lease_end_date), 'yyyy/MM') : '2030/12'}
@@ -183,9 +183,9 @@ export default function HotelDetail() {
 
               <TabsContent value="performance" className="mt-6">
                 <Card className="bg-slate-900/50 border-slate-800 p-6">
-                  <h3 className="text-white font-semibold mb-4">历史收益表现</h3>
+                  <h3 className="text-white font-semibold mb-4">{t('hotelDetail.quarterlyReturns')}</h3>
                   <div className="space-y-4">
-                    {['2024 Q4', '2024 Q3', '2024 Q2', '2024 Q1'].map((quarter, idx) => (
+                    {['2024 Q4', '2024 Q3', '2024 Q2', '2024 Q1'].map((quarter) => (
                       <div key={quarter} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                         <span className="text-slate-400">{quarter}</span>
                         <span className="text-emerald-400 font-semibold">+{(2 + Math.random() * 0.5).toFixed(2)}%</span>
@@ -198,7 +198,12 @@ export default function HotelDetail() {
               <TabsContent value="documents" className="mt-6">
                 <Card className="bg-slate-900/50 border-slate-800 p-6">
                   <div className="space-y-3">
-                    {['资产评估报告', '租赁合同摘要', '审计报告', '代币合约地址'].map((doc, idx) => (
+                    {[
+                      t('hotelDetail.assetReport'),
+                      t('hotelDetail.leaseSummary'),
+                      t('hotelDetail.auditReport'),
+                      t('hotelDetail.contractAddress')
+                    ].map((doc) => (
                       <div key={doc} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                         <div className="flex items-center gap-3">
                           <FileText className="w-5 h-5 text-amber-400" />
@@ -217,34 +222,34 @@ export default function HotelDetail() {
           <div className="space-y-6">
             <Card className="bg-slate-900/80 backdrop-blur border-slate-800 p-6 sticky top-4">
               <div className="text-center mb-6">
-                <p className="text-slate-400 text-sm">代币价格</p>
+                <p className="text-slate-400 text-sm">{t('hotelDetail.tokenPrice')}</p>
                 <p className="text-4xl font-bold text-white">${hotel.token_price}</p>
                 <p className="text-amber-400 text-sm mt-1">/{hotel.token_symbol}</p>
               </div>
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">年化收益率</span>
+                  <span className="text-slate-400">{t('hotelDetail.apy')}</span>
                   <span className="text-emerald-400 font-semibold">{hotel.apy}% APY</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">资产总价值</span>
+                  <span className="text-slate-400">{t('hotelDetail.totalValue')}</span>
                   <span className="text-white">${hotel.total_value?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">代币总量</span>
+                  <span className="text-slate-400">{t('hotelDetail.totalTokens')}</span>
                   <span className="text-white">{hotel.total_tokens?.toLocaleString()}</span>
                 </div>
               </div>
 
               <div className="space-y-2 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">募集进度</span>
+                  <span className="text-slate-400">{t('hotelDetail.progress')}</span>
                   <span className="text-white">{soldPercentage.toFixed(1)}%</span>
                 </div>
                 <Progress value={soldPercentage} className="h-2 bg-slate-800" />
                 <p className="text-xs text-slate-500">
-                  剩余 {tokensAvailable.toLocaleString()} 代币可购
+                  {tokensAvailable.toLocaleString()} {t('hotelDetail.remaining')}
                 </p>
               </div>
 
@@ -255,12 +260,12 @@ export default function HotelDetail() {
                     disabled={hotel.status === 'sold_out'}
                   >
                     <Wallet className="w-5 h-5 mr-2" />
-                    立即投资
+                    {t('hotelDetail.investNow')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="bg-slate-900 border-slate-800">
                   <DialogHeader>
-                    <DialogTitle className="text-white">投资 {hotel.name}</DialogTitle>
+                    <DialogTitle className="text-white">{t('hotelDetail.investIn')} {hotel.name}</DialogTitle>
                   </DialogHeader>
                   
                   {investSuccess ? (
@@ -268,13 +273,13 @@ export default function HotelDetail() {
                       <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <CheckCircle className="w-8 h-8 text-emerald-400" />
                       </div>
-                      <h3 className="text-xl text-white font-semibold mb-2">投资成功!</h3>
-                      <p className="text-slate-400">您已成功购买 {tokensToBuy.toFixed(2)} {hotel.token_symbol}</p>
+                      <h3 className="text-xl text-white font-semibold mb-2">{t('hotelDetail.investSuccess')}</h3>
+                      <p className="text-slate-400">{t('hotelDetail.purchased')} {tokensToBuy.toFixed(2)} {hotel.token_symbol}</p>
                     </div>
                   ) : (
                     <div className="space-y-6 py-4">
                       <div>
-                        <label className="text-slate-400 text-sm mb-2 block">投资金额 (USDC)</label>
+                        <label className="text-slate-400 text-sm mb-2 block">{t('hotelDetail.investAmount')}</label>
                         <div className="flex items-center gap-3">
                           <Button 
                             variant="outline" 
@@ -316,11 +321,11 @@ export default function HotelDetail() {
 
                       <div className="bg-slate-800/50 rounded-lg p-4 space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">获得代币</span>
+                          <span className="text-slate-400">{t('hotelDetail.tokensReceive')}</span>
                           <span className="text-white font-semibold">{tokensToBuy.toFixed(2)} {hotel.token_symbol}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">预期年收益</span>
+                          <span className="text-slate-400">{t('hotelDetail.expectedYield')}</span>
                           <span className="text-emerald-400 font-semibold">${(investAmount * hotel.apy / 100).toFixed(2)}</span>
                         </div>
                       </div>
@@ -330,7 +335,7 @@ export default function HotelDetail() {
                         onClick={() => investMutation.mutate()}
                         disabled={investMutation.isPending || !user}
                       >
-                        {investMutation.isPending ? '处理中...' : user ? '确认投资' : '请先登录'}
+                        {investMutation.isPending ? t('hotelDetail.processing') : user ? t('hotelDetail.confirmInvest') : t('hotelDetail.pleaseLogin')}
                       </Button>
                     </div>
                   )}
@@ -339,7 +344,7 @@ export default function HotelDetail() {
 
               <Link to={createPageUrl(`Booking?hotel_id=${hotel.id}`)}>
                 <Button variant="outline" className="w-full mt-3 border-slate-700 text-slate-300 hover:bg-slate-800">
-                  🏨 预订入住
+                  {t('hotelDetail.bookStay')}
                 </Button>
               </Link>
             </Card>
