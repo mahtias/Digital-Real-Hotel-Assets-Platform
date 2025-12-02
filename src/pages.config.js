@@ -5,6 +5,7 @@ import Portfolio from './pages/Portfolio';
 import Booking from './pages/Booking';
 import Governance from './pages/Governance';
 import ESGRewards from './pages/ESGRewards';
+import Staking from './pages/Staking';
 import __Layout from './Layout.jsx';
 
 
@@ -16,6 +17,7 @@ export const PAGES = {
     "Booking": Booking,
     "Governance": Governance,
     "ESGRewards": ESGRewards,
+    "Staking": Staking,
 }
 
 export const pagesConfig = {

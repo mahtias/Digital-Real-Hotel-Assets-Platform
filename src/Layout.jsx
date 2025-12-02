@@ -5,7 +5,7 @@ import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { 
-  Home, Building2, Wallet, Calendar, Vote, Leaf, LogOut, Menu, ChevronDown, Globe
+  Home, Building2, Wallet, Calendar, Vote, Leaf, LogOut, Menu, ChevronDown, Globe, Coins
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,6 +33,7 @@ function LayoutContent({ children }) {
     { name: t('nav.portfolio'), href: 'Portfolio', icon: Wallet },
     { name: t('nav.booking'), href: 'Booking', icon: Calendar },
     { name: t('nav.governance'), href: 'Governance', icon: Vote },
+    { name: t('nav.staking'), href: 'Staking', icon: Coins },
     { name: t('nav.esgRewards'), href: 'ESGRewards', icon: Leaf },
   ];
 

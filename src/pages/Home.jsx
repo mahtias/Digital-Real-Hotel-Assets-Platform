@@ -153,6 +153,11 @@ export default function Home() {
                     {t('home.esgRewards')}
                   </Button>
                 </Link>
+                <Link to={createPageUrl('Staking')} className="block">
+                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                    {t('home.stakeDra')}
+                  </Button>
+                </Link>
               </div>
             </Card>
           </div>
