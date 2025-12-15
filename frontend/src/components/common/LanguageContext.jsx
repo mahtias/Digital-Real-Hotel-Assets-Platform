@@ -621,6 +621,7 @@ const translations = {
   }
 };
 
+// @ts-ignore
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {

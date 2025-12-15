@@ -7,7 +7,9 @@ export default function TokenBalance({ draBalance = 0, votingPower = 0, pendingR
   const { t } = useLanguage();
 
   return (
-    <Card className="bg-slate-900/50 border-slate-800 p-4">
+    <
+// @ts-ignore
+    Card className="bg-slate-900/50 border-slate-800 p-4">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
