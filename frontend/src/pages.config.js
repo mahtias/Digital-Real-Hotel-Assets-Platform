@@ -6,8 +6,8 @@ import Booking from './pages/Booking';
 import Governance from './pages/Governance';
 import ESGRewards from './pages/ESGRewards';
 import Staking from './pages/Staking';
+import MainPage from './pages/MainPage';
 import __Layout from './Layout.jsx';
-
 
 export const PAGES = {
     "Home": Home,
@@ -18,10 +18,11 @@ export const PAGES = {
     "Governance": Governance,
     "ESGRewards": ESGRewards,
     "Staking": Staking,
+    "MainPage": MainPage,
 }
 
 export const pagesConfig = {
     mainPage: "Home",
     Pages: PAGES,
     Layout: __Layout,
-};
+}

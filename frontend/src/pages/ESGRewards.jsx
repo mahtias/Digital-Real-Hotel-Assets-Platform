@@ -1,9 +1,11 @@
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
 import { Leaf, Droplets, Wind, Recycle, Sparkles, CheckCircle, Clock, Gift, TrendingUp } from "lucide-react";
 import { format } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
@@ -19,15 +21,18 @@ export default function ESGRewards() {
 
   const { data: rewards = [], isLoading } = useQuery({
     queryKey: ['esg-rewards', user?.email],
+    
     queryFn: () => user ? base44.entities.ESGReward.filter({ user_email: user.email }) : [],
     enabled: !!user,
   });
 
   const claimMutation = useMutation({
     mutationFn: async (rewardId) => {
+      
       await base44.entities.ESGReward.update(rewardId, { status: 'claimed' });
     },
     onSuccess: () => {
+      
       queryClient.invalidateQueries(['esg-rewards']);
     }
   });
@@ -50,7 +55,9 @@ export default function ESGRewards() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-            <Leaf className="w-8 h-8 text-emerald-400" />
+            <Leaf 
+
+            className="w-8 h-8 text-emerald-400" />
             {t('esg.title')}
           </h1>
           <p className="text-slate-400">{t('esg.subtitle')}</p>
@@ -58,10 +65,14 @@ export default function ESGRewards() {
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 p-5">
+          <
+
+          Card className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-emerald-500/20">
-                <Gift className="w-6 h-6 text-emerald-400" />
+                <Gift 
+
+                className="w-6 h-6 text-emerald-400" />
               </div>
               <div>
                 <p className="text-slate-400 text-sm">{t('esg.totalRewards')}</p>
@@ -69,10 +80,14 @@ export default function ESGRewards() {
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-amber-500/20">
-                <Clock className="w-6 h-6 text-amber-400" />
+                <Clock 
+
+                className="w-6 h-6 text-amber-400" />
               </div>
               <div>
                 <p className="text-slate-400 text-sm">{t('esg.pending')}</p>
@@ -80,10 +95,14 @@ export default function ESGRewards() {
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-sky-500/20">
-                <TrendingUp className="w-6 h-6 text-sky-400" />
+                <TrendingUp 
+
+                className="w-6 h-6 text-sky-400" />
               </div>
               <div>
                 <p className="text-slate-400 text-sm">{t('esg.actions')}</p>
@@ -91,10 +110,14 @@ export default function ESGRewards() {
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-green-500/20">
-                <Leaf className="w-6 h-6 text-green-400" />
+                <Leaf 
+
+                className="w-6 h-6 text-green-400" />
               </div>
               <div>
                 <p className="text-slate-400 text-sm">{t('esg.carbonReduced')}</p>
@@ -107,7 +130,9 @@ export default function ESGRewards() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Action Types */}
           <div className="lg:col-span-1">
-            <Card className="bg-slate-900/50 border-slate-800 p-6">
+            <
+
+            Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-semibold mb-4">{t('esg.rewardableActions')}</h3>
               <div className="space-y-3">
                 {Object.entries(actionTypes).map(([key, action]) => {
@@ -115,7 +140,9 @@ export default function ESGRewards() {
                   return (
                     <div key={key} className={`${action.bgColor} rounded-lg p-3 flex items-center justify-between`}>
                       <div className="flex items-center gap-3">
-                        <ActionIcon className={`w-5 h-5 ${action.color}`} />
+                        <ActionIcon 
+
+                        className={`w-5 h-5 ${action.color}`} />
                         <span className="text-white text-sm">{t(action.labelKey)}</span>
                       </div>
                       <span className={`font-semibold ${action.color}`}>{action.reward}</span>
@@ -150,11 +177,15 @@ export default function ESGRewards() {
 
           {/* Rewards History */}
           <div className="lg:col-span-2">
-            <Card className="bg-slate-900/50 border-slate-800 p-6">
+            <
+
+            Card className="bg-slate-900/50 border-slate-800 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-semibold">{t('esg.rewardHistory')}</h3>
                 {pendingRewards > 0 && (
-                  <Button 
+                  <
+
+                  Button 
                     size="sm"
                     className="bg-emerald-500 hover:bg-emerald-600 text-white"
                     onClick={() => {
@@ -163,7 +194,9 @@ export default function ESGRewards() {
                       });
                     }}
                   >
-                    <CheckCircle className="w-4 h-4 mr-1" />
+                    <CheckCircle 
+
+                    className="w-4 h-4 mr-1" />
                     {t('esg.claimAll')}
                   </Button>
                 )}
@@ -171,10 +204,15 @@ export default function ESGRewards() {
 
               {!user ? (
                 <div className="text-center py-12">
-                  <Leaf className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                  <Leaf 
+
+                  className="w-12 h-12 text-slate-600 mx-auto mb-4" />
                   <p className="text-slate-400">{t('esg.loginToView')}</p>
-                  <Button 
+                  <
+
+                  Button 
                     className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-900"
+                    
                     onClick={() => base44.auth.redirectToLogin()}
                   >
                     {t('common.login')}
@@ -201,7 +239,9 @@ export default function ESGRewards() {
                           <div>
                             <p className="text-white font-medium">{t(action.labelKey)}</p>
                             <p className="text-slate-500 text-xs">
-                              {format(new Date(reward.created_date), 'yyyy/MM/dd HH:mm')}
+                              {
+
+                              format(new Date(reward.created_date), 'yyyy/MM/dd HH:mm')}
                             </p>
                           </div>
                         </div>
@@ -210,7 +250,9 @@ export default function ESGRewards() {
                           <span className={`font-semibold ${action.color}`}>
                             +${reward.reward_amount?.toFixed(2)}
                           </span>
-                          <Badge className={`${
+                          <
+
+                          Badge className={`${
                             reward.status === 'pending' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                             reward.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                             'bg-slate-500/20 text-slate-400 border-slate-500/30'
@@ -218,7 +260,9 @@ export default function ESGRewards() {
                             {t(`esg.status.${reward.status}`)}
                           </Badge>
                           {reward.status === 'verified' && (
-                            <Button 
+                            <
+
+                            Button 
                               size="sm" 
                               variant="outline"
                               className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
@@ -235,7 +279,9 @@ export default function ESGRewards() {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <Leaf className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                  <Leaf 
+
+                  className="w-12 h-12 text-slate-600 mx-auto mb-4" />
                   <h3 className="text-xl text-white mb-2">{t('esg.noRewards')}</h3>
                   <p className="text-slate-400">{t('esg.stayToEarn')}</p>
                 </div>
@@ -243,7 +289,9 @@ export default function ESGRewards() {
             </Card>
 
             {/* ESG Impact */}
-            <Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
+            <
+
+            Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
               <h3 className="text-white font-semibold mb-4">{t('esg.impact')}</h3>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-slate-800/50 rounded-lg">

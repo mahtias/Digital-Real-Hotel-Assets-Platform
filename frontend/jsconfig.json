@@ -18,7 +18,7 @@
   },
   "include": ["src/components/**/*.js", 
   "src/pages/**/*.jsx", 
-  "src/Layout.jsx"],
+  "src/Layout.jsx", "src/pages/.config.jsx"],
   "exclude": ["node_modules", "dist",
    "src/vite-plugins", 
    "src/components/ui", 

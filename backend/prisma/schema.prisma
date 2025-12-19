@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String       @id @default(uuid())
+  email              String       @unique
+  password           String
+  firstName          String?      @map("first_name")
+  lastName           String?      @map("last_name")
+  phone              String?
+  role               UserRole     @default(USER)
+  isEmailVerified    Boolean      @default(false) @map("is_email_verified")
+  emailVerifiedAt    DateTime?    @map("email_verified_at")
+  kycStatus          KycStatus    @default(PENDING) @map("kyc_status")
+  kycSubmittedAt     DateTime?    @map("kyc_submitted_at")
+  kycApprovedAt      DateTime?    @map("kyc_approved_at")
+  walletAddress      String?      @unique @map("wallet_address")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  bookings           Booking[]
+  createdHotelAssets HotelAsset[] @relation("CreatedAssets")
+  investments        Investment[]
+  kyc                Kyc?
+  createdProposals   Proposal[]   @relation("CreatedProposals")
+  proposedProposals  Proposal[]   @relation("ProposerProposals")
+  votes              Vote[]
+
+  @@index([email])
+  @@index([walletAddress])
+  @@map("users")
+}
+
+model Kyc {
+  id              String    @id @default(uuid())
+  userId          String    @unique @map("user_id")
+  fullName        String    @map("full_name")
+  dateOfBirth     DateTime  @map("date_of_birth")
+  nationality     String
+  address         String
+  city            String
+  state           String?
+  postalCode      String    @map("postal_code")
+  country         String
+  idType          String    @map("id_type")
+  idNumber        String    @map("id_number")
+  idDocument      String    @map("id_document")
+  proofOfAddress  String    @map("proof_of_address")
+  selfieDocument  String?   @map("selfie_document")
+  status          KycStatus @default(PENDING)
+  rejectionReason String?   @map("rejection_reason")
+  submittedAt     DateTime  @default(now()) @map("submitted_at")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewedBy      String?   @map("reviewed_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc")
+}
+
+model HotelAsset {
+  id            String       @id @default(uuid())
+  name          String
+  location      String
+  country       String
+  imageUrl      String       @map("image_url")
+  totalValue    Decimal      @map("total_value") @db.Decimal(15, 2)
+  tokenSymbol   String       @map("token_symbol")
+  totalTokens   Int          @map("total_tokens")
+  tokensSold    Int          @default(0) @map("tokens_sold")
+  tokenPrice    Decimal      @map("token_price") @db.Decimal(10, 2)
+  apy           Decimal      @db.Decimal(5, 2)
+  occupancyRate Decimal      @map("occupancy_rate") @db.Decimal(5, 2)
+  revpar        Decimal      @db.Decimal(10, 2)
+  esgScore      Int          @map("esg_score")
+  roomCount     Int          @map("room_count")
+  starRating    Int          @map("star_rating")
+  status        AssetStatus  @default(UPCOMING)
+  leaseEndDate  DateTime     @map("lease_end_date")
+  description   String
+  isSample      Boolean      @default(false) @map("is_sample")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  createdById   String?      @map("created_by_id")
+  bookings      Booking[]
+  createdBy     User?        @relation("CreatedAssets", fields: [createdById], references: [id])
+  investments   Investment[]
+  proposals     Proposal[]
+
+  @@index([status])
+  @@index([createdById])
+  @@map("hotel_assets")
+}
+
+model Investment {
+  id               String     @id @default(uuid())
+  userId           String     @map("user_id")
+  hotelAssetId     String     @map("hotel_asset_id")
+  tokenAmount      Int        @map("token_amount")
+  investmentAmount Decimal    @map("investment_amount") @db.Decimal(15, 2)
+  transactionHash  String?    @unique @map("transaction_hash")
+  purchaseDate     DateTime   @default(now()) @map("purchase_date")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  hotelAsset       HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([hotelAssetId])
+  @@index([transactionHash])
+  @@map("investments")
+}
+
+model Booking {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  hotelAssetId    String        @map("hotel_asset_id")
+  checkInDate     DateTime      @map("check_in_date")
+  checkOutDate    DateTime      @map("check_out_date")
+  guests          Int
+  roomType        String        @map("room_type")
+  totalPrice      Decimal       @map("total_price") @db.Decimal(10, 2)
+  status          BookingStatus @default(PENDING)
+  specialRequests String?       @map("special_requests")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([hotelAssetId])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Proposal {
+  id                String         @id @default(uuid())
+  title             String
+  description       String
+  type              ProposalType
+  proposerId        String         @map("proposer_id")
+  hotelAssetId      String?        @map("hotel_asset_id")
+  status            ProposalStatus @default(DRAFT)
+  votingStartDate   DateTime?      @map("voting_start_date")
+  votingEndDate     DateTime?      @map("voting_end_date")
+  votesFor          Int            @default(0) @map("votes_for")
+  votesAgainst      Int            @default(0) @map("votes_against")
+  votesAbstain      Int            @default(0) @map("votes_abstain")
+  quorumRequired    Int            @map("quorum_required")
+  approvalThreshold Int            @map("approval_threshold")
+  executionDetails  String?        @map("execution_details")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  createdById       String         @map("created_by_id")
+  createdBy         User           @relation("CreatedProposals", fields: [createdById], references: [id])
+  hotelAsset        HotelAsset?    @relation(fields: [hotelAssetId], references: [id])
+  proposer          User           @relation("ProposerProposals", fields: [proposerId], references: [id])
+  votes             Vote[]
+
+  @@index([proposerId])
+  @@index([hotelAssetId])
+  @@index([status])
+  @@map("proposals")
+}
+
+model Vote {
+  id          String     @id @default(uuid())
+  proposalId  String     @map("proposal_id")
+  userId      String     @map("user_id")
+  choice      VoteChoice
+  votingPower Int        @map("voting_power")
+  comment     String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  proposal    Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId])
+  @@index([proposalId])
+  @@index([userId])
+  @@map("votes")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  PROPERTY_MANAGER
+  COMPLIANCE_OFFICER
+  FINANCE_MANAGER
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW
+}
+
+enum AssetStatus {
+  UPCOMING
+  ACTIVE
+  SOLD_OUT
+  CLOSED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum ProposalStatus {
+  DRAFT
+  ACTIVE
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+enum ProposalType {
+  RENOVATION
+  EXPANSION
+  POLICY_CHANGE
+  DIVIDEND_DISTRIBUTION
+  OTHER
+}
+
+enum VoteChoice {
+  FOR
+  AGAINST
+  ABSTAIN
+}

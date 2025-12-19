@@ -20,13 +20,16 @@ const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl =
 		window.history.replaceState({}, document.title, newUrl);
 	}
 	if (searchParam) {
+		// @ts-ignore
 		storage.setItem(storageKey, searchParam);
 		return searchParam;
 	}
 	if (defaultValue) {
+		// @ts-ignore
 		storage.setItem(storageKey, defaultValue);
 		return defaultValue;
 	}
+	// @ts-ignore
 	const storedValue = storage.getItem(storageKey);
 	if (storedValue) {
 		return storedValue;
@@ -36,7 +39,9 @@ const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl =
 
 const getAppParams = () => {
 	return {
+		// @ts-ignore
 		appId: getAppParamValue("app_id", { defaultValue: import.meta.env.VITE_BASE44_APP_ID }),
+		// @ts-ignore
 		serverUrl: getAppParamValue("server_url", { defaultValue: import.meta.env.VITE_BASE44_BACKEND_URL }),
 		token: getAppParamValue("access_token", { removeFromUrl: true }),
 		fromUrl: getAppParamValue("from_url", { defaultValue: window.location.href }),

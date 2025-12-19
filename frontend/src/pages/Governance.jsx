@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
 import { Vote, Plus, ThumbsUp, ThumbsDown, Clock, CheckCircle, XCircle, Users } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
@@ -28,6 +30,7 @@ export default function Governance() {
 
   const { data: proposals = [], isLoading } = useQuery({
     queryKey: ['proposals'],
+    
     queryFn: () => base44.entities.Proposal.list('-created_date', 50),
   });
 
@@ -35,6 +38,7 @@ export default function Governance() {
     mutationFn: async () => {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 7);
+      
       await base44.entities.Proposal.create({
         ...newProposal,
         proposer_email: user.email,
@@ -47,6 +51,7 @@ export default function Governance() {
       });
     },
     onSuccess: () => {
+      
       queryClient.invalidateQueries(['proposals']);
       setShowCreateDialog(false);
       setNewProposal({ title: '', description: '', category: 'platform_upgrade' });
@@ -54,9 +59,11 @@ export default function Governance() {
   });
 
   const voteMutation = useMutation({
+    
     mutationFn: async ({ proposalId, voteType }) => {
       const proposal = proposals.find(p => p.id === proposalId);
       const votingPower = user?.voting_power || 100;
+      
       await base44.entities.Proposal.update(proposalId, {
         votes_for: voteType === 'for' ? (proposal.votes_for || 0) + votingPower : proposal.votes_for,
         votes_against: voteType === 'against' ? (proposal.votes_against || 0) + votingPower : proposal.votes_against,
@@ -64,6 +71,7 @@ export default function Governance() {
       });
     },
     onSuccess: () => {
+      
       queryClient.invalidateQueries(['proposals']);
     }
   });
@@ -103,7 +111,9 @@ export default function Governance() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <Vote className="w-8 h-8 text-amber-400" />
+              <Vote 
+
+              className="w-8 h-8 text-amber-400" />
               {t('governance.title')}
             </h1>
             <p className="text-slate-400">{t('governance.subtitle')}</p>
@@ -112,50 +122,76 @@ export default function Governance() {
           {user && (
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
-                  <Plus className="w-4 h-4 mr-2" />
+                <
+
+                Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
+                  <Plus 
+
+                  className="w-4 h-4 mr-2" />
                   {t('governance.createProposal')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-slate-800">
-                <DialogHeader>
-                  <DialogTitle className="text-white">{t('governance.createProposal')}</DialogTitle>
+              <
+
+              DialogContent className="bg-slate-900 border-slate-800">
+                <
+
+                DialogHeader>
+                  <
+
+                  DialogTitle className="text-white">{t('governance.createProposal')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div>
-                    <Label className="text-slate-400">{t('governance.proposalTitle')}</Label>
+                    <
+
+                    Label className="text-slate-400">{t('governance.proposalTitle')}</Label>
                     <Input
+                      
                       value={newProposal.title}
                       onChange={(e) => setNewProposal({ ...newProposal, title: e.target.value })}
                       className="bg-slate-800 border-slate-700 text-white mt-2"
                     />
                   </div>
                   <div>
-                    <Label className="text-slate-400">{t('governance.proposalCategory')}</Label>
+                    <
+
+                    Label className="text-slate-400">{t('governance.proposalCategory')}</Label>
                     <Select 
                       value={newProposal.category} 
                       onValueChange={(v) => setNewProposal({ ...newProposal, category: v })}
                     >
-                      <SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-2">
+                      <
+
+                      SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-2">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
+                      <
+
+                      SelectContent className="bg-slate-800 border-slate-700">
                         {Object.keys(categoryColors).map((key) => (
-                          <SelectItem key={key} value={key}>{t(`governance.categories.${key}`)}</SelectItem>
+                          <
+
+                          SelectItem key={key} value={key}>{t(`governance.categories.${key}`)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-slate-400">{t('governance.proposalDescription')}</Label>
+                    <
+
+                    Label className="text-slate-400">{t('governance.proposalDescription')}</Label>
                     <Textarea
+                      
                       value={newProposal.description}
                       onChange={(e) => setNewProposal({ ...newProposal, description: e.target.value })}
                       className="bg-slate-800 border-slate-700 text-white mt-2 min-h-32"
                       placeholder={t('governance.descriptionPlaceholder')}
                     />
                   </div>
-                  <Button 
+                  <
+
+                  Button 
                     className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900"
                     onClick={() => createProposalMutation.mutate()}
                     disabled={createProposalMutation.isPending || !newProposal.title}
@@ -181,19 +217,27 @@ export default function Governance() {
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.activeProposals')}</p>
             <p className="text-2xl font-bold text-white mt-1">{proposals.filter(p => p.status === 'active').length}</p>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.passed')}</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">{proposals.filter(p => p.status === 'passed').length}</p>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.totalVotingPower')}</p>
             <p className="text-2xl font-bold text-amber-400 mt-1">2.5M DRA</p>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800 p-5">
+          <
+
+          Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.participants')}</p>
             <p className="text-2xl font-bold text-violet-400 mt-1">1,234</p>
           </Card>
@@ -203,7 +247,9 @@ export default function Governance() {
         <div className="space-y-4">
           {isLoading ? (
             [...Array(3)].map((_, i) => (
-              <Card key={i} className="bg-slate-900/50 border-slate-800 p-6 animate-pulse">
+              <
+
+              Card key={i} className="bg-slate-900/50 border-slate-800 p-6 animate-pulse">
                 <div className="h-6 bg-slate-800 rounded w-1/3 mb-4" />
                 <div className="h-4 bg-slate-800 rounded w-2/3" />
               </Card>
@@ -216,15 +262,21 @@ export default function Governance() {
               const forPercentage = totalVotes > 0 ? (proposal.votes_for / totalVotes) * 100 : 50;
               
               return (
-                <Card key={proposal.id} className="bg-slate-900/50 border-slate-800 p-6 hover:border-slate-700 transition-colors">
+                <
+
+                Card key={proposal.id} className="bg-slate-900/50 border-slate-800 p-6 hover:border-slate-700 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge className={`${categoryColors[proposal.category]} border`}>
+                        <
+
+                        Badge className={`${categoryColors[proposal.category]} border`}>
                           {t(`governance.categories.${proposal.category}`)}
                         </Badge>
                         <Badge variant="outline" className={`border-slate-700 ${statusColor}`}>
-                          <StatusIcon className="w-3 h-3 mr-1" />
+                          <StatusIcon 
+
+                          className="w-3 h-3 mr-1" />
                           {t(`governance.status.${proposal.status}`)}
                         </Badge>
                       </div>
@@ -234,24 +286,34 @@ export default function Governance() {
                     
                     {proposal.status === 'active' && user && (
                       <div className="flex gap-2">
-                        <Button 
+                        <
+
+                        Button 
                           variant="outline" 
                           size="sm"
                           className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+                          
                           onClick={() => voteMutation.mutate({ proposalId: proposal.id, voteType: 'for' })}
                           disabled={voteMutation.isPending}
                         >
-                          <ThumbsUp className="w-4 h-4 mr-1" />
+                          <ThumbsUp 
+
+                          className="w-4 h-4 mr-1" />
                           {t('governance.voteFor')}
                         </Button>
-                        <Button 
+                        <
+
+                        Button 
                           variant="outline" 
                           size="sm"
                           className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                          
                           onClick={() => voteMutation.mutate({ proposalId: proposal.id, voteType: 'against' })}
                           disabled={voteMutation.isPending}
                         >
-                          <ThumbsDown className="w-4 h-4 mr-1" />
+                          <ThumbsDown 
+
+                          className="w-4 h-4 mr-1" />
                           {t('governance.voteAgainst')}
                         </Button>
                       </div>
@@ -270,12 +332,15 @@ export default function Governance() {
                     </div>
                     <div className="flex justify-between text-xs text-slate-500">
                       <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
+                        <Users 
+
+                        className="w-3 h-3" />
                         {t('governance.totalVotes')}: {totalVotes.toLocaleString()} / {(proposal.quorum_required || 1000).toLocaleString()} ({t('governance.quorum')})
                       </span>
                       {proposal.voting_end_date && (
                         <span>
                           {new Date(proposal.voting_end_date) > new Date() 
+                            
                             ? `${t('governance.remaining')} ${formatDistanceToNow(new Date(proposal.voting_end_date), { locale: language === 'zh' ? zhCN : enUS })}`
                             : t('governance.votingEnded')
                           }
@@ -287,8 +352,12 @@ export default function Governance() {
               );
             })
           ) : (
-            <Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
-              <Vote className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+            <
+
+            Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
+              <Vote 
+
+              className="w-12 h-12 text-slate-600 mx-auto mb-4" />
               <h3 className="text-xl text-white mb-2">{t('governance.noProposals')}</h3>
               <p className="text-slate-400">{t('governance.beFirst')}</p>
             </Card>

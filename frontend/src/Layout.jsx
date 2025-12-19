@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useLocation } from 'react-router-dom';
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { 
   Home, Building2, Wallet, Calendar, Vote, Leaf, LogOut, Menu, ChevronDown, Globe, Coins
+
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -16,16 +18,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LanguageProvider, useLanguage } from '@/components/common/LanguageContext';
 import WalletConnect from '@/components/common/WalletConnect';
+import AuthModal from '@/components/AuthModal';
+import { useAuth } from '@/context/AuthContext';
 
 function LayoutContent({ children }) {
-  const [user, setUser] = useState(null);
+  const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState('login');
   const location = useLocation();
   const { language, toggleLanguage, t } = useLanguage();
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
 
   const navigation = [
     { name: t('nav.home'), href: 'Home', icon: Home },
@@ -39,6 +41,23 @@ function LayoutContent({ children }) {
 
   const isActive = (href) => {
     return location.pathname.includes(href);
+  };
+
+  const openLoginModal = () => {
+    setAuthModalTab('login');
+    setAuthModalOpen(true);
+    setMobileMenuOpen(false);
+  };
+
+  const openRegisterModal = () => {
+    setAuthModalTab('register');
+    setAuthModalOpen(true);
+    setMobileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -67,7 +86,9 @@ function LayoutContent({ children }) {
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                   }`}
                 >
-                  <item.icon className="w-4 h-4" />
+                  <item.icon 
+
+                  className="w-4 h-4" />
                   {item.name}
                 </Link>
               ))}
@@ -79,65 +100,92 @@ function LayoutContent({ children }) {
               <WalletConnect />
 
               {/* Language Switcher */}
-              <Button
+              < Button
                 variant="ghost"
                 size="sm"
                 onClick={toggleLanguage}
                 className="text-slate-400 hover:text-white hover:bg-slate-800 gap-1.5"
               >
-                <Globe className="w-4 h-4" />
+                <Globe 
+
+                className="w-4 h-4" />
                 <span className="font-medium text-xs">{language === 'zh' ? 'EN' : '中文'}</span>
               </Button>
 
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800 gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-                        <span className="text-slate-900 font-bold text-xs">
-                          {user.full_name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <span className="hidden md:inline">{user.full_name || t('nav.user')}</span>
-                      <ChevronDown className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-slate-800">
-                    <div className="px-3 py-2">
-                      <p className="text-white font-medium">{user.full_name || t('nav.user')}</p>
-                      <p className="text-slate-400 text-sm truncate">{user.email}</p>
+              {!authLoading && (
+                <>
+                  {isAuthenticated && user ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800 gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                            <span className="text-slate-900 font-bold text-xs">
+                              {user.firstName?.charAt(0) || user.email?.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="hidden md:inline">{user.firstName || t('nav.user')}</span>
+                          <ChevronDown 
+
+                          className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      < DropdownMenuContent align="end" className="w-56 bg-slate-900 border-slate-800">
+                        <div className="px-3 py-2">
+                          <p className="text-white font-medium">{user.firstName} {user.lastName}</p>
+                          <p className="text-slate-400 text-sm truncate">{user.email}</p>
+                        </div>
+                        <DropdownMenuSeparator 
+
+                        className="bg-slate-800" />
+                        < DropdownMenuItem asChild className="text-slate-300 hover:text-white focus:bg-slate-800">
+                          <Link to={createPageUrl('Portfolio')} className="flex items-center gap-2">
+                            <Wallet 
+
+                            className="w-4 h-4" />
+                            {t('nav.portfolio')}
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator 
+
+                        className="bg-slate-800" />
+                        <DropdownMenuItem 
+                          className="text-red-400 hover:text-red-300 focus:bg-slate-800 cursor-pointer"
+                          onClick={handleLogout}
+                        >
+                          <LogOut 
+
+                          className="w-4 h-4 mr-2" />
+                          {t('nav.logout')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      < Button 
+                        variant="ghost"
+                        className="text-slate-300 hover:text-white hover:bg-slate-800"
+                        onClick={openLoginModal}
+                      >
+                        {t('nav.login')}
+                      </Button>
+                      < Button 
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
+                        onClick={openRegisterModal}
+                      >
+                        Register
+                      </Button>
                     </div>
-                    <DropdownMenuSeparator className="bg-slate-800" />
-                    <DropdownMenuItem asChild className="text-slate-300 hover:text-white focus:bg-slate-800">
-                      <Link to={createPageUrl('Portfolio')} className="flex items-center gap-2">
-                        <Wallet className="w-4 h-4" />
-                        {t('nav.portfolio')}
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-slate-800" />
-                    <DropdownMenuItem 
-                      className="text-red-400 hover:text-red-300 focus:bg-slate-800"
-                      onClick={() => base44.auth.logout()}
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      {t('nav.logout')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button 
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-900"
-                  onClick={() => base44.auth.redirectToLogin()}
-                >
-                  {t('nav.login')}
-                </Button>
+                  )}
+                </>
               )}
 
               {/* Mobile Menu Button */}
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild className="lg:hidden">
                   <Button variant="ghost" size="icon" className="text-slate-400">
-                    <Menu className="w-6 h-6" />
+                    <Menu 
+
+                    className="w-6 h-6" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="bg-slate-900 border-slate-800 w-72">
@@ -163,7 +211,9 @@ function LayoutContent({ children }) {
                               : 'text-slate-400 hover:text-white hover:bg-slate-800'
                           }`}
                         >
-                          <item.icon className="w-5 h-5" />
+                          <item.icon 
+
+                          className="w-5 h-5" />
                           {item.name}
                         </Link>
                       ))}
@@ -171,38 +221,63 @@ function LayoutContent({ children }) {
 
                     {/* Language Switch in Mobile */}
                     <div className="border-t border-slate-800 pt-4 mt-4">
-                      <Button
+                      < Button
                         variant="ghost"
                         className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800"
                         onClick={toggleLanguage}
                       >
-                        <Globe className="w-4 h-4 mr-2" />
+                        <Globe 
+
+                        className="w-4 h-4 mr-2" />
                         {language === 'zh' ? 'Switch to English' : '切换到中文'}
                       </Button>
                     </div>
 
-                    {user && (
-                      <div className="border-t border-slate-800 pt-4 mt-4">
-                        <div className="flex items-center gap-3 px-4 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-                            <span className="text-slate-900 font-bold">
-                              {user.full_name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
-                            </span>
+                    {/* Mobile Auth Section */}
+                    {!authLoading && (
+                      <>
+                        {isAuthenticated && user ? (
+                          <div className="border-t border-slate-800 pt-4 mt-4">
+                            <div className="flex items-center gap-3 px-4 mb-4">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                                <span className="text-slate-900 font-bold">
+                                  {user.firstName?.charAt(0) || user.email?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-white font-medium">{user.firstName} {user.lastName}</p>
+                                <p className="text-slate-400 text-sm truncate">{user.email}</p>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-slate-800"
+                              onClick={handleLogout}
+                            >
+                              <LogOut 
+
+                              className="w-4 h-4 mr-2" />
+                              {t('nav.logout')}
+                            </Button>
                           </div>
-                          <div>
-                            <p className="text-white font-medium">{user.full_name || t('nav.user')}</p>
-                            <p className="text-slate-400 text-sm truncate">{user.email}</p>
+                        ) : (
+                          <div className="border-t border-slate-800 pt-4 mt-4 space-y-2">
+                            < Button
+                              variant="ghost"
+                              className="w-full justify-start text-slate-300 hover:text-white hover:bg-slate-800"
+                              onClick={openLoginModal}
+                            >
+                              {t('nav.login')}
+                            </Button>
+                            <  Button
+                              className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900"
+                              onClick={openRegisterModal}
+                            >
+                              Register
+                            </Button>
                           </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-slate-800"
-                          onClick={() => base44.auth.logout()}
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          {t('nav.logout')}
-                        </Button>
-                      </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </SheetContent>
@@ -237,6 +312,13 @@ function LayoutContent({ children }) {
           </div>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        defaultTab={authModalTab}
+      />
     </div>
   );
 }

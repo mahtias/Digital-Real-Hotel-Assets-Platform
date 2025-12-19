@@ -1,9 +1,11 @@
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
 import { ArrowRight, Sparkles, Shield, Globe, TrendingUp, Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -22,11 +24,13 @@ export default function Home() {
 
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
+    
     queryFn: () => base44.entities.HotelAsset.list('-created_date', 6),
   });
 
   const { data: investments = [] } = useQuery({
     queryKey: ['investments', user?.email],
+    
     queryFn: () => user ? base44.entities.Investment.filter({ user_email: user.email }) : [],
     enabled: !!user,
   });
@@ -50,7 +54,9 @@ export default function Home() {
         
         <div className="relative max-w-7xl mx-auto px-4 pt-16 pb-24">
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-6">
+            <
+
+            Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-6">
               {t('home.badge')}
             </Badge>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
@@ -65,11 +71,17 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to={createPageUrl('Marketplace')}>
-                <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
-                  {t('home.exploreBtn')} <ArrowRight className="ml-2 w-5 h-5" />
+                <
+
+                Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
+                  {t('home.exploreBtn')} <ArrowRight 
+
+                  className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              <
+
+              Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
                 {t('home.learnMore')}
               </Button>
             </div>
@@ -84,7 +96,9 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 py-16">
         <div className="grid md:grid-cols-4 gap-6">
           {features.map((feature, idx) => (
-            <Card key={idx} className="bg-slate-900/50 border-slate-800 p-6 hover:border-amber-500/30 transition-colors">
+            <
+
+            Card key={idx} className="bg-slate-900/50 border-slate-800 p-6 hover:border-amber-500/30 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4">
                 <feature.icon className="w-6 h-6 text-amber-400" />
               </div>
@@ -102,12 +116,18 @@ export default function Home() {
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Building2 className="w-6 h-6 text-amber-400" />
+                <Building2 
+
+                className="w-6 h-6 text-amber-400" />
                 {t('home.hotHotels')}
               </h2>
               <Link to={createPageUrl('Marketplace')}>
-                <Button variant="ghost" className="text-amber-400 hover:text-amber-300">
-                  {t('home.viewAll')} <ArrowRight className="w-4 h-4 ml-1" />
+                <
+
+                Button variant="ghost" className="text-amber-400 hover:text-amber-300">
+                  {t('home.viewAll')} <ArrowRight 
+
+                  className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
             </div>
@@ -119,8 +139,12 @@ export default function Home() {
             </div>
 
             {hotels.length === 0 && (
-              <Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
-                <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+              <
+
+              Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
+                <Building2 
+
+                className="w-12 h-12 text-slate-600 mx-auto mb-4" />
                 <p className="text-slate-400">{t('common.noData')}</p>
               </Card>
             )}
@@ -135,26 +159,36 @@ export default function Home() {
             />
 
             {/* Quick Actions */}
-            <Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
+            <
+
+            Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
               <h3 className="text-white font-semibold mb-4">{t('home.quickActions')}</h3>
               <div className="space-y-3">
                 <Link to={createPageUrl('Booking')} className="block">
-                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <
+
+                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.bookRoom')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Governance')} className="block">
-                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <
+
+                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.joinDao')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('ESGRewards')} className="block">
-                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <
+
+                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.esgRewards')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Staking')} className="block">
-                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <
+
+                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.stakeDra')}
                   </Button>
                 </Link>
