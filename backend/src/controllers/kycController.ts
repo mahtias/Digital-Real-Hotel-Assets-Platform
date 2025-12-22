@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express.types';
+//import { AuthenticatedRequest } from '../types/express.types';
 
 /**
  * Submit KYC information

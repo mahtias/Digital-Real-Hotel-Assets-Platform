@@ -97,7 +97,7 @@ export const decodeToken = (token: string): TokenPayload | null => {
 };
 
 /**
- * ✅ Extract token from Authorization header
+ *  Extract token from Authorization header
  * Expects format: "Bearer <token>"
  */
 export const extractTokenFromHeader = (authHeader: string | undefined): string | null => {

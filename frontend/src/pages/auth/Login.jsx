@@ -28,7 +28,7 @@ const Login = ({ onClose }) => {
         login(response.data.user, response.data.token);
         setSuccess('Login successful');
         
-        // Close modal and redirect after a short delay
+        
         setTimeout(() => {
           if (onClose) onClose(); // Close modal if it exists
           navigate('/main-page'); // Redirect to main page

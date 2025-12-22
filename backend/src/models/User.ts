@@ -95,4 +95,5 @@ export class User extends Model {
 
   @UpdatedAt
   updatedAt!: Date;
+  isVerified: boolean;
 }

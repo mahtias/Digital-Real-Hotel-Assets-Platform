@@ -66,12 +66,12 @@ const mapProposalStatus = (status) => {
 
 async function importFromCSV() {
   try {
-    console.log('📥 Starting CSV import...\n');
+    console.log(' Starting CSV import...\n');
 
     const readCSV = (filename) => {
       const filePath = path.join(__dirname, 'data', filename);
       if (!fs.existsSync(filePath)) {
-        console.log(`⚠️  ${filename} not found, skipping...`);
+        console.log(` ${filename} not found, skipping...`);
         return null;
       }
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -86,17 +86,17 @@ async function importFromCSV() {
     let defaultUserId;
 
     if (users && users.length > 0) {
-      console.log('👥 Importing Users...');
+      console.log(' Importing Users...');
       let successCount = 0;
       
       for (const user of users) {
         try {
           if (!user.email) {
-            console.log(`⚠️  Skipping user - missing email`);
+            console.log(`  Skipping user - missing email`);
             continue;
           }
 
-          // Split name into firstName and lastName if provided
+          
           let firstName = user.firstName || user.name || user.email.split('@')[0];
           let lastName = user.lastName || '';
           
