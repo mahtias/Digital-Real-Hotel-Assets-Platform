@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-
+import prisma from '../config/database';
 /**
  * Get current user profile
  */
@@ -143,6 +143,38 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
       success: false,
       message: 'Failed to fetch portfolio',
       error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+export const updateWalletAddress = async (req: Request, res: Response) => {
+  try {
+    const { walletAddress } = req.body;
+
+    if (!walletAddress) {
+      return res.status(400).json({ error: "Wallet address is required" });
+    }
+
+    if (!req.user?.userId) {
+      return res.status(401).json({ error: "Unauthorized: user not found" });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { walletAddress }
+    });
+
+    return res.json({
+      success: true,
+      message: "Wallet address saved successfully",
+      user: updatedUser
+    });
+
+  } catch (err) {
+    const error = err as Error;
+    return res.status(500).json({
+      error: "Error updating wallet address",
+      details: error.message
     });
   }
 };

@@ -12,6 +12,12 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
+import KYCForm from '@/components/KYC/KYCForm';
+import KYCStatus from '@/components/KYC/KYCStatus';
+import AdminKYCReview from '@/components/Admin/KYCReview';
+import KYCReviewDetails from '@/components/Admin/KYCReviewDetails';
+import AdminDashboard from "@/components/Admin/AdminDashboard";
+
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -27,7 +33,9 @@ const PROTECTED_PAGES = [
 ];
 
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
-  <Layout currentPageName={currentPageName}>{children}</Layout>
+  <Layout 
+// @ts-ignore
+  currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
 function App() {
@@ -47,9 +55,13 @@ function App() {
                     <LayoutWrapper currentPageName={mainPageKey}>
                       <MainPage />
                     </LayoutWrapper>
-                  } 
-                />
+                  }  />
 
+            <Route path="/kyc/submit" element={<KYCForm />} />
+          <Route path="/kyc/status" element={<KYCStatus />} />
+          <Route path="/admin/kyc" element={<AdminKYCReview />} />
+           <Route path="/admin/kyc/review/:kycId" element={<KYCReviewDetails />}/>
+           <Route path="/admin" element={<AdminDashboard />} />
                 {/* Dynamic Pages from config */}
                 {Object.entries(Pages).map(([path, Page]) => {
                   const isProtected = PROTECTED_PAGES.includes(path);

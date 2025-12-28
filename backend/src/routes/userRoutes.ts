@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import {
   getUserProfile,
   updateUserProfile,
@@ -9,7 +10,8 @@ import {
   updateUserRole,
   deactivateUser,
   getUserStatistics,
-  reactivateUser
+  reactivateUser,
+  updateWalletAddress
 } from '../controllers/userController';
 
 const router = Router();
@@ -17,49 +19,48 @@ const router = Router();
 // Current user routes
 router.get('/profile', authenticate, getUserProfile);
 
-router.put(
-  '/profile',
-  authenticate,
-  updateUserProfile
-);
+router.put('/profile', authenticate, updateUserProfile);
 
 router.get('/portfolio', authenticate, getUserPortfolio);
 
 router.get('/transactions', authenticate, getUserTransactions);
 
+//  Add wallet update route
+router.patch('/wallet', authenticate, updateWalletAddress);
+
 // Admin user management routes
 router.get(
   '/',
   authenticate,
-  authorize('admin'),
+  authorize(UserRole.ADMIN),
   getAllUsers
 );
 
 router.get(
   '/:userId/statistics',
   authenticate,
-  authorize('admin'),
+  authorize(UserRole.ADMIN),
   getUserStatistics
 );
 
 router.put(
   '/:userId/role',
   authenticate,
-  authorize('admin'),
+  authorize(UserRole.ADMIN),
   updateUserRole
 );
 
 router.delete(
   '/:userId',
   authenticate,
-  authorize('admin'),
+  authorize(UserRole.ADMIN),
   deactivateUser
 );
 
 router.post(
   '/:userId/reactivate',
   authenticate,
-  authorize('admin'),
+  authorize(UserRole.ADMIN),
   reactivateUser
 );
 

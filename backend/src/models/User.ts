@@ -7,11 +7,7 @@ import {
   UpdatedAt,
 } from 'sequelize-typescript';
 
-export enum UserRole {
-  USER = 'user',
-  ADMIN = 'admin',
-  STAFF = 'staff',
-}
+import { UserRole } from '@prisma/client';
 
 @Table({
   tableName: 'users',
@@ -95,5 +91,6 @@ export class User extends Model {
 
   @UpdatedAt
   updatedAt!: Date;
-  isVerified: boolean;
+  isVerified!: boolean;
+  walletAddress!: string;
 }

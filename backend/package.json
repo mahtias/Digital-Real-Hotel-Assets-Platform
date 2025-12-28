@@ -48,6 +48,7 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
+    "@prisma/extension-optimize": "^2.0.1",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

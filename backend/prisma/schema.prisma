@@ -7,25 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//
+// =======================
+//        MODELS
+// =======================
+//
+
 model User {
-  id                 String       @id @default(uuid())
-  email              String       @unique
-  password           String
-  firstName          String?      @map("first_name")
-  lastName           String?      @map("last_name")
-  phone              String?
-  role               UserRole     @default(USER)
-  isEmailVerified    Boolean      @default(false) @map("is_email_verified")
-  emailVerifiedAt    DateTime?    @map("email_verified_at")
-  kycStatus          KycStatus    @default(PENDING) @map("kyc_status")
-  kycSubmittedAt     DateTime?    @map("kyc_submitted_at")
-  kycApprovedAt      DateTime?    @map("kyc_approved_at")
-  walletAddress      String?      @unique @map("wallet_address")
-  createdAt          DateTime     @default(now()) @map("created_at")
-  updatedAt          DateTime     @updatedAt @map("updated_at")
+  id                String             @id @default(uuid())
+  email             String             @unique
+  password          String
+  firstName         String?            @map("first_name")
+  lastName          String?            @map("last_name")
+  phone             String?
+  role              UserRole           @default(USER)
+  isEmailVerified   Boolean            @default(false) @map("is_email_verified")
+  emailVerifiedAt   DateTime?          @map("email_verified_at")
+  kycStatus         KycStatus          @default(NOT_STARTED) @map("kyc_status")
+  kycSubmittedAt    DateTime?          @map("kyc_submitted_at")
+  kycApprovedAt     DateTime?          @map("kyc_approved_at")
+  walletAddress     String?            @unique @map("wallet_address")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  kycExpiresAt      DateTime?          @map("kyc_expires_at")
+  verificationLevel VerificationLevel? @map("verification_level")
+
+  // Relations
   bookings           Booking[]
   createdHotelAssets HotelAsset[] @relation("CreatedAssets")
   investments        Investment[]
+  reviewedKyc        Kyc[]        @relation("ReviewedBy")
   kyc                Kyc?
   createdProposals   Proposal[]   @relation("CreatedProposals")
   proposedProposals  Proposal[]   @relation("ProposerProposals")
@@ -33,89 +44,91 @@ model User {
 
   @@index([email])
   @@index([walletAddress])
+  @@index([kycStatus])
   @@map("users")
 }
 
 model Kyc {
-  id              String    @id @default(uuid())
-  userId          String    @unique @map("user_id")
-  fullName        String    @map("full_name")
-  dateOfBirth     DateTime  @map("date_of_birth")
-  nationality     String
-  address         String
-  city            String
-  state           String?
-  postalCode      String    @map("postal_code")
-  country         String
-  idType          String    @map("id_type")
-  idNumber        String    @map("id_number")
-  idDocument      String    @map("id_document")
-  proofOfAddress  String    @map("proof_of_address")
-  selfieDocument  String?   @map("selfie_document")
-  status          KycStatus @default(PENDING)
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  fullName       String   @map("full_name")
+  dateOfBirth    DateTime @map("date_of_birth")
+  nationality    String
+  address        String
+
+  documentType   String   @map("document_type")
+  documentNumber String   @map("document_number")
+
+  // NEW FILE FIELDS
+  documentFront     String?   @map("document_front")
+  documentBack      String?   @map("document_back")
+  selfieImage       String?   @map("selfie_image")
+  addressProof      String?   @map("address_proof")
+
+  status          KycStatus  @default(PENDING)
+  city       String
+  state      String
+  postalCode String @map("postal_code")
+  country    String
+
+  documentHash   String?
+  expiresAt      DateTime?
+  approvedAt     DateTime?
+  blockchainTx   String?
+  blockchainVerifier String?
   rejectionReason String?   @map("rejection_reason")
   submittedAt     DateTime  @default(now()) @map("submitted_at")
   reviewedAt      DateTime? @map("reviewed_at")
   reviewedBy      String?   @map("reviewed_by")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([status])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+
+  @@index([reviewedBy])
   @@map("kyc")
 }
 
 model HotelAsset {
-  id            String       @id @default(uuid())
-  name          String
-  location      String
-  country       String
-  imageUrl      String       @map("image_url")
-  totalValue    Decimal      @map("total_value") @db.Decimal(15, 2)
-  tokenSymbol   String       @map("token_symbol")
-  totalTokens   Int          @map("total_tokens")
-  tokensSold    Int          @default(0) @map("tokens_sold")
-  tokenPrice    Decimal      @map("token_price") @db.Decimal(10, 2)
-  apy           Decimal      @db.Decimal(5, 2)
-  occupancyRate Decimal      @map("occupancy_rate") @db.Decimal(5, 2)
-  revpar        Decimal      @db.Decimal(10, 2)
-  esgScore      Int          @map("esg_score")
-  roomCount     Int          @map("room_count")
-  starRating    Int          @map("star_rating")
-  status        AssetStatus  @default(UPCOMING)
-  leaseEndDate  DateTime     @map("lease_end_date")
-  description   String
-  isSample      Boolean      @default(false) @map("is_sample")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  createdById   String?      @map("created_by_id")
-  bookings      Booking[]
-  createdBy     User?        @relation("CreatedAssets", fields: [createdById], references: [id])
-  investments   Investment[]
-  proposals     Proposal[]
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  status      AssetStatus @default(UPCOMING)
+  location    String
+  createdById String      @map("created_by_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy   User         @relation("CreatedAssets", fields: [createdById], references: [id])
+  bookings    Booking[]
+  investments Investment[]
+  proposals   Proposal[]
 
   @@index([status])
-  @@index([createdById])
   @@map("hotel_assets")
 }
 
 model Investment {
-  id               String     @id @default(uuid())
-  userId           String     @map("user_id")
-  hotelAssetId     String     @map("hotel_asset_id")
-  tokenAmount      Int        @map("token_amount")
-  investmentAmount Decimal    @map("investment_amount") @db.Decimal(15, 2)
-  transactionHash  String?    @unique @map("transaction_hash")
-  purchaseDate     DateTime   @default(now()) @map("purchase_date")
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @updatedAt @map("updated_at")
-  hotelAsset       HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
-  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  userId          String           @map("user_id")
+  hotelAssetId    String           @map("hotel_asset_id")
+  amount          Decimal          @map("amount") @db.Decimal(10, 2)
+  transactionHash String?          @map("transaction_hash")
+  status          InvestmentStatus @default(PENDING)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotelAsset HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([hotelAssetId])
   @@index([transactionHash])
+  @@index([status])
   @@map("investments")
 }
 
@@ -132,8 +145,10 @@ model Booking {
   specialRequests String?       @map("special_requests")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
-  hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  hotelAsset HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([hotelAssetId])
@@ -160,10 +175,12 @@ model Proposal {
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
   createdById       String         @map("created_by_id")
-  createdBy         User           @relation("CreatedProposals", fields: [createdById], references: [id])
-  hotelAsset        HotelAsset?    @relation(fields: [hotelAssetId], references: [id])
-  proposer          User           @relation("ProposerProposals", fields: [proposerId], references: [id])
-  votes             Vote[]
+
+  // Relations
+  createdBy  User        @relation("CreatedProposals", fields: [createdById], references: [id])
+  hotelAsset HotelAsset? @relation(fields: [hotelAssetId], references: [id])
+  proposer   User        @relation("ProposerProposals", fields: [proposerId], references: [id])
+  votes      Vote[]
 
   @@index([proposerId])
   @@index([hotelAssetId])
@@ -179,14 +196,21 @@ model Vote {
   votingPower Int        @map("voting_power")
   comment     String?
   createdAt   DateTime   @default(now()) @map("created_at")
-  proposal    Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([proposalId, userId])
   @@index([proposalId])
   @@index([userId])
   @@map("votes")
 }
+
+//
+// =======================
+//         ENUMS
+// =======================
+//
 
 enum UserRole {
   USER
@@ -197,10 +221,27 @@ enum UserRole {
 }
 
 enum KycStatus {
+  NOT_STARTED
   PENDING
+  IN_REVIEW
   APPROVED
   REJECTED
-  UNDER_REVIEW
+  RESUBMISSION_REQUIRED
+  EXPIRED
+}
+
+enum VerificationLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  FULL
+}
+
+enum DocumentType {
+  PASSPORT
+  DRIVERS_LICENSE
+  NATIONAL_ID
+  RESIDENCE_PERMIT
 }
 
 enum AssetStatus {
@@ -237,4 +278,11 @@ enum VoteChoice {
   FOR
   AGAINST
   ABSTAIN
+}
+
+enum InvestmentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
 }

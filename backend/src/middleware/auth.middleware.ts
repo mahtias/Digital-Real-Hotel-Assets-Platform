@@ -1,17 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, TokenPayload } from '../utils/jwt';
-
-// Extend Express Request type
-declare global {
-  namespace Express {
-    interface Request {
-      user?: TokenPayload;
-    }
-  }
-}
-
-// Define UserRole type
-export type UserRole = 'user' | 'admin' | 'property_manager' | 'compliance_officer' | 'finance_manager';
+import { UserRole } from '@prisma/client';
 
 /**
  * Authentication middleware
@@ -23,7 +12,6 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Get token from header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -34,13 +22,23 @@ export const authenticate = async (
       return;
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const token = authHeader.substring(7);
+    const decoded = verifyToken(token); // TokenPayload | null
 
-    // Verify token
-    const decoded = verifyToken(token);
+    if (!decoded) {
+      req.user = undefined;
+      res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+      return;
+    }
 
-    // Attach user to request
-    req.user = decoded;
+    // Attach correct Prisma types to req.user
+    req.user = {
+      userId: decoded.userId,
+      role: decoded.role as UserRole,
+    };
 
     next();
   } catch (error) {
@@ -66,7 +64,7 @@ export const authorize = (...roles: UserRole[]) => {
       return;
     }
 
-    const userRole = req.user.role as UserRole;
+    const userRole = req.user.role;
 
     if (!roles.includes(userRole)) {
       res.status(403).json({
@@ -83,8 +81,8 @@ export const authorize = (...roles: UserRole[]) => {
 };
 
 /**
- * Optional authentication middleware
- * Attaches user if token exists but doesn't fail if not
+ * Optional authentication
+ * Attaches user if token exists, but does not reject unauthenticated requests
  */
 export const optionalAuth = async (
   req: Request,
@@ -96,20 +94,24 @@ export const optionalAuth = async (
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const decoded = verifyToken(token);
-      req.user = decoded;
+      const decoded = verifyToken(token); // TokenPayload | null
+
+      if (decoded) {
+        req.user = {
+          userId: decoded.userId,
+          role: decoded.role as UserRole,
+        };
+      }
     }
 
     next();
-  } catch (error) {
-    // Continue without authentication
+  } catch {
     next();
   }
 };
 
 /**
  * Verify email middleware
- * Checks if user's email is verified
  */
 export const requireEmailVerified = (
   req: Request,
@@ -124,14 +126,11 @@ export const requireEmailVerified = (
     return;
   }
 
-  // TODO: Check email verification status from database
-  // For now, we'll just pass through
   next();
 };
 
 /**
  * Verify KYC middleware
- * Checks if user has completed KYC verification
  */
 export const requireKYCVerified = (
   req: Request,
@@ -146,7 +145,5 @@ export const requireKYCVerified = (
     return;
   }
 
-  // TODO: Check KYC status from database
-  // For now, we'll just pass through
   next();
 };

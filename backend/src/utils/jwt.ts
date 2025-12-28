@@ -1,15 +1,19 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
-import { UserRole } from '../models/User';
+import { UserRole } from '@prisma/client';
+import dotenv from 'dotenv';
 
+dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-change-this';
 
 const JWT_EXPIRES_IN = '1h';
 const JWT_REFRESH_EXPIRES_IN = '7d';
-
+console.log("JWT SECRET IN JWT.UTILS:", process.env.JWT_SECRET);
 export interface TokenPayload {
+  //id: string;
   userId: string;
   role: UserRole;
+  walletAddress?: string | null;
   iat?: number;
   exp?: number;
 }
@@ -23,17 +27,16 @@ export interface RefreshTokenPayload {
 /**
  * Generate access token
  */
-export const generateToken = (userId: string, role: UserRole): string => {
-  const payload: TokenPayload = {
-    userId,
-    role,
-  };
-
-  const options: SignOptions = {
-    expiresIn: JWT_EXPIRES_IN,
-  };
-
-  return jwt.sign(payload, JWT_SECRET, options);
+export const generateToken = (
+  userId: string,
+  role: UserRole,
+  walletAddress?: string | null
+): string => {
+  return jwt.sign(
+    { userId, role, walletAddress },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
 };
 
 /**
@@ -57,13 +60,10 @@ export const generateRefreshToken = (userId: string): string => {
 export const verifyToken = (token: string): TokenPayload | null => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-    
-    if (!Object.values(UserRole).includes(decoded.role)) {
-      return null;
-    }
-    
+    console.log("TOKEN PAYLOAD:", decoded);
     return decoded;
   } catch (error) {
+    console.log("JWT VERIFY ERROR:", error);
     return null;
   }
 };

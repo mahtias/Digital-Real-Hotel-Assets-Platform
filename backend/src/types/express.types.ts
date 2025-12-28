@@ -1,21 +1,20 @@
 import { Request } from 'express';
-import { UserRole } from '../models/User';
+import type { UserRole } from '@prisma/client';
 
-export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    role: UserRole;
-    email: string;
-    isEmailVerified?: boolean;
-    isActive?: boolean;
-  };
-  token?: string;
+export interface TokenPayload {
+  userId: string;
+  walletAddress: string;
+  role: UserRole;
 }
 
-// Export for use in other files
-export interface JWTPayload {
-  userId: string;
-  role: UserRole;
-  iat?: number;
-  exp?: number;
+export interface AuthenticatedUser extends TokenPayload {
+  email?: string;
+  isEmailVerified?: boolean;
+  isActive?: boolean;
+}
+
+export interface AuthenticatedUser extends TokenPayload {
+  email?: string;
+  isEmailVerified?: boolean;
+  isActive?: boolean;
 }

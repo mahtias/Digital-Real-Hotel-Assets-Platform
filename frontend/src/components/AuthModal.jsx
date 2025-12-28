@@ -422,7 +422,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
                     
                     if (errors.password) setErrors({ ...errors, password: '' });
                   }}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   disabled={loading}
                   
                   className={errors.password ? 'error' : ''}

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { UserRole, KycStatus } from '@prisma/client';
@@ -34,19 +34,29 @@ export const register = async (req: Request, res: Response) => {
         lastName: true,
         role: true,
         kycStatus: true,
+        walletAddress: true,   
         createdAt: true
       }
     });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: '7d'
-    });
+ 
+    //  include walletAddress if user has one
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        role: user.role,
+        walletAddress: user.walletAddress || null
+      }, 
+      JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
       user,
       token
     });
+
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ message: 'Server error during registration' });
@@ -73,9 +83,16 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: '7d'
-    });
+    //  include walletAddress inside the JWT
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        role: user.role,
+        walletAddress: user.walletAddress || null
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     res.json({
       success: true,
@@ -86,10 +103,12 @@ export const login = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        kycStatus: user.kycStatus
+        kycStatus: user.kycStatus,
+        walletAddress: user.walletAddress   // return it to frontend too
       },
       token
     });
+
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ 
@@ -99,75 +118,6 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-
-export const verifyEmail = async (req: Request, res: Response) => {
-  res.status(501).json({ message: 'Email verification not implemented yet' });
-};
-
-export const resendVerification = async (req: Request, res: Response) => {
-  res.status(501).json({ message: 'Resend verification not implemented yet' });
-};
-
-export const requestPasswordReset = async (req: Request, res: Response) => {
-  res.status(501).json({ message: 'Password reset not implemented yet' });
-};
-
-export const resetPassword = async (req: Request, res: Response) => {
-  res.status(501).json({ message: 'Reset password not implemented yet' });
-};
-
-export const getProfile = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user.userId;
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        kycStatus: true,
-        walletAddress: true,
-        createdAt: true
-      }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-export const updateProfile = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user.userId;
-    const { firstName, lastName, phone } = req.body;
-
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { firstName, lastName, phone },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        kycStatus: true
-      }
-    });
-
-    res.json({ message: 'Profile updated', user });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+   export const getProfile = async (req: Request, res: Response) => {
+  return res.json({ user: req.user });
 };

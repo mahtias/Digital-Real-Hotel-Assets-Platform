@@ -1,5 +1,5 @@
 import { generateToken, verifyToken } from './utils/jwt';
-import { UserRole } from './models/User';
+import { UserRole } from '@prisma/client';
 
 // Test token generation
 const testUserId = '123e4567-e89b-12d3-a456-426614174000';

@@ -1,29 +1,33 @@
 import { Sequelize } from 'sequelize-typescript';
-import path from 'path';
+
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 // Import models
 import { User } from './User';
-import { KYC } from './KYC';
+//import { KYC } from './KYC';
 import { Property } from './Property';
 import { Token } from './Token';
 import { Investment } from './Investment';
 import { Transaction } from './Transaction';
 import { Booking } from './Booking';
 
-// Initialize Sequelize with Neon PostgreSQL
+// LOG connection target
+console.log("Sequelize connecting to:", process.env.DATABASE_URL);
+
+// Initialize Sequelize for LOCAL PostgreSQL (no SSL)
 const sequelize = new Sequelize(process.env.DATABASE_URL!, {
   dialect: 'postgres',
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  },
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  models: [User, KYC, Property, Token, Investment, Transaction, Booking],
+
+  //  VERY IMPORTANT: Disable SSL so Sequelize does NOT connect to Neon
+  dialectOptions: {
+    ssl: false,
+  },
+
+  models: [User, Property, Token, Investment, Transaction, Booking],
+
   pool: {
     max: 5,
     min: 0,
@@ -36,21 +40,29 @@ const sequelize = new Sequelize(process.env.DATABASE_URL!, {
 sequelize
   .authenticate()
   .then(() => {
-    console.log('PostgreSQL (Neon) connected successfully');
+    console.log('PostgreSQL (LOCAL) connected successfully');
   })
   .catch((error) => {
-    console.error(' Unable to connect to database:', error);
+    console.error('Unable to connect to LOCAL PostgreSQL:', error);
     process.exit(1);
   });
 
 // Export models and sequelize instance
-export { sequelize, User, KYC, Property, Token, Investment, Transaction, Booking };
+export {
+  sequelize,
+  User,
+  Property,
+  Token,
+  Investment,
+  Transaction,
+  Booking,
+};
 
 // Export db object for compatibility
 export const db = {
   sequelize,
   User,
-  KYC,
+  
   Property,
   Token,
   Investment,

@@ -1,24 +1,26 @@
+// src/types/kyc.types.ts
+
 export enum KYCStatus {
-  NOT_STARTED = 'not_started',
-  PENDING = 'pending',
-  IN_REVIEW = 'in_review',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  RESUBMISSION_REQUIRED = 'resubmission_required',
+  NOT_STARTED = 'NOT_STARTED',
+  PENDING = 'PENDING',
+  IN_REVIEW = 'IN_REVIEW',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  RESUBMISSION_REQUIRED = 'RESUBMISSION_REQUIRED',
 }
 
 export enum VerificationLevel {
-  BASIC = 'basic',
-  INTERMEDIATE = 'intermediate',
-  ADVANCED = 'advanced',
-  FULL = "FULL",
+  BASIC = 'BASIC',
+  INTERMEDIATE = 'INTERMEDIATE',
+  ADVANCED = 'ADVANCED',
+  FULL = 'FULL',
 }
 
 export enum DocumentType {
-  PASSPORT = 'passport',
-  DRIVERS_LICENSE = 'drivers_license',
-  NATIONAL_ID = 'national_id',
-  RESIDENCE_PERMIT = 'residence_permit',
+  PASSPORT = 'PASSPORT',
+  DRIVERS_LICENSE = 'DRIVERS_LICENSE',
+  NATIONAL_ID = 'NATIONAL_ID',
+  RESIDENCE_PERMIT = 'RESIDENCE_PERMIT',
 }
 
 export interface Address {
@@ -34,6 +36,7 @@ export interface KYCSubmissionData {
   fullName: string;
   dateOfBirth: Date;
   nationality: string;
+  phoneNumber?: string;
   documentType: DocumentType;
   documentNumber: string;
   address: Address;
@@ -41,19 +44,25 @@ export interface KYCSubmissionData {
   documentBack?: string;
   selfieImage?: string;
   addressProof?: string;
+  walletAddress?: string;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 export interface KYCReviewData {
+  kycId: string;
   status: KYCStatus;
   rejectionReason?: string;
   verificationLevel?: VerificationLevel;
   reviewedBy: string;
+  expiresAt?: Date;
 }
 
 export interface KYCUpdateData {
   fullName?: string;
   dateOfBirth?: Date;
   nationality?: string;
+  phoneNumber?: string;
   documentType?: DocumentType;
   documentNumber?: string;
   address?: Address;
@@ -61,4 +70,20 @@ export interface KYCUpdateData {
   documentBack?: string;
   selfieImage?: string;
   addressProof?: string;
+}
+
+// Blockchain-specific types
+export interface BlockchainKYCData {
+  walletAddress: string;
+  documentHash: string;
+  verificationLevel: VerificationLevel;
+  expiresAt: Date;
+}
+
+export interface KYCBlockchainSubmission {
+  kycId: string;
+  txHash: string;
+  blockNumber?: number;
+  gasUsed?: string;
+  status: 'pending' | 'confirmed' | 'failed';
 }

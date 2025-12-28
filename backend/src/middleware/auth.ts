@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
-import { User, UserRole } from '../models/User';
+import prisma from '../config/database';
+import { UserRole } from '@prisma/client';
 
 export const authenticate = async (
   req: Request,
@@ -25,23 +26,29 @@ export const authenticate = async (
         success: false,
         message: 'Invalid or expired token',
       });
+      console.log("AUTH HEADER:", req.headers.authorization);
+      console.log("VERIFY SECRET:", process.env.JWT_SECRET);
       return;
     }
 
-    // Verify user still exists and is active
-    const user = await User.findByPk(decoded.userId);
+    // Prisma user lookup
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+    });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       res.status(401).json({
         success: false,
-        message: 'User not found or inactive',
+        message: 'User not found',
       });
       return;
     }
 
-    // Attach user info to request
-    req.userId = decoded.userId;
-    req.userRole = decoded.role as UserRole;
+    // Attach to request
+     req.user = {
+      userId: decoded.userId,
+      role: decoded.role,
+    };
 
     next();
   } catch (error) {
@@ -50,51 +57,5 @@ export const authenticate = async (
       success: false,
       message: 'Authentication failed',
     });
-  }
-};
-
-export const authorize = (...roles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.userRole) {
-      res.status(401).json({
-        success: false,
-        message: 'Not authenticated',
-      });
-      return;
-    }
-
-    if (!roles.includes(req.userRole)) {
-      res.status(403).json({
-        success: false,
-        message: 'Insufficient permissions',
-      });
-      return;
-    }
-
-    next();
-  };
-};
-
-// Optional authentication (doesn't fail if no token)
-export const optionalAuth = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const token = extractTokenFromHeader(req.headers.authorization);
-
-    if (token) {
-      const decoded = verifyToken(token);
-      if (decoded) {
-        req.userId = decoded.userId;
-        req.userRole = decoded.role as UserRole;
-      }
-    }
-
-    next();
-  } catch (error) {
-    // Continue without authentication
-    next();
   }
 };

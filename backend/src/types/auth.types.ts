@@ -1,4 +1,4 @@
-import { UserRole } from '../models/User';
+import type { UserRole } from '@prisma/client';
 
 export interface RegisterDTO {
   email: string;

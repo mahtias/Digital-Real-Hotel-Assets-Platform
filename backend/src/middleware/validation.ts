@@ -7,7 +7,12 @@ export const validateRequest = (
   next: NextFunction
 ) => {
   const errors = validationResult(req);
-  
+
+  //  ADD THIS — we need this output
+  console.log("\n============================");
+  console.log("VALIDATION ERRORS:", errors.array());
+  console.log("============================\n");
+
   if (!errors.isEmpty()) {
     return res.status(400).json({
       message: 'Validation failed',
@@ -17,6 +22,6 @@ export const validateRequest = (
       }))
     });
   }
-  
+
   next();
 };

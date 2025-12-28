@@ -1,427 +1,277 @@
 import { Request, Response } from 'express';
-//import { AuthenticatedRequest } from '../types/express.types';
+import prisma from '../lib/prisma';
+import fs from 'fs';
+import path from 'path';
 
-/**
- * Submit KYC information
- */
+const uploadDir = path.join(__dirname, '../../uploads/kyc');
+
+const deleteFile = (fileName?: string | null) => {
+  if (!fileName) return;
+  const filePath = path.join(uploadDir, fileName);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+};
+
+// ==================================================
+// SUBMIT KYC
+// ==================================================
 export const submitKYC = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { documentType, documentNumber, fullName, dateOfBirth, address } = req.body;
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-
     if (!userId) {
-      res.status(401).json({
+      return res.status(400).json({
         success: false,
-        message: 'User not authenticated'
+        message: "User not authenticated",
       });
-      return;
     }
 
-    // Validate required fields
-    if (!documentType || !documentNumber || !fullName || !dateOfBirth) {
-      res.status(400).json({
-        success: false,
-        message: 'Missing required KYC information'
-      });
-      return;
-    }
+    const files: any = req.files;
 
-    // Validate uploaded documents
-    if (!files || !files.frontDocument || !files.backDocument) {
-      res.status(400).json({
-        success: false,
-        message: 'Please upload both front and back of your document'
-      });
-      return;
-    }
-
-    // TODO: Implement KYC submission logic
-    // 1. Validate documents
-    // 2. Store documents securely
-    // 3. Create KYC record in database
-    // 4. Send notification to compliance team
-    // 5. Log the submission
-
-    const kycData = {
-      id: `kyc_${Date.now()}`,
+    const data = {
       userId,
-      documentType,
-      documentNumber,
-      fullName,
-      dateOfBirth: new Date(dateOfBirth),
-      address,
-      documents: {
-        front: files.frontDocument[0].path,
-        back: files.backDocument[0].path,
-        selfie: files.selfieDocument ? files.selfieDocument[0].path : null
-      },
-      status: 'pending',
-      submittedAt: new Date(),
-      reviewedAt: null,
-      reviewedBy: null,
-      rejectionReason: null
+      fullName: req.body.fullName,
+      dateOfBirth: new Date(req.body.dateOfBirth),
+      nationality: req.body.nationality,
+      address: req.body.address,
+      documentType: req.body.documentType,
+      documentNumber: req.body.documentNumber,
+      city: req.body.city,
+      state: req.body.state,
+      postalCode: req.body.postalCode,
+      country: req.body.country,
+
+      documentFront: files?.documentFront?.[0]?.filename ?? null,
+      documentBack: files?.documentBack?.[0]?.filename ?? null,
+      selfieImage: files?.selfieImage?.[0]?.filename ?? null,
+      addressProof: files?.addressProof?.[0]?.filename ?? null,
     };
 
-    res.status(201).json({
-      success: true,
-      message: 'KYC information submitted successfully',
-      data: kycData
+    const kyc = await prisma.kyc.create({
+      data,
     });
-  } catch (error) {
-    res.status(500).json({
+
+    return res.json({ success: true, data: kyc });
+
+  } catch (error: any) {
+    return res.status(500).json({
       success: false,
-      message: 'Failed to submit KYC information',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: error.message
     });
   }
 };
 
-/**
- * Get KYC status for current user
- */
-export const getKYCStatus = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
-      return;
-    }
-
-    // TODO: Fetch KYC status from database
-    const kycStatus = {
-      userId,
-      status: 'pending', // pending, approved, rejected, incomplete
-      submittedAt: new Date(),
-      reviewedAt: null,
-      documents: {
-        hasIdentityDocument: true,
-        hasProofOfAddress: false,
-        hasSelfie: true
-      },
-      completionPercentage: 75,
-      nextSteps: ['Upload proof of address'],
-      rejectionReason: null
-    };
-
-    res.json({
-      success: true,
-      data: kycStatus
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch KYC status',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-};
-
-/**
- * Get all KYC submissions (Admin/Compliance Officer only)
- */
-export const getAllKYCSubmissions = async (req: Request, res: Response) => {
-  try {
-    const { status, page = 1, limit = 10, sortBy = 'submittedAt', sortOrder = 'desc' } = req.query;
-
-    // TODO: Fetch from database with filters
-    const submissions = [
-      {
-        id: 'kyc_001',
-        userId: 'user_001',
-        userName: 'John Doe',
-        userEmail: 'john@example.com',
-        documentType: 'passport',
-        status: 'pending',
-        submittedAt: new Date(),
-        reviewedAt: null,
-        priority: 'normal'
-      },
-      {
-        id: 'kyc_002',
-        userId: 'user_002',
-        userName: 'Jane Smith',
-        userEmail: 'jane@example.com',
-        documentType: 'drivers_license',
-        status: 'approved',
-        submittedAt: new Date(Date.now() - 86400000),
-        reviewedAt: new Date(),
-        priority: 'normal'
-      }
-    ];
-
-    // Filter by status if provided
-    const filteredSubmissions = status
-      ? submissions.filter(sub => sub.status === status)
-      : submissions;
-
-    res.json({
-      success: true,
-      data: filteredSubmissions,
-      meta: {
-        page: Number(page),
-        limit: Number(limit),
-        total: filteredSubmissions.length,
-        totalPages: Math.ceil(filteredSubmissions.length / Number(limit))
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch KYC submissions',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-};
-
-/**
- * Get KYC submission by ID (Admin/Compliance Officer only)
- */
+// ==================================================
+// GET KYC BY ID
+// ==================================================
 export const getKYCById = async (req: Request, res: Response) => {
   try {
-    const { kycId } = req.params;
+    const kyc = await prisma.kyc.findUnique({
+      where: { id: req.params.id }
+    });
 
-    // TODO: Fetch from database
-    const kycSubmission = {
-      id: kycId,
-      userId: 'user_001',
-      user: {
-        id: 'user_001',
-        email: 'john@example.com',
-        fullName: 'John Doe',
-        phone: '+1234567890'
-      },
-      documentType: 'passport',
-      documentNumber: 'AB123456',
-      fullName: 'John Doe',
-      dateOfBirth: '1990-01-15',
-      address: {
-        street: '123 Main St',
-        city: 'New York',
-        state: 'NY',
-        zipCode: '10001',
-        country: 'USA'
-      },
-      documents: {
-        front: '/uploads/documents/passport_front_001.jpg',
-        back: '/uploads/documents/passport_back_001.jpg',
-        selfie: '/uploads/documents/selfie_001.jpg'
-      },
-      status: 'pending',
-      submittedAt: new Date(),
-      reviewedAt: null,
-      reviewedBy: null,
+    if (!kyc) return res.status(404).json({ success: false, message: 'KYC not found' });
+
+    return res.json({ success: true, data: kyc });
+
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==================================================
+// GET ALL KYC (ADMIN)
+// ==================================================
+export const getAllKYC = async (req: Request, res: Response) => {
+  try {
+    const list = await prisma.kyc.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json({ success: true, data: list });
+
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==================================================
+// REVIEW KYC (ADMIN)
+// ==================================================
+export const reviewKYC = async (req: Request, res: Response) => {
+  try {
+    const { status, rejectionReason } = req.body;
+
+    const data: any = {
+      status,
+      reviewedAt: new Date(),
+      reviewedBy: req.user?.userId
+    };
+
+    if (status === 'REJECTED') {
+      data.rejectionReason = rejectionReason;
+    } else {
+      data.rejectionReason = null;
+      data.approvedAt = new Date();
+    }
+
+    const updated = await prisma.kyc.update({
+      where: { id: req.params.id },
+      data
+    });
+
+    return res.json({ success: true, data: updated });
+
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==================================================
+// UPDATE KYC (RESUBMIT)
+// ==================================================
+export const updateKYC = async (req: Request, res: Response) => {
+  try {
+    const existing = await prisma.kyc.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existing)
+      return res.status(404).json({ success: false, message: 'KYC not found' });
+
+    const files = req.files as any;
+
+    const updatedData: any = {
+      fullName: req.body.fullName ?? existing.fullName,
+      dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : existing.dateOfBirth,
+      nationality: req.body.nationality ?? existing.nationality,
+      address: req.body.address ?? existing.address,
+      documentType: req.body.documentType ?? existing.documentType,
+      documentNumber: req.body.documentNumber ?? existing.documentNumber,
+      city: req.body.city ?? existing.city,
+      state: req.body.state ?? existing.state,
+      postalCode: req.body.postalCode ?? existing.postalCode,
+      country: req.body.country ?? existing.country,
+      status: "PENDING",
       rejectionReason: null,
-      notes: []
     };
 
-    res.json({
-      success: true,
-      data: kycSubmission
+    if (files?.documentFront?.[0]) {
+      deleteFile(existing.documentFront);
+      updatedData.documentFront = files.documentFront[0].filename;
+    }
+
+    if (files?.documentBack?.[0]) {
+      deleteFile(existing.documentBack);
+      updatedData.documentBack = files.documentBack[0].filename;
+    }
+
+    if (files?.selfieImage?.[0]) {
+      deleteFile(existing.selfieImage);
+      updatedData.selfieImage = files.selfieImage[0].filename;
+    }
+
+    if (files?.addressProof?.[0]) {
+      deleteFile(existing.addressProof);
+      updatedData.addressProof = files.addressProof[0].filename;
+    }
+
+    const updated = await prisma.kyc.update({
+      where: { id: existing.id },
+      data: updatedData
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch KYC submission',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+
+    return res.json({ success: true, data: updated });
+
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * Approve KYC submission (Compliance Officer only)
- */
-export const approveKYC = async (req: Request, res: Response) => {
+// ==================================================
+// DELETE KYC
+// ==================================================
+export const deleteKYC = async (req: Request, res: Response) => {
   try {
-    const { kycId } = req.params;
-    const reviewerId = req.user?.userId;
-    const { notes } = req.body;
-
-    if (!reviewerId) {
-      res.status(401).json({
-        success: false,
-        message: 'Reviewer not authenticated'
-      });
-      return;
-    }
-
-    // TODO: Update KYC record in database
-    // 1. Set status to 'approved'
-    // 2. Set reviewedBy and reviewedAt
-    // 3. Update user's verification status
-    // 4. Send approval email to user
-    // 5. Log the approval
-
-    const updatedKYC = {
-      id: kycId,
-      status: 'approved',
-      reviewedAt: new Date(),
-      reviewedBy: reviewerId,
-      reviewerNotes: notes || 'KYC approved',
-      approvalDate: new Date()
-    };
-
-    res.json({
-      success: true,
-      message: 'KYC approved successfully',
-      data: updatedKYC
+    const existing = await prisma.kyc.findUnique({
+      where: { id: req.params.id }
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to approve KYC',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+
+    if (!existing)
+      return res.status(404).json({ success: false, message: 'KYC not found' });
+
+    deleteFile(existing.documentFront);
+    deleteFile(existing.documentBack);
+    deleteFile(existing.selfieImage);
+    deleteFile(existing.addressProof);
+
+    await prisma.kyc.delete({ where: { id: existing.id } });
+
+    return res.json({ success: true, message: 'KYC deleted successfully' });
+
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * Reject KYC submission (Compliance Officer only)
- */
-export const rejectKYC = async (req: Request, res: Response) => {
+// ==================================================
+// PENDING KYC
+// ==================================================
+export const getPendingKYCs = async () => {
+  return await prisma.kyc.findMany({
+    where: { status: "PENDING" },
+    orderBy: { submittedAt: 'asc' }
+  });
+};
+
+export const getKYCStatus = async (req: Request, res: Response) => {
   try {
-    const { kycId } = req.params;
-    const reviewerId = req.user?.userId;
-    const { reason, notes } = req.body;
+    const id = req.params.id;
 
-    if (!reviewerId) {
-      res.status(401).json({
-        success: false,
-        message: 'Reviewer not authenticated'
-      });
-      return;
-    }
-
-    if (!reason) {
-      res.status(400).json({
-        success: false,
-        message: 'Rejection reason is required'
-      });
-      return;
-    }
-
-    // TODO: Update KYC record in database
-    // 1. Set status to 'rejected'
-    // 2. Set rejectionReason
-    // 3. Send rejection email to user with reason
-    // 4. Log the rejection
-
-    const updatedKYC = {
-      id: kycId,
-      status: 'rejected',
-      reviewedAt: new Date(),
-      reviewedBy: reviewerId,
-      rejectionReason: reason,
-      reviewerNotes: notes || '',
-      allowResubmission: true
-    };
-
-    res.json({
-      success: true,
-      message: 'KYC rejected',
-      data: updatedKYC
+    const kyc = await prisma.kyc.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        rejectionReason: true,
+        approvedAt: true,
+        reviewedAt: true,
+        reviewedBy: true,
+      },
     });
-  } catch (error) {
-    res.status(500).json({
+
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: "KYC record not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: kyc,
+    });
+
+  } catch (error: any) {
+    return res.status(500).json({
       success: false,
-      message: 'Failed to reject KYC',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: error.message,
     });
   }
 };
-
-/**
- * Upload additional KYC document
- */
-export const uploadKYCDocument = async (req: Request, res: Response) => {
+// ==================================================
+// STATISTICS
+// ==================================================
+export const getKYCStatistics = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.userId;
-    const { documentType } = req.body;
-    const file = req.file;
-
-    if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
-      return;
-    }
-
-    if (!file) {
-      res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
-      return;
-    }
-
-    // TODO: Save document reference in database
-    const document = {
-      id: `doc_${Date.now()}`,
-      userId,
-      type: documentType,
-      filename: file.filename,
-      path: file.path,
-      mimetype: file.mimetype,
-      size: file.size,
-      uploadedAt: new Date()
+    const stats = {
+      total: await prisma.kyc.count(),
+      pending: await prisma.kyc.count({ where: { status: "PENDING" } }),
+      approved: await prisma.kyc.count({ where: { status: "APPROVED" } }),
+      rejected: await prisma.kyc.count({ where: { status: "REJECTED" } }),
     };
 
-    res.status(201).json({
-      success: true,
-      message: 'Document uploaded successfully',
-      data: document
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload document',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-};
+    return res.json({ success: true, data: stats });
 
-/**
- * Request KYC resubmission
- */
-export const requestKYCResubmission = async (req: Request, res: Response) => {
-  try {
-    const { kycId } = req.params;
-    const reviewerId = req.user?.userId;
-    const { reason, requiredDocuments } = req.body;
-
-    if (!reviewerId) {
-      res.status(401).json({
-        success: false,
-        message: 'Reviewer not authenticated'
-      });
-      return;
-    }
-
-    // TODO: Update KYC record and notify user
-    const updatedKYC = {
-      id: kycId,
-      status: 'resubmission_required',
-      resubmissionReason: reason,
-      requiredDocuments: requiredDocuments || [],
-      requestedAt: new Date(),
-      requestedBy: reviewerId
-    };
-
-    res.json({
-      success: true,
-      message: 'Resubmission requested',
-      data: updatedKYC
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to request resubmission',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

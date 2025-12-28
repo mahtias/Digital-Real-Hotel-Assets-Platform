@@ -7,6 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Wallet, Copy, ExternalLink, LogOut, Check } from "lucide-react";
 import { useLanguage } from './LanguageContext';
 import { useAuth } from '@/context/AuthContext';
+import { useEffect } from 'react';
+import axios from 'axios';
+
 
 export default function WalletConnect() {
   const { language } = useLanguage();
@@ -41,20 +44,40 @@ export default function WalletConnect() {
     return `https://basescan.org/address/${address}`;
   };
 
+  const { token } = useAuth();
+
+useEffect(() => {
+  if (isConnected && address && token) {
+    console.log("Wallet connected, sending to backend...");
+
+    axios.patch(
+      "/api/v1/user/wallet",
+      { walletAddress: address },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    .then(res => {
+      console.log("Wallet saved to DB:", res.data);
+    })
+    .catch(err => {
+      console.error("Wallet save failed:", err.response?.data || err.message);
+    });
+  }
+}, [isConnected, address, token]);
+
   const handleDisconnect = async () => {
     try {
-      console.log('🔴 Starting full disconnect...');
+      console.log(' Starting full disconnect...');
       disconnect();
-      console.log('✅ Wallet disconnected');
+      console.log(' Wallet disconnected');
       logout();
-      console.log('✅ Auth logout complete');
+      console.log(' Auth logout complete');
       localStorage.removeItem('walletAddress');
       localStorage.removeItem('walletConnected');
       setShowDialog(false);
       window.location.href = '/';
-      console.log('✅ Full disconnect complete');
+      console.log(' Full disconnect complete');
     } catch (error) {
-      console.error('❌ Disconnect error:', error);
+      console.error(' Disconnect error:', error);
       localStorage.clear();
       window.location.href = '/';
     }
