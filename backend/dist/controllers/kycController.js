@@ -1,375 +1,249 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkExpiredKYC = exports.getKYCStatistics = exports.syncBlockchainStatus = exports.verifyKYCOnBlockchain = exports.deleteKYC = exports.updateKYC = exports.reviewKYC = exports.getAllKYC = exports.getKYCById = exports.getKYCStatus = exports.submitKYC = void 0;
-const KYCService_1 = require("../services/KYCService");
-const kyc_types_1 = require("../types/kyc.types");
-const client_1 = require("@prisma/client");
+exports.getKYCStatistics = exports.getKYCStatus = exports.getPendingKYCs = exports.deleteKYC = exports.updateKYC = exports.reviewKYC = exports.getAllKYC = exports.getKYCById = exports.submitKYC = void 0;
+const prisma_1 = __importDefault(require("../lib/prisma"));
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+const uploadDir = path_1.default.join(__dirname, '../../uploads/kyc');
+const deleteFile = (fileName) => {
+    if (!fileName)
+        return;
+    const filePath = path_1.default.join(uploadDir, fileName);
+    if (fs_1.default.existsSync(filePath))
+        fs_1.default.unlinkSync(filePath);
+};
 const submitKYC = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(400).json({
                 success: false,
-                message: 'Authentication required',
+                message: "User not authenticated",
             });
         }
-        const kycData = {
-            userId: req.user.userId,
-            ...req.body
+        const files = req.files;
+        const data = {
+            userId,
+            fullName: req.body.fullName,
+            dateOfBirth: new Date(req.body.dateOfBirth),
+            nationality: req.body.nationality,
+            address: req.body.address,
+            documentType: req.body.documentType,
+            documentNumber: req.body.documentNumber,
+            city: req.body.city,
+            state: req.body.state,
+            postalCode: req.body.postalCode,
+            country: req.body.country,
+            documentFront: files?.documentFront?.[0]?.filename ?? null,
+            documentBack: files?.documentBack?.[0]?.filename ?? null,
+            selfieImage: files?.selfieImage?.[0]?.filename ?? null,
+            addressProof: files?.addressProof?.[0]?.filename ?? null,
         };
-        const requiredFields = [
-            'fullName',
-            'dateOfBirth',
-            'nationality',
-            'documentType',
-            'documentNumber',
-            'address',
-        ];
-        for (const field of requiredFields) {
-            if (!kycData[field]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Missing required field: ${field}`,
-                });
-            }
-        }
-        const kyc = await KYCService_1.KYCService.submitKYC(kycData);
-        res.status(201).json({
-            success: true,
-            message: 'KYC submitted successfully',
-            data: kyc,
+        const kyc = await prisma_1.default.kyc.create({
+            data,
         });
+        return res.json({ success: true, data: kyc });
     }
     catch (error) {
-        console.error('KYC submission error:', error);
-        res.status(400).json({
+        return res.status(500).json({
             success: false,
-            message: error.message || 'Failed to submit KYC',
+            message: error.message
         });
     }
 };
 exports.submitKYC = submitKYC;
-const getKYCStatus = async (req, res) => {
-    try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        const kyc = await KYCService_1.KYCService.getKYCByUserId(req.user.userId);
-        if (!kyc) {
-            return res.status(404).json({
-                success: false,
-                message: 'KYC not found',
-                data: {
-                    status: kyc_types_1.KYCStatus.NOT_STARTED,
-                },
-            });
-        }
-        res.json({
-            success: true,
-            data: kyc,
-        });
-    }
-    catch (error) {
-        console.error('Get KYC status error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to get KYC status',
-        });
-    }
-};
-exports.getKYCStatus = getKYCStatus;
 const getKYCById = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        const { id } = req.params;
-        const kyc = await KYCService_1.KYCService.getKYCById(id);
-        if (!kyc) {
-            return res.status(404).json({
-                success: false,
-                message: 'KYC not found',
-            });
-        }
-        if (req.user.role !== client_1.UserRole.ADMIN &&
-            req.user.role !== client_1.UserRole.COMPLIANCE_OFFICER &&
-            kyc.userId !== req.user.userId) {
-            return res.status(403).json({
-                success: false,
-                message: 'Unauthorized access',
-            });
-        }
-        res.json({
-            success: true,
-            data: kyc,
+        const kyc = await prisma_1.default.kyc.findUnique({
+            where: { id: req.params.id },
+            include: {
+                user: {
+                    select: {
+                        email: true,
+                        walletAddress: true
+                    }
+                }
+            }
         });
+        if (!kyc)
+            return res.status(404).json({ success: false, message: 'KYC not found' });
+        return res.json({ success: true, data: kyc });
     }
     catch (error) {
-        console.error('Get KYC by ID error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to get KYC',
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 exports.getKYCById = getKYCById;
 const getAllKYC = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        if (req.user.role !== client_1.UserRole.ADMIN &&
-            req.user.role !== client_1.UserRole.COMPLIANCE_OFFICER) {
-            return res.status(403).json({
-                success: false,
-                message: 'Unauthorized access',
-            });
-        }
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const status = req.query.status;
-        const verificationLevel = req.query.verificationLevel;
-        const result = await KYCService_1.KYCService.getAllKYC({
-            status,
-            verificationLevel,
-            page,
-            limit,
+        const list = await prisma_1.default.kyc.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        email: true,
+                        walletAddress: true
+                    }
+                }
+            }
         });
-        res.json({
-            success: true,
-            data: result.kycs,
-            pagination: {
-                total: result.total,
-                page: result.page,
-                limit: result.limit,
-                pages: Math.ceil(result.total / result.limit),
-            },
-        });
+        return res.json({ success: true, data: list });
     }
     catch (error) {
-        console.error('Get all KYC error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to get KYC submissions',
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 exports.getAllKYC = getAllKYC;
 const reviewKYC = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        if (req.user.role !== client_1.UserRole.ADMIN &&
-            req.user.role !== client_1.UserRole.COMPLIANCE_OFFICER) {
-            return res.status(403).json({
-                success: false,
-                message: 'Unauthorized access',
-            });
-        }
-        const { id } = req.params;
-        const reviewData = {
-            ...req.body,
-            reviewedBy: req.user.userId,
+        const { status, rejectionReason } = req.body;
+        const data = {
+            status,
+            reviewedAt: new Date(),
+            reviewedBy: req.user?.userId
         };
-        const validStatuses = [
-            kyc_types_1.KYCStatus.APPROVED,
-            kyc_types_1.KYCStatus.REJECTED,
-            kyc_types_1.KYCStatus.RESUBMISSION_REQUIRED,
-        ];
-        if (!validStatuses.includes(reviewData.status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid review status',
-            });
+        if (status === 'REJECTED') {
+            data.rejectionReason = rejectionReason;
         }
-        if ((reviewData.status === kyc_types_1.KYCStatus.REJECTED ||
-            reviewData.status === kyc_types_1.KYCStatus.RESUBMISSION_REQUIRED) &&
-            !reviewData.rejectionReason) {
-            return res.status(400).json({
-                success: false,
-                message: 'Rejection reason is required',
-            });
+        else {
+            data.rejectionReason = null;
+            data.approvedAt = new Date();
         }
-        const kyc = await KYCService_1.KYCService.reviewKYC(id, reviewData);
-        res.json({
-            success: true,
-            message: 'KYC reviewed successfully',
-            data: kyc,
+        const updated = await prisma_1.default.kyc.update({
+            where: { id: req.params.id },
+            data
         });
+        return res.json({ success: true, data: updated });
     }
     catch (error) {
-        console.error('Review KYC error:', error);
-        res.status(400).json({
-            success: false,
-            message: error.message || 'Failed to review KYC',
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 exports.reviewKYC = reviewKYC;
 const updateKYC = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        const { id } = req.params;
-        const updateData = req.body;
-        const kyc = await KYCService_1.KYCService.updateKYC(id, req.user.userId, updateData);
-        res.json({
-            success: true,
-            message: 'KYC updated and resubmitted successfully',
-            data: kyc,
+        const existing = await prisma_1.default.kyc.findUnique({
+            where: { id: req.params.id }
         });
+        if (!existing)
+            return res.status(404).json({ success: false, message: 'KYC not found' });
+        const files = req.files;
+        const updatedData = {
+            fullName: req.body.fullName ?? existing.fullName,
+            dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : existing.dateOfBirth,
+            nationality: req.body.nationality ?? existing.nationality,
+            address: req.body.address ?? existing.address,
+            documentType: req.body.documentType ?? existing.documentType,
+            documentNumber: req.body.documentNumber ?? existing.documentNumber,
+            city: req.body.city ?? existing.city,
+            state: req.body.state ?? existing.state,
+            postalCode: req.body.postalCode ?? existing.postalCode,
+            country: req.body.country ?? existing.country,
+            status: "PENDING",
+            rejectionReason: null,
+        };
+        if (files?.documentFront?.[0]) {
+            deleteFile(existing.documentFront);
+            updatedData.documentFront = files.documentFront[0].filename;
+        }
+        if (files?.documentBack?.[0]) {
+            deleteFile(existing.documentBack);
+            updatedData.documentBack = files.documentBack[0].filename;
+        }
+        if (files?.selfieImage?.[0]) {
+            deleteFile(existing.selfieImage);
+            updatedData.selfieImage = files.selfieImage[0].filename;
+        }
+        if (files?.addressProof?.[0]) {
+            deleteFile(existing.addressProof);
+            updatedData.addressProof = files.addressProof[0].filename;
+        }
+        const updated = await prisma_1.default.kyc.update({
+            where: { id: existing.id },
+            data: updatedData
+        });
+        return res.json({ success: true, data: updated });
     }
     catch (error) {
-        console.error('Update KYC error:', error);
-        res.status(400).json({
-            success: false,
-            message: error.message || 'Failed to update KYC',
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 exports.updateKYC = updateKYC;
 const deleteKYC = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        const { id } = req.params;
-        await KYCService_1.KYCService.deleteKYC(id, req.user.userId, req.user.role);
-        res.json({
-            success: true,
-            message: 'KYC deleted successfully',
+        const existing = await prisma_1.default.kyc.findUnique({
+            where: { id: req.params.id }
         });
+        if (!existing)
+            return res.status(404).json({ success: false, message: 'KYC not found' });
+        deleteFile(existing.documentFront);
+        deleteFile(existing.documentBack);
+        deleteFile(existing.selfieImage);
+        deleteFile(existing.addressProof);
+        await prisma_1.default.kyc.delete({ where: { id: existing.id } });
+        return res.json({ success: true, message: 'KYC deleted successfully' });
     }
     catch (error) {
-        console.error('Delete KYC error:', error);
-        res.status(400).json({
-            success: false,
-            message: error.message || 'Failed to delete KYC',
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 exports.deleteKYC = deleteKYC;
-const verifyKYCOnBlockchain = async (req, res) => {
+const getPendingKYCs = async () => {
+    return await prisma_1.default.kyc.findMany({
+        where: { status: "PENDING" },
+        orderBy: { submittedAt: 'asc' }
+    });
+};
+exports.getPendingKYCs = getPendingKYCs;
+const getKYCStatus = async (req, res) => {
     try {
-        const { walletAddress } = req.params;
-        const isValid = await KYCService_1.KYCService.verifyKYCOnBlockchain(walletAddress);
-        const record = await KYCService_1.KYCService.getBlockchainKYCRecord(walletAddress);
-        res.json({
-            success: true,
-            data: {
-                isValid,
-                record,
+        const id = req.params.id;
+        const kyc = await prisma_1.default.kyc.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                status: true,
+                rejectionReason: true,
+                approvedAt: true,
+                reviewedAt: true,
+                reviewedBy: true,
             },
         });
-    }
-    catch (error) {
-        console.error('Verify blockchain KYC error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to verify blockchain KYC',
-        });
-    }
-};
-exports.verifyKYCOnBlockchain = verifyKYCOnBlockchain;
-const syncBlockchainStatus = async (req, res) => {
-    try {
-        if (!req.user) {
-            return res.status(401).json({
+        if (!kyc) {
+            return res.status(404).json({
                 success: false,
-                message: 'Authentication required',
+                message: "KYC record not found",
             });
         }
-        await KYCService_1.KYCService.syncBlockchainStatus(req.user.userId);
-        res.json({
+        return res.json({
             success: true,
-            message: 'Blockchain status synced successfully',
+            data: kyc,
         });
     }
     catch (error) {
-        console.error('Sync blockchain status error:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: error.message || 'Failed to sync blockchain status',
+            message: error.message,
         });
     }
 };
-exports.syncBlockchainStatus = syncBlockchainStatus;
+exports.getKYCStatus = getKYCStatus;
 const getKYCStatistics = async (req, res) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        if (req.user.role !== client_1.UserRole.ADMIN &&
-            req.user.role !== client_1.UserRole.COMPLIANCE_OFFICER) {
-            return res.status(403).json({
-                success: false,
-                message: 'Unauthorized access',
-            });
-        }
-        const statistics = await KYCService_1.KYCService.getStatistics();
-        res.json({
-            success: true,
-            data: statistics,
-        });
+        const stats = {
+            total: await prisma_1.default.kyc.count(),
+            pending: await prisma_1.default.kyc.count({ where: { status: "PENDING" } }),
+            approved: await prisma_1.default.kyc.count({ where: { status: "APPROVED" } }),
+            rejected: await prisma_1.default.kyc.count({ where: { status: "REJECTED" } }),
+        };
+        return res.json({ success: true, data: stats });
     }
     catch (error) {
-        console.error('Get KYC statistics error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to get statistics',
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 exports.getKYCStatistics = getKYCStatistics;
-const checkExpiredKYC = async (req, res) => {
-    try {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-        }
-        if (req.user.role !== client_1.UserRole.ADMIN) {
-            return res.status(403).json({
-                success: false,
-                message: 'Unauthorized access',
-            });
-        }
-        await KYCService_1.KYCService.checkAndUpdateExpiredKYC();
-        res.json({
-            success: true,
-            message: 'Expired KYC records updated',
-        });
-    }
-    catch (error) {
-        console.error('Check expired KYC error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to check expired KYC',
-        });
-    }
-};
-exports.checkExpiredKYC = checkExpiredKYC;
 //# sourceMappingURL=kycController.js.map

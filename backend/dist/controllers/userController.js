@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reactivateUser = exports.getUserStatistics = exports.deactivateUser = exports.updateUserRole = exports.getAllUsers = exports.getUserTransactions = exports.getUserPortfolio = exports.updateUserProfile = exports.getUserProfile = void 0;
+exports.reactivateUser = exports.getUserStatistics = exports.deactivateUser = exports.updateUserRole = exports.getAllUsers = exports.getUserTransactions = exports.updateWalletAddress = exports.getUserPortfolio = exports.updateUserProfile = exports.getUserProfile = void 0;
+const database_1 = __importDefault(require("../config/database"));
 const getUserProfile = async (req, res) => {
     try {
         const userId = req.user?.userId;
@@ -128,6 +132,34 @@ const getUserPortfolio = async (req, res) => {
     }
 };
 exports.getUserPortfolio = getUserPortfolio;
+const updateWalletAddress = async (req, res) => {
+    try {
+        const { walletAddress } = req.body;
+        if (!walletAddress) {
+            return res.status(400).json({ error: "Wallet address is required" });
+        }
+        if (!req.user?.userId) {
+            return res.status(401).json({ error: "Unauthorized: user not found" });
+        }
+        const updatedUser = await database_1.default.user.update({
+            where: { id: req.user.userId },
+            data: { walletAddress }
+        });
+        return res.json({
+            success: true,
+            message: "Wallet address saved successfully",
+            user: updatedUser
+        });
+    }
+    catch (err) {
+        const error = err;
+        return res.status(500).json({
+            error: "Error updating wallet address",
+            details: error.message
+        });
+    }
+};
+exports.updateWalletAddress = updateWalletAddress;
 const getUserTransactions = async (req, res) => {
     try {
         const userId = req.user?.userId;

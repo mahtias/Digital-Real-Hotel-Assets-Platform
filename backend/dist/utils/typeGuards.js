@@ -15,7 +15,8 @@ function canUserInvest(user, kyc) {
 function isKYCPending(kyc) {
     if (!kyc)
         return false;
-    return kyc.status === kyc_types_1.KYCStatus.PENDING || kyc.status === kyc_types_1.KYCStatus.IN_REVIEW;
+    return (kyc.status === kyc_types_1.KYCStatus.PENDING ||
+        kyc.status === kyc_types_1.KYCStatus.IN_REVIEW);
 }
 function requiresFullKYC(verificationLevel) {
     return verificationLevel === kyc_types_1.VerificationLevel.FULL;

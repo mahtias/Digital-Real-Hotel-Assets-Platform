@@ -65,8 +65,16 @@ export const submitKYC = async (req: Request, res: Response) => {
 export const getKYCById = async (req: Request, res: Response) => {
   try {
     const kyc = await prisma.kyc.findUnique({
-      where: { id: req.params.id }
-    });
+  where: { id: req.params.id },
+  include: {
+    user: {
+      select: {
+        email: true,
+        walletAddress: true
+      }
+    }
+  }
+});
 
     if (!kyc) return res.status(404).json({ success: false, message: 'KYC not found' });
 
@@ -83,8 +91,16 @@ export const getKYCById = async (req: Request, res: Response) => {
 export const getAllKYC = async (req: Request, res: Response) => {
   try {
     const list = await prisma.kyc.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
+  orderBy: { createdAt: 'desc' },
+  include: {
+    user: {
+      select: {
+        email: true,
+        walletAddress: true
+      }
+    }
+  }
+});
 
     return res.json({ success: true, data: list });
 

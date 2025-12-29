@@ -54,7 +54,7 @@ const storage = multer_1.default.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, file.fieldname + '-' + uniqueSuffix + path_1.default.extname(file.originalname));
     }
 });
@@ -68,19 +68,30 @@ const fileFilter = (req, file, cb) => {
     }
 };
 const upload = (0, multer_1.default)({
-    storage: storage,
-    fileFilter: fileFilter,
-    limits: {
-        fileSize: 5 * 1024 * 1024
-    }
+    storage,
+    fileFilter,
+    limits: { fileSize: 5 * 1024 * 1024 }
 });
-router.post('/submit', auth_1.authenticate, upload.any(), [
-    (0, express_validator_1.body)('level').optional().isIn(['BASIC', 'INTERMEDIATE', 'ADVANCED']),
+const kycValidation = [
     (0, express_validator_1.body)('fullName').notEmpty().withMessage('Full name is required'),
     (0, express_validator_1.body)('dateOfBirth').notEmpty().withMessage('Date of birth is required'),
     (0, express_validator_1.body)('nationality').notEmpty().withMessage('Nationality is required'),
-    (0, express_validator_1.body)('idNumber').notEmpty().withMessage('ID number is required'),
+    (0, express_validator_1.body)('documentNumber').notEmpty().withMessage('documentNumber is required'),
     (0, express_validator_1.body)('address').notEmpty().withMessage('Address is required'),
+    (0, express_validator_1.body)('documentType').notEmpty().withMessage('Document type is required'),
+];
+router.post('/submit', auth_1.authenticate, upload.fields([
+    { name: "documentFront", maxCount: 1 },
+    { name: "documentBack", maxCount: 1 },
+    { name: "selfieImage", maxCount: 1 },
+    { name: "addressProof", maxCount: 1 }
+]), [
+    (0, express_validator_1.body)('level').optional().isIn(['BASIC', 'INTERMEDIATE', 'ADVANCED']),
+    (0, express_validator_1.body)('fullName').notEmpty(),
+    (0, express_validator_1.body)('dateOfBirth').notEmpty(),
+    (0, express_validator_1.body)('nationality').notEmpty(),
+    (0, express_validator_1.body)('documentNumber').notEmpty(),
+    (0, express_validator_1.body)('address').notEmpty(),
 ], validation_1.validateRequest, kycController.submitKYC);
 router.get('/status', auth_1.authenticate, kycController.getKYCStatus);
 router.get('/all', auth_1.authenticate, [
@@ -97,5 +108,43 @@ router.put('/:id/review', auth_1.authenticate, [
 ], validation_1.validateRequest, kycController.reviewKYC);
 router.put('/:id', auth_1.authenticate, upload.array('documents', 5), [(0, express_validator_1.param)('id').isUUID()], validation_1.validateRequest, kycController.updateKYC);
 router.delete('/:id', auth_1.authenticate, [(0, express_validator_1.param)('id').isUUID()], validation_1.validateRequest, kycController.deleteKYC);
+router.get('/admin/pending', auth_1.authenticate, async (req, res) => {
+    try {
+        const kycs = await kycController.getPendingKYCs();
+        return res.json({ success: true, data: kycs });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+router.get('/admin/details/:id', auth_1.authenticate, [(0, express_validator_1.param)('id').isUUID()], validation_1.validateRequest, async (req, res) => {
+    try {
+        return kycController.getKYCById(req, res);
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+router.post('/admin/approve/:id', auth_1.authenticate, [(0, express_validator_1.param)('id').isUUID()], validation_1.validateRequest, async (req, res) => {
+    try {
+        req.body.status = 'APPROVED';
+        return kycController.reviewKYC(req, res);
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+router.post('/admin/reject/:id', auth_1.authenticate, [
+    (0, express_validator_1.param)('id').isUUID(),
+    (0, express_validator_1.body)('rejectionReason').notEmpty().withMessage('Rejection reason is required'),
+], validation_1.validateRequest, async (req, res) => {
+    try {
+        req.body.status = 'REJECTED';
+        return kycController.reviewKYC(req, res);
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=kycRoutes.js.map

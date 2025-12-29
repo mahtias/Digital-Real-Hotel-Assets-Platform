@@ -87,3 +87,10 @@ export interface KYCBlockchainSubmission {
   gasUsed?: string;
   status: 'pending' | 'confirmed' | 'failed';
 }
+
+export interface IKYC {
+  id: string;
+  userId: string;
+  status: KYCStatus;
+  verificationLevel?: VerificationLevel;
+}
