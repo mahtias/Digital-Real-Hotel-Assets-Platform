@@ -8,18 +8,24 @@ export default function KYCReviewDetails() {
   const { kycId } = useParams();
   const navigate = useNavigate();
 
-  const [kyc, setKyc] = useState(null);
+  const [kyc, setKyc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Load KYC Details
   useEffect(() => {
+    if (!kycId) {
+      setError("No KYC ID provided in URL");
+      setLoading(false);
+      return;
+    }
     fetchKYC();
-  }, []);
+  }, [kycId]);
 
   const fetchKYC = async () => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
 
       const response = await axios.get(
         `${API_URL}/api/v1/kyc/admin/details/${kycId}`,
@@ -27,19 +33,20 @@ export default function KYCReviewDetails() {
       );
 
       setKyc(response.data.data);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.error || "Failed to load KYC details");
     } finally {
       setLoading(false);
     }
   };
 
+  // Approve KYC
   const handleApprove = async () => {
     if (!window.confirm("Approve this KYC?")) return;
 
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
 
       await axios.post(
         `${API_URL}/api/v1/kyc/admin/approve/${kycId}`,
@@ -49,38 +56,41 @@ export default function KYCReviewDetails() {
 
       alert("KYC Approved!");
       navigate("/admin/kyc");
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.error || "Failed to approve");
     } finally {
       setActionLoading(false);
     }
   };
 
+  // Reject KYC
   const handleReject = async () => {
     const reason = window.prompt("Enter rejection reason:");
     if (!reason) return;
 
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
 
       await axios.post(
         `${API_URL}/api/v1/kyc/admin/reject/${kycId}`,
-        { reason },
+        { rejectionReason: reason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       alert("KYC Rejected");
       navigate("/admin/kyc");
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.error || "Failed to reject");
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading) return <p className="p-6">Loading...</p>;
+  // UI States
+  if (loading) return <p className="p-6">Loading KYC details...</p>;
   if (error) return <p className="p-6 text-red-500">{error}</p>;
+  if (!kyc) return <p className="p-6 text-gray-500">KYC not found</p>;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -102,25 +112,35 @@ export default function KYCReviewDetails() {
           <div>
             <p><strong>Status:</strong> {kyc.status}</p>
             <p><strong>Level:</strong> {kyc.level}</p>
-            <p><strong>Submitted:</strong> {new Date(kyc.submittedAt).toLocaleString()}</p>
+            <p>
+              <strong>Submitted:</strong>{" "}
+              {new Date(kyc.submittedAt).toLocaleString()}
+            </p>
           </div>
         </div>
 
         <h3 className="text-lg font-semibold mt-6 mb-2">Documents</h3>
 
         <div className="grid grid-cols-2 gap-4">
-          {["documentFront", "documentBack", "selfieImage", "addressProof"].map((field) => (
-            kyc[field] ? (
-              <div key={field}>
-                <p className="font-medium capitalize">{field.replace(/([A-Z])/g,' $1')}</p>
+          {[
+            { key: "documentFront", label: "Document Front" },
+            { key: "documentBack", label: "Document Back" },
+            { key: "selfieImage", label: "Selfie Image" },
+            { key: "addressProof", label: "Address Proof" }
+          ].map(({ key, label }) => (
+            kyc[key] ? (
+              <div key={key}>
+                <p className="font-medium">{label}</p>
                 <img
-                  src={`${API_URL}/${kyc[field]}`}
-                  alt={field}
+                  src={`${API_URL}/${kyc[key]}`}
+                  alt={label}
                   className="w-full border rounded shadow"
                 />
               </div>
             ) : (
-              <p key={field} className="text-gray-400 italic">{field} not provided</p>
+              <p key={key} className="text-gray-400 italic">
+                {label} not provided
+              </p>
             )
           ))}
         </div>

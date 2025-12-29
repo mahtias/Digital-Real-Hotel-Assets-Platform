@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -11,6 +11,9 @@ export const KYCForm = () => {
   const [errors, setErrors] = useState<any>({});
   const [success, setSuccess] = useState(false);
 
+  // store refs to reset file inputs
+  const fileInputsRef = useRef<any>({});
+
   // ----------------------------
   // FORM DATA
   // ----------------------------
@@ -20,7 +23,7 @@ export const KYCForm = () => {
     nationality: "",
     documentType: "",
     documentNumber: "",
-
+    
     address: "",
     city: "",
     state: "",
@@ -36,27 +39,70 @@ export const KYCForm = () => {
   });
 
   // ----------------------------
+  // RESET FORM
+  // ----------------------------
+  const resetForm = () => {
+    setFormData({
+      fullName: "",
+      dateOfBirth: "",
+      nationality: "",
+      documentType: "",
+      documentNumber: "",
+      address: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "",
+    });
+
+    setFiles({
+      documentFront: null,
+      documentBack: null,
+      selfieImage: null,
+      addressProof: null,
+    });
+
+    // Reset file inputs
+    Object.values(fileInputsRef.current).forEach((input: any) => {
+      if (input) input.value = "";
+    });
+
+    setStep(1);
+  };
+
+  // ----------------------------
   // INPUT HANDLERS
   // ----------------------------
   const handleInput = (e: any) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" });
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrors((prev: any) => ({
+      ...prev,
+      [name]: "",
+    }));
   };
 
   const handleFile = (e: any) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  setFiles((prev: any) => ({
-    ...prev,
-    [e.target.name]: file,
-  }));
+    const name = e.target.name;
 
-  setErrors((prev: any) => ({
-    ...prev,
-    [e.target.name]: "",
-  }));
-};
+    setFiles((prev) => ({
+      ...prev,
+      [name]: file,
+    }));
+
+    setErrors((prev: any) => ({
+      ...prev,
+      [name]: "",
+    }));
+  };
 
   // ----------------------------
   // STEP VALIDATION
@@ -107,11 +153,8 @@ export const KYCForm = () => {
 
     try {
       const fd = new FormData();
-      Object.keys(formData).forEach((k) => fd.append(k, (formData as any)[k]));
-      Object.keys(files).forEach((k) => {
-        const f = (files as any)[k];
-        if (f) fd.append(k, f);
-      });
+      Object.entries(formData).forEach(([k, v]) => fd.append(k, v));
+      Object.entries(files).forEach(([k, v]) => v && fd.append(k, v));
 
       await axios.post(`${API_URL}/api/v1/kyc/submit`, fd, {
         headers: {
@@ -121,6 +164,7 @@ export const KYCForm = () => {
       });
 
       setSuccess(true);
+      resetForm(); // <-- IMPORTANT FIX
     } catch (err: any) {
       setErrors({ global: err?.response?.data?.message || "Submission failed" });
     }
@@ -136,20 +180,13 @@ export const KYCForm = () => {
       {[1, 2, 3].map((s) => (
         <div
           key={s}
-          className={`flex-1 h-2 mx-1 rounded-full transition-all ${
-            step >= s ? "bg-blue-600" : "bg-gray-300"
-          }`}
+          className={`flex-1 h-2 mx-1 rounded-full transition-all ${step >= s ? "bg-blue-600" : "bg-gray-300"}`}
         ></div>
       ))}
     </div>
   );
 
-  const Input = ({
-    label,
-    name,
-    value,
-    type = "text",
-  }: any) => (
+  const Input = ({ label, name, value, type = "text" }: any) => (
     <div>
       <label className="block font-medium mb-1">{label}</label>
       <input
@@ -164,35 +201,30 @@ export const KYCForm = () => {
   );
 
   const FileInput = ({ label, name }: any) => (
-  <div className="mb-2">
-    <label className="block mb-1 font-medium">{label}</label>
+    <div className="mb-2">
+      <label className="block mb-1 font-medium">{label}</label>
 
-    <input
-      type="file"
-      name={name}
-      onChange={handleFile}
-      className="block"
-    />
+      <input
+        ref={(el) => (fileInputsRef.current[name] = el)}
+        type="file"
+        name={name}
+        onChange={handleFile}
+        className="block"
+      />
 
-    {/* SHOW FILE NAME */}
-    {files[name] && (
-      <p className="text-sm text-gray-600 mt-1">
-        Selected: {files[name]?.name}
-      </p>
-    )}
+      {files[name] && (
+        <p className="text-sm text-gray-600 mt-1">Selected: {(files[name] as File)?.name}</p>
+      )}
 
-    {errors[name] && (
-      <p className="text-red-600 text-sm">{errors[name]}</p>
-    )}
-  </div>
-);
+      {errors[name] && <p className="text-red-600 text-sm">{errors[name]}</p>}
+    </div>
+  );
 
   // ----------------------------
-  // RENDER
+  // RENDER UI
   // ----------------------------
   return (
     <div className="max-w-lg mx-auto p-6 bg-white rounded shadow mt-10">
-
       <h2 className="text-2xl font-bold mb-4">KYC Verification</h2>
 
       {success && <p className="p-3 bg-green-200 text-green-800 mb-4">KYC Submitted Successfully!</p>}
@@ -200,7 +232,7 @@ export const KYCForm = () => {
 
       <StepHeader />
 
-      {/* ---------------------- STEP 1 ---------------------- */}
+      {/* STEP 1 */}
       {step === 1 && (
         <div className="space-y-4 animate-fadeIn">
           <h3 className="text-xl font-semibold mb-2">Step 1: Personal Information</h3>
@@ -217,7 +249,7 @@ export const KYCForm = () => {
         </div>
       )}
 
-      {/* ---------------------- STEP 2 ---------------------- */}
+      {/* STEP 2 */}
       {step === 2 && (
         <div className="space-y-4 animate-fadeIn">
           <h3 className="text-xl font-semibold mb-2">Step 2: Address Details</h3>
@@ -235,7 +267,7 @@ export const KYCForm = () => {
         </div>
       )}
 
-      {/* ---------------------- STEP 3 ---------------------- */}
+      {/* STEP 3 */}
       {step === 3 && (
         <div className="space-y-4 animate-fadeIn">
           <h3 className="text-xl font-semibold mb-2">Step 3: Upload Documents</h3>

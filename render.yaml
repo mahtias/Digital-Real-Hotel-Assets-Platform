@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: digirealassets-api
+    runtime: node
+    rootDir: backend
+    plan: professional
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/v1/health
+
+    buildCommand: |
+      npm install
+      npx prisma generate
+      npx prisma migrate deploy
+      npm run build
+
+    startCommand: npm start
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: digirealassets-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        value: https://digirealassets.vercel.app
+
+databases:
+  - name: digirealassets-db
+    databaseName: digirealassets
+    user: digirealuser
+    plan: professional
+    region: oregon
+    ipAllowList: []

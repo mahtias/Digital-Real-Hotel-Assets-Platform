@@ -17,8 +17,8 @@ import KYCStatus from '@/components/KYC/KYCStatus';
 import AdminKYCReview from '@/components/Admin/KYCReview';
 import KYCReviewDetails from '@/components/Admin/KYCReviewDetails';
 import AdminDashboard from "@/components/Admin/AdminDashboard";
-
-
+import AdminKYCStatusList from '@/components/Admin/AdminKYCStatusList';
+import AdminKYCStatusDetail from '@/components/Admin/AdminKYCStatusDetail';
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
@@ -62,6 +62,10 @@ function App() {
           <Route path="/admin/kyc" element={<AdminKYCReview />} />
            <Route path="/admin/kyc/review/:kycId" element={<KYCReviewDetails />}/>
            <Route path="/admin" element={<AdminDashboard />} />
+           {/* <Route path="/admin/kyc/user/:userId" element={<KYCReviewDetails />} /> */}
+           <Route path="/admin/kyc/status" element={<AdminKYCStatusList />} />
+           <Route path="/admin/kyc/status/:kycId" element={<AdminKYCStatusDetail />} />
+           
                 {/* Dynamic Pages from config */}
                 {Object.entries(Pages).map(([path, Page]) => {
                   const isProtected = PROTECTED_PAGES.includes(path);
