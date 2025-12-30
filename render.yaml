@@ -11,8 +11,8 @@ services:
 
     buildCommand: |
       npm ci --legacy-peer-deps
-      npx prisma@5.22.0 generate
-      npx prisma@5.22.0 migrate deploy
+      ./node_modules/.bin/prisma generate
+      ./node_modules/.bin/prisma migrate deploy
       npm run build
 
     startCommand: npm start
