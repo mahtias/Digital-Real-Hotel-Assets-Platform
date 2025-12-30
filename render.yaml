@@ -5,7 +5,7 @@ services:
     rootDir: backend
     plan: professional
     region: oregon
-    branch: main
+    branch: dev
     autoDeploy: true
     healthCheckPath: /api/v1/health
 
