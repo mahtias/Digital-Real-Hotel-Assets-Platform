@@ -11,8 +11,7 @@ services:
 
     buildCommand: |
       npm ci --legacy-peer-deps
-      ./node_modules/.bin/prisma generate
-      ./node_modules/.bin/prisma migrate deploy
+      npx prisma generate
       npm run build
 
     startCommand: npm start
@@ -20,14 +19,18 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+
       - key: DATABASE_URL
         fromDatabase:
           name: digirealassets-db
           property: connectionString
+
       - key: JWT_SECRET
         generateValue: true
+
       - key: JWT_EXPIRES_IN
         value: 7d
+
       - key: CORS_ORIGIN
         value: https://digirealassets.vercel.app
 
