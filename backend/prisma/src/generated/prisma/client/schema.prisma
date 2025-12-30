@@ -1,8 +1,5 @@
-
-
 datasource db {
   provider = "postgresql"
-
 }
 
 generator client {
@@ -53,37 +50,37 @@ model User {
 }
 
 model Kyc {
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  fullName       String   @map("full_name")
-  dateOfBirth    DateTime @map("date_of_birth")
-  nationality    String
-  address        String
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  fullName    String   @map("full_name")
+  dateOfBirth DateTime @map("date_of_birth")
+  nationality String
+  address     String
 
-  documentType   String   @map("document_type")
-  documentNumber String   @map("document_number")
+  documentType   String @map("document_type")
+  documentNumber String @map("document_number")
 
   // NEW FILE FIELDS
-  documentFront     String?   @map("document_front")
-  documentBack      String?   @map("document_back")
-  selfieImage       String?   @map("selfie_image")
-  addressProof      String?   @map("address_proof")
+  documentFront String? @map("document_front")
+  documentBack  String? @map("document_back")
+  selfieImage   String? @map("selfie_image")
+  addressProof  String? @map("address_proof")
 
-  status          KycStatus  @default(PENDING)
+  status     KycStatus @default(PENDING)
   city       String
   state      String
-  postalCode String @map("postal_code")
+  postalCode String    @map("postal_code")
   country    String
 
-  documentHash   String?
-  expiresAt      DateTime?
-  approvedAt     DateTime?
-  blockchainTx   String?
+  documentHash       String?
+  expiresAt          DateTime?
+  approvedAt         DateTime?
+  blockchainTx       String?
   blockchainVerifier String?
-  rejectionReason String?   @map("rejection_reason")
-  submittedAt     DateTime  @default(now()) @map("submitted_at")
-  reviewedAt      DateTime? @map("reviewed_at")
-  reviewedBy      String?   @map("reviewed_by")
+  rejectionReason    String?   @map("rejection_reason")
+  submittedAt        DateTime  @default(now()) @map("submitted_at")
+  reviewedAt         DateTime? @map("reviewed_at")
+  reviewedBy         String?   @map("reviewed_by")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
