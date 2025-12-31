@@ -135,14 +135,23 @@ exports.getUserPortfolio = getUserPortfolio;
 const updateWalletAddress = async (req, res) => {
     try {
         const { walletAddress } = req.body;
+        const userId = req.user?.userId;
         if (!walletAddress) {
             return res.status(400).json({ error: "Wallet address is required" });
         }
-        if (!req.user?.userId) {
+        if (!userId) {
             return res.status(401).json({ error: "Unauthorized: user not found" });
         }
+        const existingUser = await database_1.default.user.findUnique({
+            where: { walletAddress }
+        });
+        if (existingUser && existingUser.id !== userId) {
+            return res.status(400).json({
+                error: "Wallet address already in use by another user"
+            });
+        }
         const updatedUser = await database_1.default.user.update({
-            where: { id: req.user.userId },
+            where: { id: userId },
             data: { walletAddress }
         });
         return res.json({
@@ -152,10 +161,9 @@ const updateWalletAddress = async (req, res) => {
         });
     }
     catch (err) {
-        const error = err;
         return res.status(500).json({
             error: "Error updating wallet address",
-            details: error.message
+            details: err?.message
         });
     }
 };
