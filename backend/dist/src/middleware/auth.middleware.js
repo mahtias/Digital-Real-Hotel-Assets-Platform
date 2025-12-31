@@ -1,30 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireKYCVerified = exports.requireEmailVerified = exports.optionalAuth = exports.authorize = exports.authenticate = void 0;
+exports.optionalAuth = exports.authorize = exports.authenticate = void 0;
 const jwt_1 = require("../utils/jwt");
+const client_1 = require("@prisma/client");
 const authenticate = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            res.status(401).json({
-                success: false,
-                message: 'No token provided'
-            });
+            res.status(401).json({ success: false, message: 'No token provided' });
             return;
         }
         const token = authHeader.substring(7);
         const decoded = (0, jwt_1.verifyToken)(token);
         if (!decoded) {
             req.user = undefined;
-            res.status(401).json({
-                success: false,
-                message: 'Invalid or expired token'
-            });
+            res.status(401).json({ success: false, message: 'Invalid or expired token' });
             return;
         }
         req.user = {
             userId: decoded.userId,
-            role: decoded.role,
+            role: client_1.UserRole[decoded.role],
         };
         next();
     }
@@ -40,13 +35,10 @@ exports.authenticate = authenticate;
 const authorize = (...roles) => {
     return (req, res, next) => {
         if (!req.user) {
-            res.status(401).json({
-                success: false,
-                message: 'User not authenticated'
-            });
+            res.status(401).json({ success: false, message: 'User not authenticated' });
             return;
         }
-        const userRole = req.user.role;
+        const userRole = client_1.UserRole[req.user.role];
         if (!roles.includes(userRole)) {
             res.status(403).json({
                 success: false,
@@ -69,7 +61,7 @@ const optionalAuth = async (req, res, next) => {
             if (decoded) {
                 req.user = {
                     userId: decoded.userId,
-                    role: decoded.role,
+                    role: client_1.UserRole[decoded.role],
                 };
             }
         }
@@ -80,26 +72,4 @@ const optionalAuth = async (req, res, next) => {
     }
 };
 exports.optionalAuth = optionalAuth;
-const requireEmailVerified = (req, res, next) => {
-    if (!req.user) {
-        res.status(401).json({
-            success: false,
-            message: 'User not authenticated'
-        });
-        return;
-    }
-    next();
-};
-exports.requireEmailVerified = requireEmailVerified;
-const requireKYCVerified = (req, res, next) => {
-    if (!req.user) {
-        res.status(401).json({
-            success: false,
-            message: 'User not authenticated'
-        });
-        return;
-    }
-    next();
-};
-exports.requireKYCVerified = requireKYCVerified;
 //# sourceMappingURL=auth.middleware.js.map

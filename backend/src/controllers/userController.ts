@@ -150,17 +150,30 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
 export const updateWalletAddress = async (req: Request, res: Response) => {
   try {
     const { walletAddress } = req.body;
+    const userId = req.user?.userId;
 
     if (!walletAddress) {
       return res.status(400).json({ error: "Wallet address is required" });
     }
 
-    if (!req.user?.userId) {
+    if (!userId) {
       return res.status(401).json({ error: "Unauthorized: user not found" });
     }
 
+    // 1. Check if this wallet address already belongs to another user
+    const existingUser = await prisma.user.findUnique({
+      where: { walletAddress }
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      return res.status(400).json({
+        error: "Wallet address already in use by another user"
+      });
+    }
+
+    // 2. Update wallet
     const updatedUser = await prisma.user.update({
-      where: { id: req.user.userId },
+      where: { id: userId },
       data: { walletAddress }
     });
 
@@ -170,11 +183,10 @@ export const updateWalletAddress = async (req: Request, res: Response) => {
       user: updatedUser
     });
 
-  } catch (err) {
-    const error = err as Error;
+  } catch (err: any) {
     return res.status(500).json({
       error: "Error updating wallet address",
-      details: error.message
+      details: err?.message
     });
   }
 };

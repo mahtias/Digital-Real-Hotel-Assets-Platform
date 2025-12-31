@@ -15,7 +15,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -45,7 +45,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -78,7 +78,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -108,7 +108,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -138,7 +138,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -168,7 +168,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -193,16 +193,16 @@ declare class KYCService {
                 phone: string | null;
                 id: string;
                 walletAddress: string | null;
-                role: import("@/generated/prisma/client").$Enums.UserRole;
+                role: import(".prisma/client").$Enums.UserRole;
                 isEmailVerified: boolean;
                 emailVerifiedAt: Date | null;
-                kycStatus: import("@/generated/prisma/client").$Enums.KycStatus;
+                kycStatus: import(".prisma/client").$Enums.KycStatus;
                 kycSubmittedAt: Date | null;
                 kycApprovedAt: Date | null;
                 createdAt: Date;
                 updatedAt: Date;
                 kycExpiresAt: Date | null;
-                verificationLevel: import("@/generated/prisma/client").$Enums.VerificationLevel | null;
+                verificationLevel: import(".prisma/client").$Enums.VerificationLevel | null;
             };
         } & {
             id: string;
@@ -219,7 +219,7 @@ declare class KYCService {
             documentBack: string | null;
             selfieImage: string | null;
             addressProof: string | null;
-            status: import("@/generated/prisma/client").$Enums.KycStatus;
+            status: import(".prisma/client").$Enums.KycStatus;
             city: string;
             state: string;
             postalCode: string;
@@ -253,7 +253,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -289,7 +289,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;
@@ -319,7 +319,7 @@ declare class KYCService {
         documentBack: string | null;
         selfieImage: string | null;
         addressProof: string | null;
-        status: import("@/generated/prisma/client").$Enums.KycStatus;
+        status: import(".prisma/client").$Enums.KycStatus;
         city: string;
         state: string;
         postalCode: string;

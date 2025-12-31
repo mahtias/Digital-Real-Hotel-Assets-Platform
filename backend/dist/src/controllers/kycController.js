@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getKYCStatistics = exports.getKYCStatus = exports.getPendingKYCs = exports.deleteKYC = exports.updateKYC = exports.reviewKYC = exports.getAllKYC = exports.getKYCById = exports.submitKYC = void 0;
-const prisma_1 = require("../lib/prisma");
+const database_1 = __importDefault(require("../config/database"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const uploadDir = path_1.default.join(__dirname, '../../uploads/kyc');
@@ -42,7 +42,7 @@ const submitKYC = async (req, res) => {
             selfieImage: files?.selfieImage?.[0]?.filename ?? null,
             addressProof: files?.addressProof?.[0]?.filename ?? null,
         };
-        const kyc = await prisma_1.prisma.kyc.create({
+        const kyc = await database_1.default.kyc.create({
             data,
         });
         return res.json({ success: true, data: kyc });
@@ -57,7 +57,7 @@ const submitKYC = async (req, res) => {
 exports.submitKYC = submitKYC;
 const getKYCById = async (req, res) => {
     try {
-        const kyc = await prisma_1.prisma.kyc.findUnique({
+        const kyc = await database_1.default.kyc.findUnique({
             where: { id: req.params.id },
             include: {
                 user: {
@@ -79,7 +79,7 @@ const getKYCById = async (req, res) => {
 exports.getKYCById = getKYCById;
 const getAllKYC = async (req, res) => {
     try {
-        const list = await prisma_1.prisma.kyc.findMany({
+        const list = await database_1.default.kyc.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
                 user: {
@@ -112,7 +112,7 @@ const reviewKYC = async (req, res) => {
             data.rejectionReason = null;
             data.approvedAt = new Date();
         }
-        const updated = await prisma_1.prisma.kyc.update({
+        const updated = await database_1.default.kyc.update({
             where: { id: req.params.id },
             data
         });
@@ -125,7 +125,7 @@ const reviewKYC = async (req, res) => {
 exports.reviewKYC = reviewKYC;
 const updateKYC = async (req, res) => {
     try {
-        const existing = await prisma_1.prisma.kyc.findUnique({
+        const existing = await database_1.default.kyc.findUnique({
             where: { id: req.params.id }
         });
         if (!existing)
@@ -161,7 +161,7 @@ const updateKYC = async (req, res) => {
             deleteFile(existing.addressProof);
             updatedData.addressProof = files.addressProof[0].filename;
         }
-        const updated = await prisma_1.prisma.kyc.update({
+        const updated = await database_1.default.kyc.update({
             where: { id: existing.id },
             data: updatedData
         });
@@ -174,7 +174,7 @@ const updateKYC = async (req, res) => {
 exports.updateKYC = updateKYC;
 const deleteKYC = async (req, res) => {
     try {
-        const existing = await prisma_1.prisma.kyc.findUnique({
+        const existing = await database_1.default.kyc.findUnique({
             where: { id: req.params.id }
         });
         if (!existing)
@@ -183,7 +183,7 @@ const deleteKYC = async (req, res) => {
         deleteFile(existing.documentBack);
         deleteFile(existing.selfieImage);
         deleteFile(existing.addressProof);
-        await prisma_1.prisma.kyc.delete({ where: { id: existing.id } });
+        await database_1.default.kyc.delete({ where: { id: existing.id } });
         return res.json({ success: true, message: 'KYC deleted successfully' });
     }
     catch (error) {
@@ -192,7 +192,7 @@ const deleteKYC = async (req, res) => {
 };
 exports.deleteKYC = deleteKYC;
 const getPendingKYCs = async () => {
-    return await prisma_1.prisma.kyc.findMany({
+    return await database_1.default.kyc.findMany({
         where: { status: "PENDING" },
         orderBy: { submittedAt: 'asc' }
     });
@@ -201,7 +201,7 @@ exports.getPendingKYCs = getPendingKYCs;
 const getKYCStatus = async (req, res) => {
     try {
         const id = req.params.id;
-        const kyc = await prisma_1.prisma.kyc.findUnique({
+        const kyc = await database_1.default.kyc.findUnique({
             where: { id },
             select: {
                 id: true,
@@ -234,10 +234,10 @@ exports.getKYCStatus = getKYCStatus;
 const getKYCStatistics = async (req, res) => {
     try {
         const stats = {
-            total: await prisma_1.prisma.kyc.count(),
-            pending: await prisma_1.prisma.kyc.count({ where: { status: "PENDING" } }),
-            approved: await prisma_1.prisma.kyc.count({ where: { status: "APPROVED" } }),
-            rejected: await prisma_1.prisma.kyc.count({ where: { status: "REJECTED" } }),
+            total: await database_1.default.kyc.count(),
+            pending: await database_1.default.kyc.count({ where: { status: "PENDING" } }),
+            approved: await database_1.default.kyc.count({ where: { status: "APPROVED" } }),
+            rejected: await database_1.default.kyc.count({ where: { status: "REJECTED" } }),
         };
         return res.json({ success: true, data: stats });
     }

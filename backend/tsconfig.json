@@ -19,7 +19,7 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
 
-    "typeRoots": ["./node_modules/@types", "./src/types"],
+    
     "types": ["node"], 
     "baseUrl": "./src",
     "paths": {

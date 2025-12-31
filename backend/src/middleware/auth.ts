@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
 import prisma from '../config/database';
-import { UserRole } from '@prisma/client';
+//import { UserRole } from '@prisma/client';
 
 export const authenticate = async (
   req: Request,
