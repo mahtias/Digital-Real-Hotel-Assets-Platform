@@ -32,7 +32,7 @@ services:
         value: 7d
 
       - key: CORS_ORIGIN
-        value: https://digirealassets.vercel.app
+        value: https://app.digirealassets.io
 
 databases:
   - name: digirealassets-db
