@@ -20,7 +20,7 @@ import path from "path";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Type-safe filtering so TS knows the array contains only strings
+
 const allowedOrigins: string[] = [
   process.env.FRONTEND_URL,
   "http://localhost:5173",
