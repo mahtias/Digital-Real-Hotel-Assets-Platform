@@ -28,6 +28,14 @@ function LayoutContent({ children }) {
   const location = useLocation();
   const { language, toggleLanguage, t } = useLanguage();
 
+  useEffect(() => {
+    console.log("Testing API connection...");
+    fetch("https://my-backend-api-8oe4.onrender.com/api/v1/health")
+      .then((res) => res.json())
+      .then((data) => console.log("Frontend → Backend OK:", data))
+      .catch((err) => console.error("Frontend → Backend ERROR:", err));
+  }, []);
+
   const navigation = [
     { name: t('nav.home'), href: 'Home', icon: Home },
     { name: t('nav.marketplace'), href: 'Marketplace', icon: Building2 },
