@@ -9,8 +9,7 @@ const router = (0, express_1.Router)();
 const registerValidation = [
     (0, express_validator_1.body)('email').isEmail().normalizeEmail(),
     (0, express_validator_1.body)('password')
-        .isLength({ min: 8 })
-        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/),
+        .isLength({ min: 8 }),
     (0, express_validator_1.body)('firstName').trim().notEmpty(),
     (0, express_validator_1.body)('lastName').trim().notEmpty()
 ];
