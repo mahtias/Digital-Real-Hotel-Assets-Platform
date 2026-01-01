@@ -31,13 +31,13 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
 
-      - key: CORS_ORIGIN
+      - key: FRONTEND_URL
         value: https://app.digirealassets.io
 
 databases:
   - name: digirealassets-db
-    databaseName: digirealassets
-    user: digirealuser
+    databaseName: digirealassets_db
+    user: digirealassets_db_user
     plan: professional
     region: oregon
     ipAllowList: []
