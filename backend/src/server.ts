@@ -1,9 +1,9 @@
 // Load environment variables BEFORE anything else
 import dotenv from "dotenv";
 
-if (process.env.NODE_ENV !== "production") {
+
   dotenv.config(); // loads .env
-}
+
 // --------------------------
 import express from 'express';
 import cors from 'cors';
@@ -20,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 const allowedOrigins: string[] = [
   process.env.FRONTEND_URL,
+  "https://app.digirealassets.io", 
   "http://localhost:5173",
   "http://localhost:5174"
 ].filter((o): o is string => Boolean(o));
