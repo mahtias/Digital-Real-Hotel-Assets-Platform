@@ -16,8 +16,8 @@ const router = Router();
 const registerValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password')
-    .isLength({ min: 8 })
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/),
+    .isLength({ min: 8 }),
+    //.matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/),
   body('firstName').trim().notEmpty(),
   body('lastName').trim().notEmpty()
 ];

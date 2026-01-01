@@ -19,8 +19,9 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
 
-    
+  
     "types": ["node"], 
+    "typeRoots": ["./node_modules/@types"],
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"],
@@ -35,7 +36,9 @@
     }
   },
 
-  "include": ["src"],
+  "include": [
+    "./**/*.ts"
+  ],
   "exclude": ["node_modules", "dist", "**/*.test.ts"],
 
   "ts-node": {

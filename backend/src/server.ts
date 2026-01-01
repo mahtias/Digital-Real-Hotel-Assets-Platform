@@ -1,12 +1,9 @@
 // Load environment variables BEFORE anything else
 import dotenv from "dotenv";
 
-dotenv.config({
-  path: process.env.NODE_ENV === "production"
-    ? ".env.production"
-    : ".env.development"
-});
-
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config(); // loads .env
+}
 // --------------------------
 import express from 'express';
 import cors from 'cors';
