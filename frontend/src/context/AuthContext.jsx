@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
+// API base URL (from Vite env)
+const API = import.meta.env.VITE_API_URL;
+
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
@@ -13,13 +16,11 @@ export const AuthProvider = ({ children }) => {
       const storedToken = localStorage.getItem('authToken');
       const savedUser = localStorage.getItem('user');
 
-      console.log(' Checking auth on mount...');
+      console.log('Checking auth on mount...');
       console.log('Token exists:', !!storedToken);
       console.log('Saved user exists:', !!savedUser);
 
-      if (storedToken) {
-        setToken(storedToken);
-      }
+      if (storedToken) setToken(storedToken);
 
       if (storedToken && savedUser) {
         try {
@@ -34,10 +35,9 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      // Try validating token with backend
       if (storedToken) {
         try {
-          const response = await fetch('http://localhost:5000/api/v1/auth/me', {
+          const response = await fetch(`${API}/api/v1/auth/me`, {
             headers: {
               'Authorization': `Bearer ${storedToken}`
             }
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Attempting login for:', email);
 
-      const response = await fetch('http://localhost:5000/api/v1/auth/login', {
+      const response = await fetch(`${API}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Attempting registration for:', email);
 
-      const response = await fetch('http://localhost:5000/api/v1/auth/register', {
+      const response = await fetch(`${API}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, lastName, email, password }),
@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.success !== false) {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -135,7 +135,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // LOGOUT
   const logout = () => {
     console.log('Logging out...');
 
@@ -168,8 +167,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
   return ctx;
 };
