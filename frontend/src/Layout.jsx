@@ -30,7 +30,7 @@ function LayoutContent({ children }) {
 
   useEffect(() => {
     console.log("Testing API connection...");
-    fetch("https://my-backend-api-8oe4.onrender.com/api/v1/health")
+    fetch("http://localhost:5000/api/v1/health")
       .then((res) => res.json())
       .then((data) => console.log("Frontend → Backend OK:", data))
       .catch((err) => console.error("Frontend → Backend ERROR:", err));

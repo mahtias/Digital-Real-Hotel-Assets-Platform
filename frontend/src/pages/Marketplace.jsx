@@ -11,22 +11,22 @@ import { Search, Filter, Building2, SlidersHorizontal } from "lucide-react";
 import HotelAssetCard from "@/components/dashboard/HotelAssetCard";
 import { useLanguage } from '@/components/common/LanguageContext';
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 export default function Marketplace() {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
-  const { data: hotels = [], isLoading } = useQuery({
-    queryKey: ['hotels', sortBy],
-    queryFn: () => {
-      const sortOrder = sortBy === 'newest' ? '-created_date' : 
-                        sortBy === 'apy' ? '-apy' : 
-                        sortBy === 'price_low' ? 'token_price' : '-token_price';
-      
-      return base44.entities.HotelAsset.list(sortOrder, 50);
-    },
-  });
+ const { data: hotels = [], isLoading } = useQuery({
+  queryKey: ['hotels', sortBy],
+
+  queryFn: async () => {
+  const res = await fetch(`${API_URL}/api/v1/hotel`);
+  if (!res.ok) throw new Error("Failed to fetch hotels");
+  return res.json();
+}
+});
 
   const filteredHotels = hotels.filter(hotel => {
     const matchesSearch = hotel.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -38,9 +38,9 @@ export default function Marketplace() {
 
   const statusCounts = {
     all: hotels.length,
-    active: hotels.filter(h => h.status === 'active').length,
-    upcoming: hotels.filter(h => h.status === 'upcoming').length,
-    sold_out: hotels.filter(h => h.status === 'sold_out').length,
+    ACTIVE: hotels.filter(h => h.status === 'ACTIVE').length,
+    UPCOMING: hotels.filter(h => h.status === 'UPCOMING').length,
+    SOLD_OUT: hotels.filter(h => h.status === 'SOLD_OUT').length,
   };
 
   return (
@@ -71,52 +71,28 @@ export default function Marketplace() {
             
             <div className="flex gap-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <
-
-                SelectTrigger className="w-36 bg-slate-800 border-slate-700 text-white">
+                < SelectTrigger className="w-36 bg-slate-800 border-slate-700 text-white">
                   <Filter className="w-4 h-4 mr-2" />
                   <SelectValue />
                 </SelectTrigger>
-                <
-
-                SelectContent className="bg-slate-800 border-slate-700">
-                  <
-
-                  SelectItem value="all">{t('marketplace.allStatus')} ({statusCounts.all})</SelectItem>
-                  <
-
-                  SelectItem value="active">{t('marketplace.fundraising')} ({statusCounts.active})</SelectItem>
-                  <
-
-                  SelectItem value="upcoming">{t('marketplace.upcoming')} ({statusCounts.upcoming})</SelectItem>
-                  <
-
-                  SelectItem value="sold_out">{t('marketplace.soldOut')} ({statusCounts.sold_out})</SelectItem>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="all">{t('marketplace.allStatus')} ({statusCounts.all})</SelectItem>
+                  <SelectItem value="ACTIVE">{t('marketplace.fundraising')} ({statusCounts.ACTIVE})</SelectItem>
+                  <SelectItem value="UPCOMING">{t('marketplace.UPCOMING')} ({statusCounts.UPCOMING})</SelectItem>
+                  < SelectItem value="SOLD_OUT">{t('marketplace.soldOut')} ({statusCounts.SOLD_OUT})</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <
-
-                SelectTrigger className="w-36 bg-slate-800 border-slate-700 text-white">
+                <SelectTrigger className="w-36 bg-slate-800 border-slate-700 text-white">
                   <SlidersHorizontal className="w-4 h-4 mr-2" />
                   <SelectValue />
                 </SelectTrigger>
-                <
-
-                SelectContent className="bg-slate-800 border-slate-700">
-                  <
-
-                  SelectItem value="newest">{t('marketplace.newest')}</SelectItem>
-                  <
-
-                  SelectItem value="apy">{t('marketplace.highestApy')}</SelectItem>
-                  <
-
-                  SelectItem value="price_low">{t('marketplace.priceLowHigh')}</SelectItem>
-                  <
-
-                  SelectItem value="price_high">{t('marketplace.priceHighLow')}</SelectItem>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  < SelectItem value="newest">{t('marketplace.newest')}</SelectItem>
+                  < SelectItem value="apy">{t('marketplace.highestApy')}</SelectItem>
+              < SelectItem value="price_low">{t('marketplace.priceLowHigh')}</SelectItem>
+                  <SelectItem value="price_high">{t('marketplace.priceHighLow')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -126,9 +102,9 @@ export default function Marketplace() {
           <div className="flex flex-wrap gap-2 mt-4">
             {[
               { key: 'all', label: t('common.all') },
-              { key: 'active', label: t('marketplace.fundraising') },
-              { key: 'upcoming', label: t('marketplace.upcoming') },
-              { key: 'sold_out', label: t('marketplace.soldOut') },
+              { key: 'ACTIVE', label: t('marketplace.fundraising') },
+              { key: 'UPCOMING', label: t('marketplace.UPCOMING') },
+              { key: 'SOLD_OUT', label: t('marketplace.soldOut') },
             ].map((status) => (
               <Badge
                 key={status.key}

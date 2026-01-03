@@ -1,7 +1,7 @@
-// @ts-ignore
+// @ts-nocheck
 import React from 'react';
 import { Card } from "@/components/ui/card";
-// @ts-ignore
+
 import { TrendingUp, Building2, Coins, Users } from "lucide-react";
 import { useLanguage } from '@/components/common/LanguageContext';
 
@@ -19,7 +19,7 @@ export default function StatsOverview() {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
         <
-// @ts-ignore
+
         Card key={index} className="bg-slate-900/50 border-slate-800 p-5 hover:bg-slate-900/70 transition-all">
           <div className="flex items-start justify-between">
             <div>
@@ -27,14 +27,14 @@ export default function StatsOverview() {
               <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
               <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
                 <TrendingUp 
-// @ts-ignore
+
                 className="w-3 h-3" />
                 {stat.change}
               </p>
             </div>
             <div className={`p-2.5 rounded-xl bg-slate-800/50 ${stat.color}`}>
               <stat.icon 
-// @ts-ignore
+
               className="w-5 h-5" />
             </div>
           </div>

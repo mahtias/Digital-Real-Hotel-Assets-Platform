@@ -14,6 +14,7 @@ import HotelAssetCard from "@/components/dashboard/HotelAssetCard";
 import PortfolioSummary from "@/components/dashboard/PortfolioSummary";
 import { useLanguage } from '@/components/common/LanguageContext';
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 export default function Home() {
   const [user, setUser] = useState(null);
   const { t } = useLanguage();
@@ -22,10 +23,15 @@ export default function Home() {
     base44.auth.me().then(setUser).catch(() => setUser(null));
   }, []);
 
+
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
     
-    queryFn: () => base44.entities.HotelAsset.list('-created_date', 6),
+  queryFn: async () => {
+  const res = await fetch(`${API_URL}/api/v1/hotel`);
+  if (!res.ok) throw new Error("Failed to fetch hotels");
+  return res.json();
+}
   });
 
   const { data: investments = [] } = useQuery({
@@ -54,9 +60,7 @@ export default function Home() {
         
         <div className="relative max-w-7xl mx-auto px-4 pt-16 pb-24">
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <
-
-            Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-6">
+            < Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-6">
               {t('home.badge')}
             </Badge>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
@@ -71,17 +75,13 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to={createPageUrl('Marketplace')}>
-                <
-
-                Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
+                <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
                   {t('home.exploreBtn')} <ArrowRight 
 
                   className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <
-
-              Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              <Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
                 {t('home.learnMore')}
               </Button>
             </div>
@@ -122,9 +122,7 @@ export default function Home() {
                 {t('home.hotHotels')}
               </h2>
               <Link to={createPageUrl('Marketplace')}>
-                <
-
-                Button variant="ghost" className="text-amber-400 hover:text-amber-300">
+                < Button variant="ghost" className="text-amber-400 hover:text-amber-300">
                   {t('home.viewAll')} <ArrowRight 
 
                   className="w-4 h-4 ml-1" />
@@ -159,36 +157,26 @@ export default function Home() {
             />
 
             {/* Quick Actions */}
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
               <h3 className="text-white font-semibold mb-4">{t('home.quickActions')}</h3>
               <div className="space-y-3">
                 <Link to={createPageUrl('Booking')} className="block">
-                  <
-
-                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  < Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.bookRoom')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Governance')} className="block">
-                  <
-
-                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.joinDao')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('ESGRewards')} className="block">
-                  <
-
-                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  < Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.esgRewards')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Staking')} className="block">
-                  <
-
-                  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
                     {t('home.stakeDra')}
                   </Button>
                 </Link>

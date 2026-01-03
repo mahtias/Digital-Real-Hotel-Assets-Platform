@@ -34,7 +34,7 @@ window.fetch = function(url, options) {
   return originalFetch.call(this, url, options);
 };
 
-// ✅ INTERCEPT XMLHttpRequest
+//  INTERCEPT XMLHttpRequest
 const originalOpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function(method, url, ...args) {
   const urlString = typeof url === 'string' ? url : url.toString();
@@ -44,7 +44,7 @@ XMLHttpRequest.prototype.open = function(method, url, ...args) {
   );
   
   if (isBlocked) {
-    console.warn('🚫 Blocked XHR tracking request:', urlString);
+    console.warn(' Blocked XHR tracking request:', urlString);
     
     // Override send to do nothing
     this.send = function() {
@@ -53,7 +53,9 @@ XMLHttpRequest.prototype.open = function(method, url, ...args) {
       Object.defineProperty(this, 'responseText', { value: '{"success":true}' });
       Object.defineProperty(this, 'readyState', { value: 4 });
       
+      // @ts-ignore
       if (this.onload) this.onload();
+      // @ts-ignore
       if (this.onreadystatechange) this.onreadystatechange();
     };
     
@@ -65,6 +67,7 @@ XMLHttpRequest.prototype.open = function(method, url, ...args) {
 
 // ✅ BLOCK WEBSOCKETS
 const OriginalWebSocket = window.WebSocket;
+// @ts-ignore
 window.WebSocket = function(url, protocols) {
   const urlString = typeof url === 'string' ? url : url.toString();
   

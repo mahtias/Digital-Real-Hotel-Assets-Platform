@@ -1,49 +1,39 @@
-
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
-
 }
-
-generator client {
-  provider        = "prisma-client-js"
-  
-}
-
-//
-// =======================
-//        MODELS
-// =======================
-//
 
 model User {
-  id                String             @id @default(uuid())
-  email             String             @unique
-  password          String
-  firstName         String?            @map("first_name")
-  lastName          String?            @map("last_name")
-  phone             String?
-  role              UserRole           @default(USER)
-  isEmailVerified   Boolean            @default(false) @map("is_email_verified")
-  emailVerifiedAt   DateTime?          @map("email_verified_at")
-  kycStatus         KycStatus          @default(NOT_STARTED) @map("kyc_status")
-  kycSubmittedAt    DateTime?          @map("kyc_submitted_at")
-  kycApprovedAt     DateTime?          @map("kyc_approved_at")
-  walletAddress     String?            @unique @map("wallet_address")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  kycExpiresAt      DateTime?          @map("kyc_expires_at")
-  verificationLevel VerificationLevel? @map("verification_level")
-
-  // Relations
+  id                 String             @id @default(uuid())
+  email              String             @unique
+  password           String
+  firstName          String?            @map("first_name")
+  lastName           String?            @map("last_name")
+  phone              String?
+  role               UserRole           @default(USER)
+  isEmailVerified    Boolean            @default(false) @map("is_email_verified")
+  emailVerifiedAt    DateTime?          @map("email_verified_at")
+  kycStatus          KycStatus          @default(NOT_STARTED) @map("kyc_status")
+  kycSubmittedAt     DateTime?          @map("kyc_submitted_at")
+  kycApprovedAt      DateTime?          @map("kyc_approved_at")
+  walletAddress      String?            @unique @map("wallet_address")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  kycExpiresAt       DateTime?          @map("kyc_expires_at")
+  verificationLevel  VerificationLevel? @map("verification_level")
   bookings           Booking[]
-  createdHotelAssets HotelAsset[] @relation("CreatedAssets")
+  createdHotelAssets HotelAsset[]       @relation("CreatedAssets")
   investments        Investment[]
-  reviewedKyc        Kyc[]        @relation("ReviewedBy")
+  reviewedKyc        Kyc[]              @relation("ReviewedBy")
   kyc                Kyc?
-  createdProposals   Proposal[]   @relation("CreatedProposals")
-  proposedProposals  Proposal[]   @relation("ProposerProposals")
+  createdProposals   Proposal[]         @relation("CreatedProposals")
+  proposedProposals  Proposal[]         @relation("ProposerProposals")
   votes              Vote[]
+  stakings           Staking[]          @relation("UserStakings")
+  createdStakings    Staking[]          @relation("CreatedStaking")
 
   @@index([email])
   @@index([walletAddress])
@@ -52,81 +42,103 @@ model User {
 }
 
 model Kyc {
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  fullName       String   @map("full_name")
-  dateOfBirth    DateTime @map("date_of_birth")
-  nationality    String
-  address        String
-
-  documentType   String   @map("document_type")
-  documentNumber String   @map("document_number")
-
-  // NEW FILE FIELDS
-  documentFront     String?   @map("document_front")
-  documentBack      String?   @map("document_back")
-  selfieImage       String?   @map("selfie_image")
-  addressProof      String?   @map("address_proof")
-
-  status          KycStatus  @default(PENDING)
-  city       String
-  state      String
-  postalCode String @map("postal_code")
-  country    String
-
-  documentHash   String?
-  expiresAt      DateTime?
-  approvedAt     DateTime?
-  blockchainTx   String?
+  id                 String    @id @default(uuid())
+  userId             String    @unique @map("user_id")
+  fullName           String    @map("full_name")
+  dateOfBirth        DateTime  @map("date_of_birth")
+  nationality        String
+  city               String
+  state              String
+  postalCode         String    @map("postal_code")
+  country            String
+  rejectionReason    String?   @map("rejection_reason")
+  submittedAt        DateTime  @default(now()) @map("submitted_at")
+  reviewedAt         DateTime? @map("reviewed_at")
+  reviewedBy         String?   @map("reviewed_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  address            String
+  documentNumber     String    @map("document_number")
+  documentType       String    @map("document_type")
+  status             KycStatus @default(PENDING)
+  approvedAt         DateTime?
+  blockchainTx       String?
   blockchainVerifier String?
-  rejectionReason String?   @map("rejection_reason")
-  submittedAt     DateTime  @default(now()) @map("submitted_at")
-  reviewedAt      DateTime? @map("reviewed_at")
-  reviewedBy      String?   @map("reviewed_by")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviewer User? @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+  documentHash       String?
+  expiresAt          DateTime?
+  addressProof       String?   @map("address_proof")
+  documentBack       String?   @map("document_back")
+  documentFront      String?   @map("document_front")
+  selfieImage        String?   @map("selfie_image")
+  reviewer           User?     @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([reviewedBy])
   @@map("kyc")
 }
 
 model HotelAsset {
-  id          String      @id @default(uuid())
-  name        String
-  description String?
-  status      AssetStatus @default(UPCOMING)
-  location    String
-  createdById String      @map("created_by_id")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id            String      @id @default(uuid())
+  name          String
+  location      String
+  country       String?
+  imageUrl      String?     @map("image_url")
+  totalValue    Int?        @map("total_value")
+  tokenSymbol   String?     @map("token_symbol")
+  totalTokens   Int?        @map("total_tokens")
+  tokensSold    Int?        @map("tokens_sold")
+  tokenPrice    Int?        @map("token_price")
+  apy           Float?
+  occupancyRate Float?      @map("occupancy_rate")
+  revpar        Int?
+  esgScore      Int?        @map("esg_score")
+  roomCount     Int?        @map("room_count")
+  starRating    Int?        @map("star_rating")
+  status        AssetStatus @default(UPCOMING)
+  leaseEndDate  DateTime?   @map("lease_end_date")
+  description   String?
 
-  // Relations
-  createdBy   User         @relation("CreatedAssets", fields: [createdById], references: [id])
-  bookings    Booking[]
-  investments Investment[]
-  proposals   Proposal[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([status])
+  createdById String   @map("created_by_id")
+  createdBy   String?  @map("created_by")
+  isSample    Boolean? @map("is_sample")
+
+  // REQUIRED relations (these fix your migration errors)
+  createdByUser User         @relation("CreatedAssets", fields: [createdById], references: [id])
+  bookings      Booking[]
+  investments   Investment[]
+  proposals     Proposal[]
+
   @@map("hotel_assets")
 }
 
 model Investment {
-  id              String           @id @default(uuid())
-  userId          String           @map("user_id")
-  hotelAssetId    String           @map("hotel_asset_id")
-  amount          Decimal          @map("amount") @db.Decimal(10, 2)
-  transactionHash String?          @map("transaction_hash")
-  status          InvestmentStatus @default(PENDING)
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  id              String  @id @default(uuid())
+  userId          String  @map("user_id")
+  hotelAssetId    String  @map("hotel_asset_id")
+  transactionHash String? @map("transaction_hash")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  status InvestmentStatus @default(PENDING)
+
+  amount      Decimal? @map("amount") @db.Decimal(10, 2)
+  createdBy   String?  @map("created_by")
+  createdById String?  @map("created_by_id")
+
+  earnedRewards  Decimal @map("earned_rewards") @db.Decimal(10, 2)
+  investedAmount Decimal @map("invested_amount") @db.Decimal(10, 2)
+  isSample       Boolean @default(false) @map("is_sample")
+  pendingRewards Decimal @map("pending_rewards") @db.Decimal(10, 2)
+  stakedAmount   Decimal @map("staked_amount") @db.Decimal(10, 2)
+  tokenAmount    Int     @map("token_amount")
 
   // Relations
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   hotelAsset HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([hotelAssetId])
@@ -148,10 +160,8 @@ model Booking {
   specialRequests String?       @map("special_requests")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
-
-  // Relations
-  hotelAsset HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([hotelAssetId])
@@ -178,12 +188,10 @@ model Proposal {
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
   createdById       String         @map("created_by_id")
-
-  // Relations
-  createdBy  User        @relation("CreatedProposals", fields: [createdById], references: [id])
-  hotelAsset HotelAsset? @relation(fields: [hotelAssetId], references: [id])
-  proposer   User        @relation("ProposerProposals", fields: [proposerId], references: [id])
-  votes      Vote[]
+  createdBy         User           @relation("CreatedProposals", fields: [createdById], references: [id])
+  hotelAsset        HotelAsset?    @relation(fields: [hotelAssetId], references: [id])
+  proposer          User           @relation("ProposerProposals", fields: [proposerId], references: [id])
+  votes             Vote[]
 
   @@index([proposerId])
   @@index([hotelAssetId])
@@ -199,9 +207,8 @@ model Vote {
   votingPower Int        @map("voting_power")
   comment     String?
   createdAt   DateTime   @default(now()) @map("created_at")
-
-  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proposal    Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([proposalId, userId])
   @@index([proposalId])
@@ -209,11 +216,36 @@ model Vote {
   @@map("votes")
 }
 
-//
-// =======================
-//         ENUMS
-// =======================
-//
+model Staking {
+  id                    String        @id @default(uuid())
+  userId                String        @map("user_id")
+  user                  User          @relation("UserStakings", fields: [userId], references: [id])
+  stakedAmount          Float         @map("staked_amount")
+  lockPeriodDays        Int           @map("lock_period_days")
+  stakeStartDate        DateTime      @map("stake_start_date")
+  stakeEndDate          DateTime      @map("stake_end_date")
+  apyRate               Float         @map("apy_rate")
+  earnedRewards         Float         @default(0) @map("earned_rewards")
+  claimedRewards        Float         @default(0) @map("claimed_rewards")
+  votingPowerMultiplier Float         @default(1) @map("voting_power_multiplier")
+  status                StakingStatus @default(ACTIVE)
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  createdById           String        @map("created_by_id")
+  createdBy             User          @relation("CreatedStaking", fields: [createdById], references: [id])
+  isSample              Boolean       @default(false) @map("is_sample")
+
+  @@index([userId])
+  @@index([status])
+  @@map("staking")
+}
+
+enum StakingStatus {
+  ACTIVE
+  UNSTAKED
+  REWARDED
+  CLOSED
+}
 
 enum UserRole {
   USER
@@ -286,6 +318,7 @@ enum VoteChoice {
 enum InvestmentStatus {
   PENDING
   CONFIRMED
+  ACTIVE
   FAILED
   CANCELLED
 }

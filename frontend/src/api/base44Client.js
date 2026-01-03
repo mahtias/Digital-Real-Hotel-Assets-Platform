@@ -366,7 +366,7 @@ export const base44 = {
   appLogs: {
     logUserInApp: async (pageName) => {
       // DO NOTHING - This is the tracking we want to disable!
-      console.log('🚫 Blocked tracking:', pageName);
+      console.log(' Blocked tracking:', pageName);
       return Promise.resolve({ success: true });
     },
   },
@@ -376,6 +376,10 @@ export const base44 = {
   logger: null,
   socket: null,
   realtime: null,
+
+
+  
 };
 
 console.log(' Custom API client initialized (base44 SDK bypassed)');
+

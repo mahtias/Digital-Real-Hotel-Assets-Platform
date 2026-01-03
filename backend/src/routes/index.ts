@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './authRoutes';
 import kycRoutes from './kycRoutes';
 import userRoutes from './userRoutes';
+import hotelRoutes from './hotelRoutes';
 // import investmentRoutes from './investmentRoutes';
 // import portfolioRoutes from './portfolioRoutes';
 // import paymentRoutes from './paymentRoutes';
@@ -22,6 +23,7 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/kyc', kycRoutes);
 router.use('/user', userRoutes);
+router.use('/hotel', hotelRoutes);
 // router.use('/investments', investmentRoutes);
 // router.use('/portfolios', portfolioRoutes);
 // router.use('/payments', paymentRoutes);

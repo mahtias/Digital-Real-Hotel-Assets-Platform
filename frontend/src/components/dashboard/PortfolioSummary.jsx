@@ -1,9 +1,8 @@
-// @ts-ignore
-// @ts-ignore
+// @ts-nocheck
 import React from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-// @ts-ignore
+
 import { Wallet, TrendingUp, Gift, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -14,21 +13,21 @@ export default function PortfolioSummary({ investments, totalValue, totalRewards
 
   return (
     <
-// @ts-ignore
+
     Card className="bg-gradient-to-br from-amber-500/10 via-slate-900/50 to-slate-900/50 border-amber-500/20 p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
           <Wallet 
-// @ts-ignore
+
           className="w-5 h-5 text-amber-400" />
           {t('common.myPortfolio')}
         </h3>
         <Link to={createPageUrl('Portfolio')}>
           <
-// @ts-ignore
+
           Button variant="ghost" size="sm" className="text-amber-400 hover:text-amber-300">
             {t('home.viewAll')} <ArrowRight 
-// @ts-ignore
+
             className="w-4 h-4 ml-1" />
           </Button>
         </Link>
@@ -43,7 +42,7 @@ export default function PortfolioSummary({ investments, totalValue, totalRewards
           <p className="text-slate-400 text-xs mb-1">{t('portfolio.totalEarned')}</p>
           <p className="text-2xl font-bold text-emerald-400 flex items-center justify-center gap-1">
             <TrendingUp 
-// @ts-ignore
+
             className="w-5 h-5" />
             ${totalRewards?.toLocaleString() || '0'}
           </p>
@@ -52,7 +51,7 @@ export default function PortfolioSummary({ investments, totalValue, totalRewards
           <p className="text-slate-400 text-xs mb-1">{t('portfolio.pendingRewards')}</p>
           <p className="text-2xl font-bold text-amber-400 flex items-center justify-center gap-1">
             <Gift 
-// @ts-ignore
+
             className="w-5 h-5" />
             ${investments?.reduce((acc, inv) => acc + (inv.pending_rewards || 0), 0).toFixed(2) || '0'}
           </p>
@@ -79,7 +78,7 @@ export default function PortfolioSummary({ investments, totalValue, totalRewards
           <p className="text-slate-400 mb-4">{t('portfolio.noInvestments')}</p>
           <Link to={createPageUrl('Marketplace')}>
             <
-// @ts-ignore
+
             Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
               {t('portfolio.browseAssets')}
             </Button>

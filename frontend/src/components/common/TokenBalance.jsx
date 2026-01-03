@@ -1,7 +1,7 @@
-// @ts-ignore
+// @ts-nocheck
 import React from 'react';
 import { Card } from "@/components/ui/card";
-// @ts-ignore
+
 import { Coins, Vote, Gift } from "lucide-react";
 import { useLanguage } from './LanguageContext';
 
@@ -10,7 +10,7 @@ export default function TokenBalance({ draBalance = 0, votingPower = 0, pendingR
 
   return (
     <
-// @ts-ignore
+
     Card className="bg-slate-900/50 border-slate-800 p-4">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
@@ -27,7 +27,7 @@ export default function TokenBalance({ draBalance = 0, votingPower = 0, pendingR
         
         <div className="flex items-center gap-2">
           <Vote 
-// @ts-ignore
+
           className="w-4 h-4 text-violet-400" />
           <div>
             <p className="text-slate-400 text-xs">{t('common.votingPower')}</p>
@@ -39,7 +39,7 @@ export default function TokenBalance({ draBalance = 0, votingPower = 0, pendingR
         
         <div className="flex items-center gap-2">
           <Gift 
-// @ts-ignore
+
           className="w-4 h-4 text-emerald-400" />
           <div>
             <p className="text-slate-400 text-xs">{t('common.pendingRewards')}</p>
