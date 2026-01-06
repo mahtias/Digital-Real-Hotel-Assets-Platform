@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { X, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import './AuthModal.css';
-
+import {resendVerificationEmail} from '../services/authService';
 const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState("");
+  //const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { login, register } = useAuth();
@@ -134,34 +136,54 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
   };
 
   const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateRegister()) return;
+  e.preventDefault();
 
-    setLoading(true);
-    setErrors({});
+  if (!validateRegister()) return;
 
-    try {
-      const result = await register({
-        firstName: registerData.firstName,
-        lastName: registerData.lastName,
-        email: registerData.email,
-        password: registerData.password,
-      });
+  setLoading(true);
+  setErrors({});
 
-      if (result.success) {
-        resetForms();
-        onClose();
-      } else {
-        setErrors({ submit: result.message || 'Registration failed. Please try again.' });
-      }
-    } catch (error) {
-      setErrors({ submit: 'An error occurred. Please try again.' });
-    } finally {
-      setLoading(false);
+  try {
+    const result = await register({
+      firstName: registerData.firstName,
+      lastName: registerData.lastName,
+      email: registerData.email,
+      password: registerData.password,
+    });
+   console.log("REGISTER RESPONSE:", result);
+  if (result.success) {
+  console.log("SUCCESS BLOCK START");
+
+  setSuccessMessage("Registration successful — verification required");
+  console.log("setSuccessMessage:", setSuccessMessage);
+
+  setActiveTab("verify");   //  THE IMPORTANT FIX
+  console.log("setActiveTab:", setActiveTab);
+
+  resetForms();
+  console.log("resetForms:", resetForms);
+
+  console.log("SUCCESS BLOCK END");
+  return;
+} else {
+      setErrors({ submit: result.message || 'Registration failed. Please try again.' });
     }
-  };
+  } catch (error) {
+    setErrors({ submit: 'An error occurred. Please try again.' });
+  } finally {
+    setLoading(false);
+  }
+}
 
+const handleResendEmail = async () => {
+  try {
+    const res = await resendVerificationEmail(registerData.email);
+    setSuccessMessage("A new verification email has been sent.");
+  } catch (err) {
+    console.error("Resend email failed:", err);
+    setErrors({ resend: "Failed to resend verification email." });
+  }
+};
   return (
     <div className="auth-modal-overlay" onClick={handleOverlayClick}>
       <div className="auth-modal">
@@ -218,6 +240,34 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
           </div>
         )}
 
+    {/*  ADD THIS NEW BLOCK BELOW THE TWO FORMS  */}
+{activeTab === 'verify' && (
+  <div className="auth-verify-container">
+    <h2 className="auth-verify-title">Check your email</h2>
+
+    <p className="auth-verify-description">
+      We’ve sent you a verification link. Please verify your email before logging in.
+    </p>
+
+    {successMessage && (
+      <div className="auth-alert auth-alert-success">
+        {successMessage}
+      </div>
+    )}
+
+    <button type="button" onClick={handleResendEmail} className="auth-link">
+      Resend verification email
+    </button>
+
+    <button
+      type="button"
+      className="auth-btn auth-btn-primary mt-4"
+      onClick={() => setActiveTab('login')}
+    >
+      Back to Login
+    </button>
+  </div>
+)}
         {activeTab === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="auth-form">
             <div className="auth-form-group">
@@ -530,6 +580,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
             </p>
           </form>
         )}
+    
       </div>
     </div>
   );

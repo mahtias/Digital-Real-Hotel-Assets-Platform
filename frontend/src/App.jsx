@@ -12,6 +12,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
+import  Login from  '@/pages/auth/Login';
 import KYCForm from '@/components/KYC/KYCForm';
 import KYCStatus from '@/components/KYC/KYCStatus';
 import AdminKYCReview from '@/components/Admin/KYCReview';
@@ -19,6 +20,11 @@ import KYCReviewDetails from '@/components/Admin/KYCReviewDetails';
 import AdminDashboard from "@/components/Admin/AdminDashboard";
 import AdminKYCStatusList from '@/components/Admin/AdminKYCStatusList';
 import AdminKYCStatusDetail from '@/components/Admin/AdminKYCStatusDetail';
+import ForgotPassword from '@/pages/auth/ForgotPassword';
+import ResetPassword from '@/pages/auth/ResetPassword';
+import VerifyEmailSent from '@/pages/auth/VerifyEmailSent';
+import VerifyEmail from '@/pages/auth/VerifyEmail';
+
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
@@ -56,7 +62,7 @@ function App() {
                       <MainPage />
                     </LayoutWrapper>
                   }  />
-
+               <Route path="/login" element={<Login />} />
             <Route path="/kyc/submit" element={<KYCForm />} />
           <Route path="/kyc/status" element={<KYCStatus />} />
           <Route path="/admin/kyc" element={<AdminKYCReview />} />
@@ -65,6 +71,10 @@ function App() {
            {/* <Route path="/admin/kyc/user/:userId" element={<KYCReviewDetails />} /> */}
            <Route path="/admin/kyc/status" element={<AdminKYCStatusList />} />
            <Route path="/admin/kyc/status/:kycId" element={<AdminKYCStatusDetail />} />
+           <Route path="/forgot-password" element={<ForgotPassword />} />
+           <Route path="/reset-password" element={<ResetPassword />} />
+           <Route path="/verify-email-sent" element={<VerifyEmailSent />} />
+           <Route path="/verify-email" element={<VerifyEmail />} />
            
                 {/* Dynamic Pages from config */}
                 {Object.entries(Pages).map(([path, Page]) => {

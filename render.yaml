@@ -32,7 +32,7 @@ services:
         value: 7d
 
       - key: FRONTEND_URL
-        value: https://app.digirealassets.io
+        value: https://digirealassets.io
 
 databases:
   - name: digirealassets-db

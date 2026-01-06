@@ -23,16 +23,7 @@ export const AuthProvider = ({ children }) => {
       if (storedToken) setToken(storedToken);
 
       if (storedToken && savedUser) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-          console.log('User restored from localStorage:', parsedUser);
-        } catch (err) {
-          console.error('Failed to parse user:', err);
-          localStorage.removeItem('user');
-          localStorage.removeItem('authToken');
-        }
+         console.log("Stored token found but NOT authenticating yet.");
       }
 
       if (storedToken) {
@@ -105,35 +96,31 @@ export const AuthProvider = ({ children }) => {
 
   // REGISTER
   const register = async ({ firstName, lastName, email, password }) => {
-    try {
-      console.log('Attempting registration for:', email);
+  try {
+    console.log('Attempting registration for:', email);
 
-      const response = await fetch(`${API}/api/v1/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, lastName, email, password }),
-      });
+    const response = await fetch(`${API}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, email, password }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok && data.success !== false) {
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        setToken(data.token);
-        setUser(data.user);
-        setIsAuthenticated(true);
-
-        console.log('Registration successful!');
-        return { success: true };
-      } else {
-        return { success: false, message: data.message || 'Registration failed' };
-      }
-    } catch (err) {
-      console.error('Registration error:', err);
-      return { success: false, message: 'Network error. Please try again.' };
+    // Registration should NOT login the user
+    if (response.ok && data.success !== false) {
+    
+      console.log('Registration successful — verification required');
+      return { success: true };
+    } else {
+      return { success: false, message: data.message || 'Registration failed' };
     }
-  };
+  } catch (err) {
+    console.error('Registration error:', err);
+    return { success: false, message: 'Network error. Please try again.' };
+  }
+};
+
 
   const logout = () => {
     console.log('Logging out...');

@@ -20,6 +20,7 @@ import WalletConnect from '@/components/common/WalletConnect';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/context/AuthContext';
 
+//const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 function LayoutContent({ children }) {
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -29,8 +30,14 @@ function LayoutContent({ children }) {
   const { language, toggleLanguage, t } = useLanguage();
 
   useEffect(() => {
+    const mode = localStorage.getItem("openAuthModal");
+  if (mode) {
+    setAuthModalTab(mode);
+    setAuthModalOpen(true);
+    localStorage.removeItem("openAuthModal");
+  }
     console.log("Testing API connection...");
-    fetch("http://localhost:5000/api/v1/health")
+    fetch("http://localhost:5000/api/v1/health") 
       .then((res) => res.json())
       .then((data) => console.log("Frontend → Backend OK:", data))
       .catch((err) => console.error("Frontend → Backend ERROR:", err));
@@ -330,6 +337,10 @@ function LayoutContent({ children }) {
             
             {/* Footer Info - Stack on mobile */}
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 text-xs sm:text-sm text-slate-500 text-center">
+             
+             <a href="mailto:dean@digirealassets.io" className="text-slate-400">
+              dean@digirealassets.io
+             </a>
               <span>{t('footer.baseChain')}</span>
               <span className="hidden sm:inline">•</span>
               <span>{t('footer.sfcCompliant')}</span>

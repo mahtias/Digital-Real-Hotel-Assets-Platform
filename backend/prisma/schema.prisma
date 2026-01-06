@@ -7,39 +7,54 @@ datasource db {
 }
 
 model User {
-  id                 String             @id @default(uuid())
-  email              String             @unique
-  password           String
-  firstName          String?            @map("first_name")
-  lastName           String?            @map("last_name")
-  phone              String?
-  role               UserRole           @default(USER)
-  isEmailVerified    Boolean            @default(false) @map("is_email_verified")
-  emailVerifiedAt    DateTime?          @map("email_verified_at")
-  kycStatus          KycStatus          @default(NOT_STARTED) @map("kyc_status")
-  kycSubmittedAt     DateTime?          @map("kyc_submitted_at")
-  kycApprovedAt      DateTime?          @map("kyc_approved_at")
-  walletAddress      String?            @unique @map("wallet_address")
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @updatedAt @map("updated_at")
-  kycExpiresAt       DateTime?          @map("kyc_expires_at")
-  verificationLevel  VerificationLevel? @map("verification_level")
-  bookings           Booking[]
-  createdHotelAssets HotelAsset[]       @relation("CreatedAssets")
-  investments        Investment[]
-  reviewedKyc        Kyc[]              @relation("ReviewedBy")
-  kyc                Kyc?
-  createdProposals   Proposal[]         @relation("CreatedProposals")
-  proposedProposals  Proposal[]         @relation("ProposerProposals")
-  votes              Vote[]
-  stakings           Staking[]          @relation("UserStakings")
-  createdStakings    Staking[]          @relation("CreatedStaking")
+  id                   String             @id @default(uuid())
+  email                String             @unique
+  password             String
+
+  firstName            String?            @map("first_name")
+  lastName             String?            @map("last_name")
+  phone                String?
+  role                 UserRole           @default(USER)
+
+  // Email verification fields
+  isEmailVerified      Boolean            @default(false) @map("is_email_verified")
+  emailVerifiedAt      DateTime?          @map("email_verified_at")
+  verificationToken    String?            @unique
+  verificationExpires  DateTime?
+  resetPasswordToken    String? 
+  resetPasswordExpires  DateTime?
+  // KYC
+  kycStatus            KycStatus          @default(NOT_STARTED) @map("kyc_status")
+  kycSubmittedAt       DateTime?          @map("kyc_submitted_at")
+  kycApprovedAt        DateTime?          @map("kyc_approved_at")
+  kycExpiresAt         DateTime?          @map("kyc_expires_at")
+  verificationLevel    VerificationLevel? @map("verification_level")
+
+  // Wallet
+  walletAddress        String?            @unique @map("wallet_address")
+
+  // System timestamps
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  bookings             Booking[]
+  createdHotelAssets   HotelAsset[]       @relation("CreatedAssets")
+  investments          Investment[]
+  reviewedKyc          Kyc[]              @relation("ReviewedBy")
+  kyc                  Kyc?
+  createdProposals     Proposal[]         @relation("CreatedProposals")
+  proposedProposals    Proposal[]         @relation("ProposerProposals")
+  votes                Vote[]
+  stakings             Staking[]          @relation("UserStakings")
+  createdStakings      Staking[]          @relation("CreatedStaking")
 
   @@index([email])
   @@index([walletAddress])
   @@index([kycStatus])
   @@map("users")
 }
+
 
 model Kyc {
   id                 String    @id @default(uuid())

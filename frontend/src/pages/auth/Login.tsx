@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/authService';
 
-const Login = ({ onClose }) => {
+const Login = ({ onClose = () => {} }) => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
@@ -116,8 +116,9 @@ const Login = ({ onClose }) => {
             />
             <span className="ml-2 text-sm text-gray-600">Remember me</span>
           </label>
-          <button
+         <button
             type="button"
+            onClick={() => navigate('/forgot-password')}
             className="text-sm text-orange-500 hover:text-orange-600"
           >
             Forgot password?

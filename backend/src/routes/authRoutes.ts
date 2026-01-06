@@ -3,6 +3,8 @@ import {
   register,
   login,
   getProfile,
+  verifyEmail,
+  resendVerificationEmail, forgotPassword, resetPassword
 } from '../controllers/authController';
 
 import { authenticate } from '../middleware/auth';
@@ -11,13 +13,10 @@ import { body } from 'express-validator';
 
 const router = Router();
 
-
 // Validation rules
 const registerValidation = [
   body('email').isEmail().normalizeEmail(),
-  body('password')
-    .isLength({ min: 8 }),
-    //.matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/),
+  body('password').isLength({ min: 8 }),
   body('firstName').trim().notEmpty(),
   body('lastName').trim().notEmpty()
 ];
@@ -31,7 +30,13 @@ const loginValidation = [
 router.post('/register', registerValidation, validateRequest, register);
 router.post('/login', loginValidation, validateRequest, login);
 
-// NEW: Current user route
+router.get('/verify-email', verifyEmail);
+
+router.post('/resend-verification', resendVerificationEmail);
+
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+// Private route
 router.get('/me', authenticate, getProfile);
 
 export default router;
