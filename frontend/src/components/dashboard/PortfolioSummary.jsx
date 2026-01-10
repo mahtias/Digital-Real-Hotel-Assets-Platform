@@ -23,9 +23,7 @@ export default function PortfolioSummary({ investments, totalValue, totalRewards
           {t('common.myPortfolio')}
         </h3>
         <Link to={createPageUrl('Portfolio')}>
-          <
-
-          Button variant="ghost" size="sm" className="text-amber-400 hover:text-amber-300">
+          < Button variant="ghost" size="sm" className="text-amber-400 hover:text-amber-300">
             {t('home.viewAll')} <ArrowRight 
 
             className="w-4 h-4 ml-1" />

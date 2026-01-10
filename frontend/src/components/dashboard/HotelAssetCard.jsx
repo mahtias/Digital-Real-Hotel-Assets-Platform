@@ -103,13 +103,16 @@ export default function HotelAssetCard({ hotel }) {
         </div>
 
         {/* PROGRESS */}
-        <div className="space-y-2">
+       <div className="space-y-2">
           <div className="flex justify-between text-xs">
             <span className="text-slate-400">{t('hotelCard.progress')}</span>
             <span className="text-white">{soldPercentage.toFixed(1)}%</span>
           </div>
 
-          <Progress value={soldPercentage} className="h-1.5 bg-slate-800" />
+          <Progress 
+            value={soldPercentage}
+            className="h-1.5 bg-slate-800 [&>div]:bg-white"
+          />
 
           <p className="text-xs text-slate-500">
             {hotel.tokensSold?.toLocaleString()} / {hotel.totalTokens?.toLocaleString()} {t('hotelCard.tokens')}

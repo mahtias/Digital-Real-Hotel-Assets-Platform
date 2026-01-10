@@ -76,13 +76,16 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to={createPageUrl('Marketplace')}>
                 <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
-                  {t('home.exploreBtn')} <ArrowRight 
-
-                  className="ml-2 w-5 h-5" />
+                  {t('home.exploreBtn')} <ArrowRight  className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
               <Button size="lg" variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                {t('home.learnMore')}
+                
+           <a href=" http://xhslink.com/o/9RiPnlyZbnP " target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white">
+            {t('home.learnMore')}
+           </a>
               </Button>
             </div>
           </div>
@@ -161,22 +164,22 @@ export default function Home() {
               <h3 className="text-white font-semibold mb-4">{t('home.quickActions')}</h3>
               <div className="space-y-3">
                 <Link to={createPageUrl('Booking')} className="block">
-                  < Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  < Button variant="outline" className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
                     {t('home.bookRoom')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Governance')} className="block">
-                  <  Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <  Button variant="outline" className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
                     {t('home.joinDao')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('ESGRewards')} className="block">
-                  < Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  < Button variant="outline" className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
                     {t('home.esgRewards')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Staking')} className="block">
-                  <Button variant="outline" className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-amber-500/30">
+                  <Button variant="outline" className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
                     {t('home.stakeDra')}
                   </Button>
                 </Link>

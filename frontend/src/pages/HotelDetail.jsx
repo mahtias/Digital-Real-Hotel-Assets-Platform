@@ -253,15 +253,20 @@ const { data: hotel, isLoading } = useQuery({
               </div>
 
               <div className="space-y-2 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">{t('hotelDetail.progress')}</span>
-                  <span className="text-white">{soldPercentage.toFixed(1)}%</span>
-                </div>
-                <Progress value={soldPercentage} className="h-2 bg-slate-800" />
-                <p className="text-xs text-slate-500">
-                  {tokensAvailable.toLocaleString()} {t('hotelDetail.remaining')}
-                </p>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">{t('hotelDetail.progress')}</span>
+                <span className="text-white">{soldPercentage.toFixed(1)}%</span>
               </div>
+
+              <Progress
+                value={soldPercentage}
+                className="h-2 bg-slate-800 [&>div]:bg-white"
+              />
+
+              <p className="text-xs text-slate-500">
+                {tokensAvailable.toLocaleString()} {t('hotelDetail.remaining')}
+              </p>
+            </div>
 
               {/* INVEST DIALOG */}
               <Dialog open={showInvestDialog} onOpenChange={setShowInvestDialog}>
@@ -369,7 +374,7 @@ const { data: hotel, isLoading } = useQuery({
 
               {/* BOOKING BUTTON */}
               <Link to={createPageUrl(`Booking?hotel_id=${hotel.id}`)}>
-                <Button variant="outline" className="w-full mt-3 border-slate-700 text-slate-300 hover:bg-slate-800">
+                <Button variant="outline" className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold">
                   {t('hotelDetail.bookStay')}
                 </Button>
               </Link>

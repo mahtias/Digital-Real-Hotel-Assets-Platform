@@ -111,7 +111,7 @@ function LayoutContent({ children }) {
             <div className="flex items-center gap-1 sm:gap-2">
               
               {/* Wallet Connect - Hide text on small screens */}
-              <div className="hidden sm:block">
+              <div className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
                 <WalletConnect />
               </div>
 
@@ -179,7 +179,7 @@ function LayoutContent({ children }) {
                       <Button 
                         variant="ghost"
                         size="sm"
-                        className="text-slate-300 hover:text-white hover:bg-slate-800 text-sm"
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold text-sm"
                         onClick={openLoginModal}
                       >
                         {t('nav.login')}
@@ -189,7 +189,7 @@ function LayoutContent({ children }) {
                         className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold text-sm"
                         onClick={openRegisterModal}
                       >
-                        Register
+                       {t('nav.register')} 
                       </Button>
                     </div>
                   )}
@@ -289,7 +289,7 @@ function LayoutContent({ children }) {
                             <div className="space-y-2">
                               <Button
                                 variant="ghost"
-                                className="w-full justify-center text-slate-300 hover:text-white hover:bg-slate-800"
+                                className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
                                 onClick={openLoginModal}
                               >
                                 {t('nav.login')}
@@ -298,7 +298,7 @@ function LayoutContent({ children }) {
                                 className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
                                 onClick={openRegisterModal}
                               >
-                                Register
+                                {t('nav.register')}
                               </Button>
                             </div>
                           )}
@@ -337,15 +337,30 @@ function LayoutContent({ children }) {
             
             {/* Footer Info - Stack on mobile */}
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 text-xs sm:text-sm text-slate-500 text-center">
-             
+             <p>Contact Us :</p>
              <a href="mailto:dean@digirealassets.io" className="text-slate-400">
               dean@digirealassets.io
              </a>
-              <span>{t('footer.baseChain')}</span>
-              <span className="hidden sm:inline">•</span>
-              <span>{t('footer.sfcCompliant')}</span>
-              <span className="hidden sm:inline">•</span>
-              <span>{t('footer.x402Protocol')}</span>
+             <a href="https://www.base.org/" target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white">
+            {t('footer.baseChain')}
+           </a>
+           <span className="hidden sm:inline">•</span>
+
+            <a href="https://www.sfc.hk/en/" target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white">
+            {t('footer.sfcCompliant')}
+           </a>
+           <span className="hidden sm:inline">•</span>
+            
+             <a href="https://www.coinbase.com/en-sg/developer-platform/discover/launches/x402?utm_source=chatgpt.com" target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white">
+            {t('footer.x402Protocol')}
+           </a>
+           <span className="hidden sm:inline">•</span>
             </div>
           </div>
         </div>

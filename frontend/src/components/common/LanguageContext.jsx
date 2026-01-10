@@ -12,9 +12,44 @@ const translations = {
       esgRewards: 'ESG Rewards',
       staking: 'DRA Staking',
       login: 'Login',
+      register: 'Register',
       logout: 'Logout',
-      user: 'User',
+     // user: 'User',
     },
+
+    // Register and login
+   authRegister: {
+    createAccount: "Create Account",
+    joinInvestment: "Join us to start your investment journey",
+    register: "Register",
+    firstName: "First Name",
+    lastName: "Last Name",
+    firstNamePlaceholder:'john',
+    lastNamePlaceholder:'Doe',
+    email: "Email Address",
+    password: "Password",
+    confirmPassword: "Confirm Password",
+    passwordPlaceholder: "At least 8 characters",
+    confirmPasswordPlaceholder: "Re-enter your password",
+    agreeTerms: "I agree to the",
+    termsConditions: "Terms & Conditions",
+    haveAlradyCount:'Already have an account',
+    loginHere:'login here',
+    createBtn: "Create Account"
+  },
+  authLogin: {
+      welcomeBack: "Welcome Back",
+      loginToAccess: "Login to access your investment portfolio",
+      email: "Email Address",
+      password: "Password",
+      passwordPlaceholder: "Enter your password",
+      rememberMe: "Remember me",
+      forgotPassword: "Forgot password?",
+      loginBtn: "Login",
+      dontHaveAccount: "Don't have an account?",
+      registerNow: "Register now"
+    },
+
     // Home Page
     home: {
       badge: "Hong Kong's First Hotel RWA Tokenization Platform",
@@ -302,6 +337,9 @@ const translations = {
       all: 'All',
       login: 'Login',
     },
+    // register and login
+
+    
     // Footer
     footer: {
       copyright: '© 2025 DIGIREAL ASSETS. Hong Kong Regulated.',
@@ -321,8 +359,42 @@ const translations = {
       esgRewards: 'ESG奖励',
       staking: 'DRA质押',
       login: '登录',
+      register:'注册',
       logout: '退出登录',
-      user: '用户',
+      //user: '用户',
+    },
+     authRegister: {
+      createAccount: "创建账户",
+      joinInvestment: "加入我们开始您的投资之旅",
+      register: "注册",
+      firstName: "名",
+      lastName: "姓",
+    firstNamePlaceholder:'名',
+    lastNamePlaceholder:'姓',
+      email: "电子邮件地址",
+      password: "密码",
+      confirmPassword: "确认密码",
+      passwordPlaceholder: "至少 8 个字符",
+      confirmPasswordPlaceholder: "再次输入密码",
+      agreeTerms: "我同意",
+      termsConditions: "条款和条件",
+      haveAlradyCount:'已经有账户了吗？',
+      loginHere:'点击登录',
+      createBtn: "创建账户",
+      
+    },
+
+     authLogin: {
+      welcomeBack: "欢迎回来",
+      loginToAccess: "登录以访问您的投资组合",
+      email: "电子邮件地址",
+      password: "密码",
+      passwordPlaceholder: "请输入密码",
+      rememberMe: "记住我",
+      forgotPassword: "忘记密码？",
+      loginBtn: "登录",
+      dontHaveAccount: "没有账户？",
+      registerNow: "立即注册"
     },
     // Home Page
     home: {
@@ -610,6 +682,7 @@ const translations = {
       sort: '排序',
       all: '全部',
       login: '登录',
+      register:'注册',
     },
     // Footer
     footer: {

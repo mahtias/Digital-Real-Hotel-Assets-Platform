@@ -25,8 +25,13 @@ export default function Portfolio() {
   const { data: investments = [], isLoading } = useQuery({
     queryKey: ['investments', user?.email],
     
-    queryFn: () => user ? base44.entities.Investment.filter({ user_email: user.email }) : [],
+    queryFn: async () => {
+  if (!user) return [];
+  const res = await fetch(`/api/investments?email=${user.email}`);
+  return res.json();
+},
     enabled: !!user,
+
   });
 
   const { data: hotels = [] } = useQuery({
@@ -65,28 +70,35 @@ export default function Portfolio() {
     }
   });
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        <
+ 
+if (!user) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
+        <Wallet className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+        <h2 className="text-xl text-white font-semibold mb-2">You must login</h2>
+        <p className="text-slate-400 mb-4">Login or register to view your portfolio</p>
 
-        Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
-          <Wallet className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <h2 className="text-xl text-white font-semibold mb-2">{t('portfolio.loginRequired')}</h2>
-          <p className="text-slate-400 mb-4">{t('portfolio.loginToView')}</p>
-          <
-
-          Button 
-            
-            onClick={() => base44.auth.redirectToLogin()}
+        <div className="flex gap-3 justify-center">
+          <Button 
+            onClick={() => navigate("/login")}
             className="bg-amber-500 hover:bg-amber-600 text-slate-900"
           >
-            {t('common.login')}
+            Login
           </Button>
-        </Card>
-      </div>
-    );
-  }
+
+          <Button 
+            onClick={() => navigate("/register")}
+            variant="outline"
+            className="border-slate-700 text-slate-300"
+          >
+            Register
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
@@ -111,33 +123,25 @@ export default function Portfolio() {
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('portfolio.totalInvested')}</p>
             <p className="text-2xl font-bold text-white mt-1">${totalInvested.toLocaleString()}</p>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          < Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('portfolio.totalEarned')}</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1 flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
               ${totalEarned.toFixed(2)}
             </p>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('portfolio.pendingRewards')}</p>
             <p className="text-2xl font-bold text-amber-400 mt-1 flex items-center gap-2">
               <Gift className="w-5 h-5" />
               ${totalPending.toFixed(2)}
             </p>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('portfolio.stakedTokens')}</p>
             <p className="text-2xl font-bold text-violet-400 mt-1 flex items-center gap-2">
               <Lock className="w-5 h-5" />
@@ -148,24 +152,16 @@ export default function Portfolio() {
 
         {/* Investments */}
         <Tabs defaultValue="active" className="w-full">
-          <
-
-          TabsList className="bg-slate-900/50 border border-slate-800">
-            <
-
-            TabsTrigger value="active" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">
+          <TabsList className="bg-slate-900/50 border border-slate-800">
+            < TabsTrigger value="active" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">
               {t('portfolio.activeInvestments')} ({enrichedInvestments.filter(i => i.status === 'active').length})
             </TabsTrigger>
-            <
-
-            TabsTrigger value="staked" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">
+            < TabsTrigger value="staked" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900">
               {t('portfolio.staking')} ({enrichedInvestments.filter(i => i.status === 'staked').length})
             </TabsTrigger>
           </TabsList>
 
-          <
-
-          TabsContent value="active" className="mt-6">
+          < TabsContent value="active" className="mt-6">
             {enrichedInvestments.filter(i => i.status === 'active').length > 0 ? (
               <div className="space-y-4">
                 {enrichedInvestments.filter(i => i.status === 'active').map((inv) => (
@@ -183,9 +179,7 @@ export default function Portfolio() {
                         </div>
                         <div>
                           <h3 className="text-white font-semibold">{inv.hotel?.name || 'Hotel Asset'}</h3>
-                          <
-
-                          Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs">
+                          <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs">
                             {inv.hotel?.token_symbol || 'HAT'}
                           </Badge>
                         </div>
@@ -221,9 +215,7 @@ export default function Portfolio() {
                           </Button>
                         )}
                         <Link to={createPageUrl(`HotelDetail?id=${inv.hotel_asset_id}`)}>
-                          <
-
-                          Button size="sm" variant="outline" className="border-slate-700 text-slate-300">
+                          <Button size="sm" variant="outline" className="border-slate-700 text-slate-300">
                             {t('portfolio.details')} <ArrowRight className="w-4 h-4 ml-1" />
                           </Button>
                         </Link>
@@ -240,9 +232,7 @@ export default function Portfolio() {
                 <h3 className="text-xl text-white mb-2">{t('portfolio.noInvestments')}</h3>
                 <p className="text-slate-400 mb-4">{t('portfolio.startInvesting')}</p>
                 <Link to={createPageUrl('Marketplace')}>
-                  <
-
-                  Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
+                  < Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
                     {t('portfolio.browseAssets')}
                   </Button>
                 </Link>
@@ -250,12 +240,8 @@ export default function Portfolio() {
             )}
           </TabsContent>
 
-          <
-
-          TabsContent value="staked" className="mt-6">
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
+          <TabsContent value="staked" className="mt-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-12 text-center">
               <Lock className="w-12 h-12 text-slate-600 mx-auto mb-4" />
               <h3 className="text-xl text-white mb-2">{t('common.noData')}</h3>
               <p className="text-slate-400">{t('portfolio.startInvesting')}</p>

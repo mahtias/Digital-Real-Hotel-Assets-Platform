@@ -4,10 +4,13 @@ import { X, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import './AuthModal.css';
 import {resendVerificationEmail} from '../services/authService';
+import { useLanguage } from '@/components/common/LanguageContext';
+
 const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+   const { t } = useLanguage();
   const [successMessage, setSuccessMessage] = useState("");
   //const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -201,11 +204,13 @@ const handleResendEmail = async () => {
         </button>
 
         <div className="auth-modal-header">
-          <h2>{activeTab === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
+          <h2>{activeTab === 'login'
+             ? t("authLogin.welcomeBack") 
+             : t("authRegister.createAccount")}</h2>
           <p>
             {activeTab === 'login' 
-              ? 'Login to access your investment portfolio' 
-              : 'Join us to start your investment journey'}
+              ? t("authLogin.loginToAccess")
+              : t("authRegister.joinInvestment")}
           </p>
         </div>
 
@@ -217,7 +222,7 @@ const handleResendEmail = async () => {
               resetForms();
             }}
           >
-            Login
+             {t("nav.login")}
           </button>
           <button
             className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
@@ -226,7 +231,7 @@ const handleResendEmail = async () => {
               resetForms();
             }}
           >
-            Register
+             {t("nav.register")}
           </button>
         </div>
 
@@ -269,316 +274,327 @@ const handleResendEmail = async () => {
   </div>
 )}
         {activeTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="auth-form">
-            <div className="auth-form-group">
-              <label htmlFor="login-email">
-                <Mail 
+         <form onSubmit={handleLoginSubmit} className="auth-form">
+  {/* Email */}
+  <div className="auth-form-group">
+    <label htmlFor="login-email">
+      <Mail size={16} />
+      {t("authLogin.email")}
+    </label>
 
-                size={16} />
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="login-email"
-                value={loginData.email}
-                onChange={(e) => {
-                  setLoginData({ ...loginData, email: e.target.value });
-                  
-                  if (errors.email) setErrors({ ...errors, email: '' });
-                }}
-                placeholder="you@example.com"
-                disabled={loading}
-                
-                className={errors.email ? 'error' : ''}
-              />
-              {errors.
+    <input
+      type="email"
+      id="login-email"
+      value={loginData.email}
+      onChange={(e) => {
+        setLoginData({ ...loginData, email: e.target.value });
+        if (errors.email) setErrors({ ...errors, email: "" });
+      }}
+      placeholder="you@example.com"
+      disabled={loading}
+      className={errors.email ? "error" : ""}
+    />
 
-              email && <span className="auth-error">{errors.email}</span>}
-            </div>
+    {errors.email && (
+      <span className="auth-error">{errors.email}</span>
+    )}
+  </div>
 
-            <div className="auth-form-group">
-              <label htmlFor="login-password">
-                <Lock 
+  {/* Password */}
+  <div className="auth-form-group">
+    <label htmlFor="login-password">
+      <Lock size={16} />
+      {t("authLogin.password")}
+    </label>
 
-                size={16} />
-                Password
-              </label>
-              <div className="auth-password-wrapper">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="login-password"
-                  value={loginData.password}
-                  onChange={(e) => {
-                    setLoginData({ ...loginData, password: e.target.value });
-                    
-                    if (errors.password) setErrors({ ...errors, password: '' });
-                  }}
-                  placeholder="Enter your password"
-                  disabled={loading}
-                  
-                  className={errors.password ? 'error' : ''}
-                />
-                <button
-                  type="button"
-                  className="auth-toggle-password"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff 
+    <div className="auth-password-wrapper">
+      <input
+        type={showPassword ? "text" : "password"}
+        id="login-password"
+        value={loginData.password}
+        onChange={(e) => {
+          setLoginData({ ...loginData, password: e.target.value });
+          if (errors.password) setErrors({ ...errors, password: "" });
+        }}
+        placeholder={t("authLogin.passwordPlaceholder")}
+        disabled={loading}
+        className={errors.password ? "error" : ""}
+      />
 
-                  size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {errors.
+      <button
+        type="button"
+        className="auth-toggle-password"
+        onClick={() => setShowPassword(!showPassword)}
+        aria-label={showPassword ? t("authLogin.hidePassword") : t("authLogin.showPassword")}
+      >
+        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+      </button>
+    </div>
 
-              password && <span className="auth-error">{errors.password}</span>}
-            </div>
+    {errors.password && (
+      <span className="auth-error">{errors.password}</span>
+    )}
+  </div>
 
-            <div className="auth-form-options">
-              <label className="auth-checkbox">
-                <input
-                  type="checkbox"
-                  checked={loginData.rememberMe}
-                  onChange={(e) => setLoginData({ ...loginData, rememberMe: e.target.checked })}
-                />
-                <span>Remember me</span>
-              </label>
-              <button type="button" className="auth-link">
-                Forgot password?
-              </button>
-            </div>
+  {/* Remember me + Forgot password */}
+  <div className="auth-form-options">
+    <label className="auth-checkbox">
+      <input
+        type="checkbox"
+        checked={loginData.rememberMe}
+        onChange={(e) =>
+          setLoginData({ ...loginData, rememberMe: e.target.checked })
+        }
+      />
+      <span>{t("authLogin.rememberMe")}</span>
+    </label>
 
-            <button type="submit" className="auth-btn auth-btn-primary" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="spinner"></span>
-                  Logging in...
-                </>
-              ) : (
-                'Login'
-              )}
-            </button>
+    <button type="button" className="auth-link">
+      {t("authLogin.forgotPassword")}
+    </button>
+  </div>
 
-            <p className="auth-footer-text">
-              Don't have an account?{' '}
-              <button
-                type="button"
-                className="auth-link"
-                onClick={() => {
-                  setActiveTab('register');
-                  resetForms();
-                }}
-              >
-                Register now
-              </button>
-            </p>
-          </form>
+  {/* Submit button */}
+  <button type="submit" className="auth-btn auth-btn-primary" disabled={loading}>
+    {loading ? (
+      <>
+        <span className="spinner"></span>
+        {t("authLogin.loggingIn")}
+      </>
+    ) : (
+      t("authLogin.loginBtn")
+    )}
+  </button>
+
+  {/* Footer */}
+  <p className="auth-footer-text">
+    {t("authLogin.dontHaveAccount")}{" "}
+    <button
+      type="button"
+      className="auth-link"
+      onClick={() => {
+        setActiveTab("register");
+        resetForms();
+      }}
+    >
+      {t("authLogin.registerNow")}
+    </button>
+  </p>
+</form>
         ) : (
-          <form onSubmit={handleRegisterSubmit} className="auth-form">
-            <div className="auth-form-row">
-              <div className="auth-form-group">
-                <label htmlFor="register-firstName">
-                  <User 
+        <form onSubmit={handleRegisterSubmit} className="auth-form">
 
-                  size={16} />
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  id="register-firstName"
-                  value={registerData.firstName}
-                  onChange={(e) => {
-                    setRegisterData({ ...registerData, firstName: e.target.value });
-                    
-                    if (errors.firstName) setErrors({ ...errors, firstName: '' });
-                  }}
-                  placeholder="John"
-                  disabled={loading}
-                  
-                  className={errors.firstName ? 'error' : ''}
-                />
-                {errors.
+  {/* FIRST + LAST NAME */}
+  <div className="auth-form-row">
+    {/* First Name */}
+    <div className="auth-form-group">
+      <label htmlFor="register-firstName">
+        <User size={16} />
+        {t("authRegister.firstName")}
+      </label>
+      <input
+        type="text"
+        id="register-firstName"
+        value={registerData.firstName}
+        onChange={(e) => {
+          setRegisterData({ ...registerData, firstName: e.target.value });
+          if (errors.firstName) setErrors({ ...errors, firstName: "" });
+        }}
+        placeholder={t("authRegister.firstNamePlaceholder")}
+        disabled={loading}
+        className={errors.firstName ? "error" : ""}
+      />
+      {errors.firstName && (
+        <span className="auth-error">{errors.firstName}</span>
+      )}
+    </div>
 
-                firstName && <span className="auth-error">{errors.firstName}</span>}
-              </div>
+    {/* Last Name */}
+    <div className="auth-form-group">
+      <label htmlFor="register-lastName">
+        <User size={16} />
+        {t("authRegister.lastName")}
+      </label>
+      <input
+        type="text"
+        id="register-lastName"
+        value={registerData.lastName}
+        onChange={(e) => {
+          setRegisterData({ ...registerData, lastName: e.target.value });
+          if (errors.lastName) setErrors({ ...errors, lastName: "" });
+        }}
+        placeholder={t("authRegister.lastNamePlaceholder")}
+        disabled={loading}
+        className={errors.lastName ? "error" : ""}
+      />
+      {errors.lastName && (
+        <span className="auth-error">{errors.lastName}</span>
+      )}
+    </div>
+  </div>
 
-              <div className="auth-form-group">
-                <label htmlFor="register-lastName">
-                  <User 
+  {/* Email */}
+  <div className="auth-form-group">
+    <label htmlFor="register-email">
+      <Mail size={16} />
+      {t("authRegister.email")}
+    </label>
+    <input
+      type="email"
+      id="register-email"
+      value={registerData.email}
+      onChange={(e) => {
+        setRegisterData({ ...registerData, email: e.target.value });
+        if (errors.email) setErrors({ ...errors, email: "" });
+      }}
+      placeholder="you@example.com"
+      disabled={loading}
+      className={errors.email ? "error" : ""}
+    />
+    {errors.email && (
+      <span className="auth-error">{errors.email}</span>
+    )}
+  </div>
 
-                  size={16} />
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  id="register-lastName"
-                  value={registerData.lastName}
-                  onChange={(e) => {
-                    setRegisterData({ ...registerData, lastName: e.target.value });
-                    
-                    if (errors.lastName) setErrors({ ...errors, lastName: '' });
-                  }}
-                  placeholder="Doe"
-                  disabled={loading}
-                  
-                  className={errors.lastName ? 'error' : ''}
-                />
-                {errors.
+  {/* Password */}
+  <div className="auth-form-group">
+    <label htmlFor="register-password">
+      <Lock size={16} />
+      {t("authRegister.password")}
+    </label>
 
-                lastName && <span className="auth-error">{errors.lastName}</span>}
-              </div>
-            </div>
+    <div className="auth-password-wrapper">
+      <input
+        type={showPassword ? "text" : "password"}
+        id="register-password"
+        value={registerData.password}
+        onChange={(e) => {
+          setRegisterData({ ...registerData, password: e.target.value });
+          if (errors.password) setErrors({ ...errors, password: "" });
+        }}
+        placeholder={t("authRegister.passwordPlaceholder")}
+        disabled={loading}
+        className={errors.password ? "error" : ""}
+      />
 
-            <div className="auth-form-group">
-              <label htmlFor="register-email">
-                <Mail 
+      <button
+        type="button"
+        className="auth-toggle-password"
+        onClick={() => setShowPassword(!showPassword)}
+        aria-label={
+          showPassword
+            ? t("authRegister.hidePassword")
+            : t("authRegister.showPassword")
+        }
+      >
+        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+      </button>
+    </div>
 
-                size={16} />
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="register-email"
-                value={registerData.email}
-                onChange={(e) => {
-                  setRegisterData({ ...registerData, email: e.target.value });
-                  
-                  if (errors.email) setErrors({ ...errors, email: '' });
-                }}
-                placeholder="you@example.com"
-                disabled={loading}
-                
-                className={errors.email ? 'error' : ''}
-              />
-              {errors.
+    {errors.password && (
+      <span className="auth-error">{errors.password}</span>
+    )}
+  </div>
 
-              email && <span className="auth-error">{errors.email}</span>}
-            </div>
+  {/* Confirm Password */}
+  <div className="auth-form-group">
+    <label htmlFor="register-confirmPassword">
+      <Lock size={16} />
+      {t("authRegister.confirmPassword")}
+    </label>
 
-            <div className="auth-form-group">
-              <label htmlFor="register-password">
-                <Lock 
+    <div className="auth-password-wrapper">
+      <input
+        type={showConfirmPassword ? "text" : "password"}
+        id="register-confirmPassword"
+        value={registerData.confirmPassword}
+        onChange={(e) => {
+          setRegisterData({ ...registerData, confirmPassword: e.target.value });
+          if (errors.confirmPassword)
+            setErrors({ ...errors, confirmPassword: "" });
+        }}
+        placeholder={t("authRegister.confirmPasswordPlaceholder")}
+        disabled={loading}
+        className={errors.confirmPassword ? "error" : ""}
+      />
 
-                size={16} />
-                Password
-              </label>
-              <div className="auth-password-wrapper">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="register-password"
-                  value={registerData.password}
-                  onChange={(e) => {
-                    setRegisterData({ ...registerData, password: e.target.value });
-                    
-                    if (errors.password) setErrors({ ...errors, password: '' });
-                  }}
-                  placeholder="At least 8 characters"
-                  disabled={loading}
-                  
-                  className={errors.password ? 'error' : ''}
-                />
-                <button
-                  type="button"
-                  className="auth-toggle-password"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff 
+      <button
+        type="button"
+        className="auth-toggle-password"
+        onClick={() =>
+          setShowConfirmPassword(!showConfirmPassword)
+        }
+        aria-label={
+          showConfirmPassword
+            ? t("authRegister.hidePassword")
+            : t("authRegister.showPassword")
+        }
+      >
+        {showConfirmPassword ? (
+          <EyeOff size={20} />
+        ) : (
+          <Eye size={20} />
+        )}
+      </button>
+    </div>
 
-                  size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {errors.
+    {errors.confirmPassword && (
+      <span className="auth-error">{errors.confirmPassword}</span>
+    )}
+  </div>
 
-              password && <span className="auth-error">{errors.password}</span>}
-            </div>
+  {/* Terms & Conditions */}
+  <div className="auth-form-group">
+    <label className="auth-checkbox">
+      <input
+        type="checkbox"
+        checked={registerData.agreeToTerms}
+        onChange={(e) => {
+          setRegisterData({ ...registerData, agreeToTerms: e.target.checked });
+          if (errors.agreeToTerms)
+            setErrors({ ...errors, agreeToTerms: "" });
+        }}
+      />
+      <span> 
+        {t("authRegister.agreeTerms")}{" "}
+        <button type="button" className="auth-link">
+          {t("authRegister.termsConditions")}
+        </button>
+      </span>
+    </label>
+    {errors.agreeToTerms && (
+      <span className="auth-error">{errors.agreeToTerms}</span>
+    )}
+  </div>
 
-            <div className="auth-form-group">
-              <label htmlFor="register-confirmPassword">
-                <Lock 
+  {/* Submit button */}
+  <button type="submit" className="auth-btn auth-btn-primary" disabled={loading}>
+    {loading ? (
+      <>
+        <span className="spinner"></span>
+        {t("authRegister.createBtn")}
+      </>
+    ) : (
+      t("authRegister.createAccount")
+    )}
+  </button>
 
-                size={16} />
-                Confirm Password
-              </label>
-              <div className="auth-password-wrapper">
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  id="register-confirmPassword"
-                  value={registerData.confirmPassword}
-                  onChange={(e) => {
-                    setRegisterData({ ...registerData, confirmPassword: e.target.value });
-                    
-                    if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
-                  }}
-                  placeholder="Re-enter your password"
-                  disabled={loading}
-                  
-                  className={errors.confirmPassword ? 'error' : ''}
-                />
-                <button
-                  type="button"
-                  className="auth-toggle-password"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showConfirmPassword ? <EyeOff 
+  {/* Footer */}
+  <p className="auth-footer-text">
+    {t("authRegister.haveAlradyCount")}{" "}
+    <button
+      type="button"
+      className="auth-link"
+      onClick={() => {
+        setActiveTab("login");
+        resetForms();
+      }}
+    >
+      {t("authRegister.loginHere")}
+    </button>
+  </p>
+</form>
 
-                  size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {errors.
-
-              confirmPassword && <span className="auth-error">{errors.confirmPassword}</span>}
-            </div>
-
-            <div className="auth-form-group">
-              <label className="auth-checkbox">
-                <input
-                  type="checkbox"
-                  checked={registerData.agreeToTerms}
-                  onChange={(e) => {
-                    setRegisterData({ ...registerData, agreeToTerms: e.target.checked });
-                    
-                    if (errors.agreeToTerms) setErrors({ ...errors, agreeToTerms: '' });
-                  }}
-                />
-                <span>
-                  I agree to the{' '}
-                  <button type="button" className="auth-link">
-                    Terms & Conditions
-                  </button>
-                </span>
-              </label>
-              {errors.
-
-              agreeToTerms && <span className="auth-error">{errors.agreeToTerms}</span>}
-            </div>
-
-            <button type="submit" className="auth-btn auth-btn-primary" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="spinner"></span>
-                  Creating Account...
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-
-            <p className="auth-footer-text">
-              Already have an account?{' '}
-              <button
-                type="button"
-                className="auth-link"
-                onClick={() => {
-                  setActiveTab('login');
-                  resetForms();
-                }}
-              >
-                Login here
-              </button>
-            </p>
-          </form>
         )}
     
       </div>

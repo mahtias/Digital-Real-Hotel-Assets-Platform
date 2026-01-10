@@ -78,7 +78,7 @@ export default function Marketplace() {
                 <SelectContent className="bg-slate-800 border-slate-700">
                   <SelectItem value="all">{t('marketplace.allStatus')} ({statusCounts.all})</SelectItem>
                   <SelectItem value="ACTIVE">{t('marketplace.fundraising')} ({statusCounts.ACTIVE})</SelectItem>
-                  <SelectItem value="UPCOMING">{t('marketplace.UPCOMING')} ({statusCounts.UPCOMING})</SelectItem>
+                  <SelectItem value="UPCOMING">{t('marketplace.upcoming')} ({statusCounts.UPCOMING})</SelectItem>
                   < SelectItem value="SOLD_OUT">{t('marketplace.soldOut')} ({statusCounts.SOLD_OUT})</SelectItem>
                 </SelectContent>
               </Select>
@@ -103,7 +103,7 @@ export default function Marketplace() {
             {[
               { key: 'all', label: t('common.all') },
               { key: 'ACTIVE', label: t('marketplace.fundraising') },
-              { key: 'UPCOMING', label: t('marketplace.UPCOMING') },
+              { key: 'UPCOMING', label: t('marketplace.upcoming') },
               { key: 'SOLD_OUT', label: t('marketplace.soldOut') },
             ].map((status) => (
               <Badge
