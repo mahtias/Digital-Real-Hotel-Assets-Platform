@@ -10,6 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // REGISTER (with email verify)
 
+
 export const register = async (req: Request, res: Response) => {
   try {
     const { email, password, firstName, lastName, phone } = req.body;
@@ -326,8 +327,49 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
 // GET PROFILE
 
 export const getProfile = async (req: Request, res: Response) => {
-  return res.json({ user: req.user });
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "User not authenticated"
+    });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        kycStatus: true,
+        walletAddress: true,
+        createdAt: true,
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      user
+    });
+
+  } catch (error) {
+    console.error("GET /me error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
 };
+
 
 export const forgotPassword = async (req: Request, res: Response) => {
   try {

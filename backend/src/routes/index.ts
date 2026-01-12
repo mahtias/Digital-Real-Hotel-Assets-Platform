@@ -3,7 +3,11 @@ import authRoutes from './authRoutes';
 import kycRoutes from './kycRoutes';
 import userRoutes from './userRoutes';
 import hotelRoutes from './hotelRoutes';
-// import investmentRoutes from './investmentRoutes';
+import investmentRoutes from './investmentRoutes';
+import bookingRoutes from './bookingRoutes'
+import proposalRoutes from './proposalRoutes';
+import stakingRoutes from './stakingRoutes'
+import esgRewardRoutes from './esgRewardRoutes';
 // import portfolioRoutes from './portfolioRoutes';
 // import paymentRoutes from './paymentRoutes';
 
@@ -24,7 +28,11 @@ router.use('/auth', authRoutes);
 router.use('/kyc', kycRoutes);
 router.use('/user', userRoutes);
 router.use('/hotel', hotelRoutes);
-// router.use('/investments', investmentRoutes);
+router.use('/investments', investmentRoutes);
+router.use('/book', bookingRoutes);
+router.use('/proposals', proposalRoutes);
+router.use('/staking', stakingRoutes);
+router.use('/esgreward', esgRewardRoutes);
 // router.use('/portfolios', portfolioRoutes);
 // router.use('/payments', paymentRoutes);
 

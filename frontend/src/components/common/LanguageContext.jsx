@@ -14,7 +14,7 @@ const translations = {
       login: 'Login',
       register: 'Register',
       logout: 'Logout',
-     // user: 'User',
+      user: 'User',
     },
 
     // Register and login
@@ -36,6 +36,7 @@ const translations = {
     haveAlradyCount:'Already have an account',
     loginHere:'login here',
     createBtn: "Create Account"
+    
   },
   authLogin: {
       welcomeBack: "Welcome Back",
@@ -361,7 +362,7 @@ const translations = {
       login: '登录',
       register:'注册',
       logout: '退出登录',
-      //user: '用户',
+      user: '用户',
     },
      authRegister: {
       createAccount: "创建账户",

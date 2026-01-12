@@ -16,65 +16,73 @@ import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import TokenBalance from "@/components/common/TokenBalance";
 import { useLanguage } from '@/components/common/LanguageContext';
-
+import { useAuth } from "@/context/AuthContext";
 export default function Governance() {
   const { t, language } = useLanguage();
   const [user, setUser] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProposal, setNewProposal] = useState({ title: '', description: '', category: 'platform_upgrade' });
   const queryClient = useQueryClient();
+const { authFetch } = useAuth();
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+useEffect(() => {
+  authFetch("/api/v1/auth/me")
+    .then(res => res.json())
+    .then(data => setUser(data.user))
+    .catch(() => setUser(null));
+}, []);
 
-  const { data: proposals = [], isLoading } = useQuery({
-    queryKey: ['proposals'],
-    
-    queryFn: () => base44.entities.Proposal.list('-created_date', 50),
-  });
+const { data: proposals = [], isLoading } = useQuery({
+  queryKey: ["proposals"],
+  queryFn: async () => {
+    const res = await authFetch("/api/v1/proposals");
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
+});
 
-  const createProposalMutation = useMutation({
-    mutationFn: async () => {
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 7);
-      
-      await base44.entities.Proposal.create({
-        ...newProposal,
-        proposer_email: user.email,
-        votes_for: 0,
-        votes_against: 0,
-        total_votes: 0,
-        status: 'active',
-        voting_end_date: endDate.toISOString(),
-        quorum_required: 1000
-      });
-    },
-    onSuccess: () => {
-      
-      queryClient.invalidateQueries(['proposals']);
-      setShowCreateDialog(false);
-      setNewProposal({ title: '', description: '', category: 'platform_upgrade' });
-    }
-  });
+ const createProposalMutation = useMutation({
+  mutationFn: async () => {
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 7);
 
-  const voteMutation = useMutation({
-    
-    mutationFn: async ({ proposalId, voteType }) => {
-      const proposal = proposals.find(p => p.id === proposalId);
-      const votingPower = user?.voting_power || 100;
-      
-      await base44.entities.Proposal.update(proposalId, {
-        votes_for: voteType === 'for' ? (proposal.votes_for || 0) + votingPower : proposal.votes_for,
-        votes_against: voteType === 'against' ? (proposal.votes_against || 0) + votingPower : proposal.votes_against,
-        total_votes: (proposal.total_votes || 0) + votingPower
-      });
-    },
-    onSuccess: () => {
-      
-      queryClient.invalidateQueries(['proposals']);
-    }
-  });
+  await authFetch("/api/v1/proposals", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    ...newProposal,
+    quorumRequired: 1000,
+    approvalThreshold: 50,
+    hotelAssetId: null,
+    type: "GENERAL",
+  })
+});
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(["proposals"]);
+    setShowCreateDialog(false);
+    setNewProposal({ title: "", description: "", category: "platform_upgrade" });
+  }
+});
+
+ const voteMutation = useMutation({
+  mutationFn: async ({ proposalId, voteType }) => {
+    await authFetch(`/api/v1/proposals/${proposalId}/vote`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        choice: voteType === "for" ? "FOR" :
+                voteType === "against" ? "AGAINST" : "ABSTAIN",
+        comment: ""
+      })
+    });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(["proposals"]);
+  }
+});
 
   const categoryColors = {
     asset_acquisition: 'bg-amber-500/20 text-amber-400 border-amber-500/30',

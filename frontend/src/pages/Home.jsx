@@ -19,10 +19,18 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const { t } = useLanguage();
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+//  useEffect(() => {
+//   const token = localStorage.getItem("token");
 
+//   fetch("/api/v1/auth/me", {
+//     headers: {
+//       Authorization: `Bearer ${token}`
+//     }
+//   })
+//     .then(res => res.json())
+//     .then(data => setUser(data.user))
+//     .catch(() => setUser(null));
+// }, []);
 
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
@@ -35,10 +43,14 @@ export default function Home() {
   });
 
   const { data: investments = [] } = useQuery({
-    queryKey: ['investments', user?.email],
-    
-    queryFn: () => user ? base44.entities.Investment.filter({ user_email: user.email }) : [],
-    enabled: !!user,
+    queryKey: ["user-investments"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/v1/investments`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch investments");
+      return res.json();
+    },
   });
 
   const totalValue = investments.reduce((acc, inv) => acc + (inv.invested_amount || 0), 0);

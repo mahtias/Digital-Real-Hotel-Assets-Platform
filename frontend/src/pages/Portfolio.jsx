@@ -1,45 +1,62 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet, TrendingUp, Gift, Lock, Building2, ArrowRight, CheckCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link,useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import TokenBalance from "@/components/common/TokenBalance";
 import { useLanguage } from '@/components/common/LanguageContext';
+import { useAuthModal } from "@/context/AuthModalContext";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Portfolio() {
-  const { t } = useLanguage();
-  const [user, setUser] = useState(null);
-  const queryClient = useQueryClient();
+const { openAuthModal } = useAuthModal();
+const { authFetch } = useAuth();   
+const { t } = useLanguage();
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+const [user, setUser] = useState(null);
+const queryClient = useQueryClient();
+const navigate = useNavigate();
 
-  
-  const { data: investments = [], isLoading } = useQuery({
-    queryKey: ['investments', user?.email],
-    
-    queryFn: async () => {
-  if (!user) return [];
-  const res = await fetch(`/api/investments?email=${user.email}`);
-  return res.json();
-},
-    enabled: !!user,
+// Load user using authFetch (reads token from localStorage)
+useEffect(() => {
+  authFetch("/api/v1/auth/me")
+    .then(res => res.json())
+    .then(data => setUser(data.user))
+    .catch(() => setUser(null));
+}, []);
 
-  });
+// Load investments (protected, needs token)
+const { data: investments = [], isLoading } = useQuery({
+  queryKey: ['investments', user?.email],
+  queryFn: async () => {
+    if (!user) return [];
 
-  const { data: hotels = [] } = useQuery({
-    queryKey: ['all-hotels'],
-    
-    queryFn: () => base44.entities.HotelAsset.list(),
-  });
+    const res = await authFetch(`/api/v1/investments?email=${user.email}`);
 
+    if (!res.ok) return [];   // <--- ADD THIS
+
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];   // <--- AND THIS
+  },
+  enabled: !!user,
+});
+
+// Load hotels (public or protected? — using normal fetch is fine)
+const { data: hotels = [] } = useQuery({
+  queryKey: ['all-hotels'],
+  queryFn: async () => {
+    const res = await fetch("/api/v1/hotel");
+    if (!res.ok) throw new Error("Failed to fetch hotels");
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.hotels || [];
+  }
+})
   const hotelMap = hotels.reduce((acc, hotel) => {
     acc[hotel.id] = hotel;
     return acc;
@@ -56,49 +73,47 @@ export default function Portfolio() {
   const totalStaked = investments.reduce((acc, inv) => acc + (inv.staked_amount || 0), 0);
 
   const claimRewardsMutation = useMutation({
-    mutationFn: async (investment) => {
-      
-      await base44.entities.Investment.update(investment.id, {
-        
-        earned_rewards: (investment.earned_rewards || 0) + (investment.pending_rewards || 0),
+  mutationFn: async (inv) => {
+    await authFetch(`/api/v1/investments/${inv.id}/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        earned_rewards: (inv.earned_rewards || 0) + (inv.pending_rewards || 0),
         pending_rewards: 0
-      });
-    },
-    onSuccess: () => {
-      
-      queryClient.invalidateQueries(['investments']);
-    }
-  });
+      })
+    });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(["investments"]);
+  }
+});
 
  
-if (!user) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-      <Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
-        <Wallet className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-        <h2 className="text-xl text-white font-semibold mb-2">You must login</h2>
-        <p className="text-slate-400 mb-4">Login or register to view your portfolio</p>
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
+          <Wallet className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+          <h2 className="text-xl text-white font-semibold mb-2">{t("portfolio.loginRequired")}</h2>
+          <p className="text-slate-400 mb-4">{t("portfolio.loginToView")}</p>
 
-        <div className="flex gap-3 justify-center">
-          <Button 
-            onClick={() => navigate("/login")}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-900"
-          >
-            Login
-          </Button>
+          <div className="flex gap-3 justify-center">
+                  <Button
+          onClick={() => openAuthModal("login")}
+        >
+           {t("nav.login")}
+        </Button>
 
-          <Button 
-            onClick={() => navigate("/register")}
-            variant="outline"
-            className="border-slate-700 text-slate-300"
-          >
-            Register
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
+                    <Button
+          onClick={() => openAuthModal("register")}
+        >
+             {t("nav.register")}
+        </Button>
+                  </div>
+                </Card>
+              </div>
+            );
+          }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">

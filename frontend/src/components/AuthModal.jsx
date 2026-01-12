@@ -23,6 +23,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
     rememberMe: false,
   });
 
+  
   const [registerData, setRegisterData] = useState({
     firstName: '',
     lastName: '',

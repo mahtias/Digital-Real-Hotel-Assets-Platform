@@ -13,12 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, MapPin, Star, Users, CreditCard, CheckCircle, Gift, Tag } from "lucide-react";
 import { format, differenceInDays } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export default function Booking() {
   const urlParams = new URLSearchParams(window.location.search);
   const preselectedHotelId = urlParams.get('hotel_id');
   const { t } = useLanguage();
-  
+  const { authFetch } = useAuth(); 
   const [user, setUser] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(preselectedHotelId || '');
   const [checkIn, setCheckIn] = useState();
@@ -29,22 +31,49 @@ export default function Booking() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingCode, setBookingCode] = useState('');
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+  
+// logged-in user
 
-  const { data: hotels = [] } = useQuery({
-    queryKey: ['booking-hotels'],
-    
-    queryFn: () => base44.entities.HotelAsset.filter({ status: 'active' }),
-  });
+useEffect(() => {
+  authFetch("/api/v1/auth/me")
+    .then(res => res.json())
+    .then(data => setUser(data.user))
+    .catch(() => setUser(null));
+}, [])
 
-  const { data: investments = [] } = useQuery({
-    queryKey: ['user-investments', user?.email],
-    
-    queryFn: () => user ? base44.entities.Investment.filter({ user_email: user.email }) : [],
-    enabled: !!user,
-  });
+// hotels
+const { data: hotels = [] } = useQuery({
+  queryKey: ["booking-hotels"],
+  queryFn: async () => {
+    const res = await fetch(`${API_URL}/api/v1/hotel`);
+    if (!res.ok) throw new Error("Failed to fetch hotels");
+
+    const data = await res.json();
+
+    return Array.isArray(data)
+      ? data
+      : data.hotels || [];   // safety fallback
+  }
+});
+
+// investments
+const { data: investments = [] } = useQuery({
+  queryKey: ["user-investments", user?.email],
+  enabled: !!user,
+  queryFn: async () => {
+    const res = await fetch(`${API_URL}/api/v1/investments?email=${user.email}`, {
+      credentials: "include",
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+
+    return Array.isArray(data)
+      ? data
+      : data.investments || [];
+  }
+});
 
   const hotel = hotels.find(h => h.id === selectedHotel);
   const userHasTokens = investments.some(inv => inv.hotel_asset_id === selectedHotel && inv.token_amount > 0);
@@ -56,39 +85,54 @@ export default function Booking() {
   const discount = userHasTokens ? basePrice * 0.15 : (paymentMethod === 'dra_token' ? basePrice * 0.05 : 0);
   const totalPrice = basePrice - discount;
 
-  const createBookingMutation = useMutation({
-    mutationFn: async () => {
-      const code = 'DRA' + Math.random().toString(36).substring(2, 10).toUpperCase();
-      
-      await base44.entities.Booking.create({
-        hotel_asset_id: selectedHotel,
-        user_email: user.email,
-        
-        check_in_date: format(checkIn, 'yyyy-MM-dd'),
-        
-        check_out_date: format(checkOut, 'yyyy-MM-dd'),
-        room_type: roomType,
-        guests: guests,
-        total_price: totalPrice,
-        payment_method: paymentMethod,
-        discount_applied: discount,
-        status: 'confirmed',
-        booking_code: code
-      });
-      return code;
-    },
-    onSuccess: (code) => {
-      setBookingCode(code);
-      setBookingSuccess(true);
+ const createBookingMutation = useMutation({
+  mutationFn: async () => {
+    const code =
+      "DRA" +
+      Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    const payload = {
+      hotel_asset_id: selectedHotel,
+      user_email: user.email,
+      check_in_date: format(checkIn, "yyyy-MM-dd"),
+      check_out_date: format(checkOut, "yyyy-MM-dd"),
+      room_type: roomType,
+      guests,
+      total_price: totalPrice,
+      payment_method: paymentMethod,
+      discount_applied: discount,
+      status: "confirmed",
+      booking_code: code,
+    };
+
+    const res = await fetch(`${API_URL}/api/v1/bookings`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error("Booking failed: " + error);
     }
-  });
+
+    return code;
+  },
+
+  onSuccess: (code) => {
+    setBookingCode(code);
+    setBookingSuccess(true);
+  },
+});
+
 
   if (bookingSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        <
-
-        Card className="bg-slate-900/80 border-slate-800 p-8 max-w-md text-center">
+        < Card className="bg-slate-900/80 border-slate-800 p-8 max-w-md text-center">
           <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle 
 
@@ -109,9 +153,7 @@ export default function Booking() {
             format(checkOut, 'yyyy/MM/dd')}</span></p>
             <p className="text-slate-400 text-sm">{t('booking.total')}: <span className="text-emerald-400 font-semibold">${totalPrice.toFixed(2)}</span></p>
           </div>
-          <
-
-          Button 
+          <Button 
             className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900"
             onClick={() => { setBookingSuccess(false); setCheckIn(null); setCheckOut(null); }}
           >
@@ -133,23 +175,15 @@ export default function Booking() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2 space-y-6">
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-semibold mb-4">{t('booking.selectHotel')}</h3>
               <Select value={selectedHotel} onValueChange={setSelectedHotel}>
-                <
-
-                SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                <  SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue placeholder={t('booking.selectHotelPlaceholder')} />
                 </SelectTrigger>
-                <
-
-                SelectContent className="bg-slate-800 border-slate-700">
+                <  SelectContent className="bg-slate-800 border-slate-700">
                   {hotels.map((h) => (
-                    <
-
-                    SelectItem key={h.id} value={h.id}>
+                    <  SelectItem key={h.id} value={h.id}>
                       <div className="flex items-center gap-2">
                         <span>{h.name}</span>
                         <span className="text-slate-400 text-sm">- {h.location}</span>
@@ -195,21 +229,15 @@ export default function Booking() {
               )}
             </Card>
 
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-semibold mb-4">{t('booking.stayInfo')}</h3>
               
               <div className="grid md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <
-
-                  Label className="text-slate-400 mb-2 block">{t('booking.checkIn')}</Label>
+                  <Label className="text-slate-400 mb-2 block">{t('booking.checkIn')}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <
-
-                      Button variant="outline" className="w-full justify-start bg-slate-800 border-slate-700 text-white">
+                      < Button variant="outline" className="w-full justify-start bg-slate-800 border-slate-700 text-white">
                         <CalendarIcon 
 
                         className="mr-2 h-4 w-4" />
@@ -218,24 +246,16 @@ export default function Booking() {
                         format(checkIn, 'yyyy/MM/dd') : t('booking.selectDate')}
                       </Button>
                     </PopoverTrigger>
-                    <
-
-                    PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
-                      <
-
-                      Calendar mode="single" selected={checkIn} onSelect={setCheckIn} disabled={(date) => date < new Date()} />
+                    < PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                      < Calendar mode="single" selected={checkIn} onSelect={setCheckIn} disabled={(date) => date < new Date()} />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div>
-                  <
-
-                  Label className="text-slate-400 mb-2 block">{t('booking.checkOut')}</Label>
+                  <  Label className="text-slate-400 mb-2 block">{t('booking.checkOut')}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <
-
-                      Button variant="outline" className="w-full justify-start bg-slate-800 border-slate-700 text-white">
+                      <  Button variant="outline" className="w-full justify-start bg-slate-800 border-slate-700 text-white">
                         <CalendarIcon 
 
                         className="mr-2 h-4 w-4" />
@@ -244,12 +264,8 @@ export default function Booking() {
                         format(checkOut, 'yyyy/MM/dd') : t('booking.selectDate')}
                       </Button>
                     </PopoverTrigger>
-                    <
-
-                    PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
-                      <
-
-                      Calendar mode="single" selected={checkOut} onSelect={setCheckOut} disabled={(date) => date <= (checkIn || new Date())} />
+                    <  PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
+                      <  Calendar mode="single" selected={checkOut} onSelect={setCheckOut} disabled={(date) => date <= (checkIn || new Date())} />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -257,9 +273,7 @@ export default function Booking() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <
-
-                  Label className="text-slate-400 mb-2 block">{t('booking.roomType')}</Label>
+                  < Label className="text-slate-400 mb-2 block">{t('booking.roomType')}</Label>
                   <Select value={roomType} onValueChange={setRoomType}>
                     <
 
@@ -369,9 +383,7 @@ export default function Booking() {
                     </div>
                   </div>
 
-                  <
-
-                  Button 
+                  < Button 
                     className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold"
                     onClick={() => createBookingMutation.mutate()}
                     disabled={createBookingMutation.isPending || !user}

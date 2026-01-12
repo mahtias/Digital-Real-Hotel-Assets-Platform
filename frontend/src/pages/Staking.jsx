@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck  692bf61c278f72b74d27f374
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,16 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Coins, Lock, Unlock, Gift, TrendingUp, Vote, Clock, CheckCircle, 
   
-  
-  
-  AlertTriangle, Sparkles, ArrowRight, Zap
-
-
-} from "lucide-react";
+  AlertTriangle, Sparkles, ArrowRight, Zap} from "lucide-react";
 
 import { format, differenceInDays, addDays } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
 
+import { useAuth } from "@/context/AuthContext";
 export default function Staking() {
   const { t } = useLanguage();
   const [user, setUser] = useState(null);
@@ -30,19 +26,32 @@ export default function Staking() {
   const [selectedPeriod, setSelectedPeriod] = useState(90);
   const [stakeSuccess, setStakeSuccess] = useState(false);
   const queryClient = useQueryClient();
-
+  const { authFetch } = useAuth();  
   const draBalance = user?.dra_balance || 5000;
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+ useEffect(() => {
+  authFetch("/user/me")
+    .then(setUser)
+    .catch(() => setUser(null));
+}, []);
 
-  const { data: stakes = [], isLoading } = useQuery({
-    queryKey: ['dra-staking', user?.email],
-    
-    queryFn: () => user ? base44.entities.DRAStaking.filter({ user_email: user.email }) : [],
-    enabled: !!user,
-  });
+const { data: stakes = [], isLoading } = useQuery({
+  queryKey: ['dra-staking', user?.email],
+  enabled: !!user,
+ queryFn: async () => {
+  const res = await authFetch("/staking/me")
+    .catch(() => null);
+
+  if (!res) return [];
+
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.stakes)) return res.stakes;
+  if (Array.isArray(res.data)) return res.data;
+
+  return [];
+}
+});
+
 
   const lockPeriodConfig = {
     30: { apy: 8, multiplier: 1.2 },
@@ -51,68 +60,57 @@ export default function Staking() {
     365: { apy: 25, multiplier: 3 },
   };
 
-  const stakeMutation = useMutation({
-    mutationFn: async () => {
-      const config = lockPeriodConfig[selectedPeriod];
-      const startDate = new Date();
-      
-      const endDate = addDays(startDate, selectedPeriod);
-      
-      
-      await base44.entities.DRAStaking.create({
-        user_email: user.email,
+ const stakeMutation = useMutation({
+  mutationFn: async () => {
+    const config = lockPeriodConfig[selectedPeriod];
+    const startDate = new Date();
+    const endDate = addDays(startDate, selectedPeriod);
+
+    await authFetch("/staking", {
+      method: "POST",
+      body: JSON.stringify({
         staked_amount: stakeAmount,
         lock_period_days: selectedPeriod,
         stake_start_date: startDate.toISOString(),
         stake_end_date: endDate.toISOString(),
         apy_rate: config.apy,
-        earned_rewards: 0,
-        claimed_rewards: 0,
-        voting_power_multiplier: config.multiplier,
-        status: 'active'
-      });
-    },
-    onSuccess: () => {
-      setStakeSuccess(true);
-      
-      queryClient.invalidateQueries(['dra-staking']);
-      setTimeout(() => {
-        setShowStakeDialog(false);
-        setStakeSuccess(false);
-        setStakeAmount(100);
-      }, 2000);
-    }
-  });
+        voting_power_multiplier: config.multiplier
+      })
+    });
+  },
+  onSuccess: () => {
+    setStakeSuccess(true);
+    queryClient.invalidateQueries(["dra-staking"]);
+
+    setTimeout(() => {
+      setShowStakeDialog(false);
+      setStakeSuccess(false);
+      setStakeAmount(100);
+    }, 2000);
+  }
+});
 
   const claimMutation = useMutation({
-    mutationFn: async (stakeId) => {
-      const stake = stakes.find(s => s.id === stakeId);
-      
-      const daysPassed = differenceInDays(new Date(), new Date(stake.stake_start_date));
-      const earned = (stake.staked_amount * stake.apy_rate / 100) * (daysPassed / 365);
-      
-      
-      await base44.entities.DRAStaking.update(stakeId, {
-        claimed_rewards: (stake.claimed_rewards || 0) + earned,
-        earned_rewards: 0
-      });
-    },
-    onSuccess: () => {
-      
-      queryClient.invalidateQueries(['dra-staking']);
-    }
-  });
+  mutationFn: async (stakeId) => {
+    await authFetch(`/staking/${stakeId}/claim`, {
+      method: "POST"
+    });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(["dra-staking"]);
+  }
+});;
 
-  const unstakeMutation = useMutation({
-    mutationFn: async (stakeId) => {
-      
-      await base44.entities.DRAStaking.update(stakeId, { status: 'completed' });
-    },
-    onSuccess: () => {
-      
-      queryClient.invalidateQueries(['dra-staking']);
-    }
-  });
+ const unstakeMutation = useMutation({
+  mutationFn: async (stakeId) => {
+    await authFetch(`/staking/${stakeId}/unstake`, {
+      method: "POST"
+    });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(["dra-staking"]);
+  }
+});
 
   const activeStakes = stakes.filter(s => s.status === 'active');
   const totalStaked = activeStakes.reduce((acc, s) => acc + (s.staked_amount || 0), 0);
@@ -133,17 +131,13 @@ export default function Staking() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        <
-
-        Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
+        < Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
           <Coins 
 
           className="w-12 h-12 text-slate-600 mx-auto mb-4" />
           <h2 className="text-xl text-white font-semibold mb-2">{t('portfolio.loginRequired')}</h2>
           <p className="text-slate-400 mb-4">{t('portfolio.loginToView')}</p>
-          <
-
-          Button 
+          < Button 
             
             onClick={() => base44.auth.redirectToLogin()}
             className="bg-amber-500 hover:bg-amber-600 text-slate-900"

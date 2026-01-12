@@ -177,7 +177,10 @@ model Booking {
   updatedAt       DateTime      @updatedAt @map("updated_at")
   hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  bookingCode      String?  @map("booking_code")
+  discountApplied  Int?     @map("discount_applied")
+  paymentMethod    String?  @map("payment_method")
+  
   @@index([userId])
   @@index([hotelAssetId])
   @@index([status])
@@ -253,6 +256,30 @@ model Staking {
   @@index([userId])
   @@index([status])
   @@map("staking")
+}
+
+model EsgReward {
+  id            String   @id @default(uuid())
+  user_email    String
+  action_type   ESGActionType
+  reward_amount Float
+  status        ESGRewardStatus @default(pending)
+  created_date  DateTime @default(now())
+  updated_at    DateTime @updatedAt
+}
+
+enum ESGRewardStatus {
+  pending
+  verified
+  claimed
+}
+
+enum ESGActionType {
+  ac_off
+  towel_reuse
+  no_cleaning
+  water_saving
+  recycling
 }
 
 enum StakingStatus {

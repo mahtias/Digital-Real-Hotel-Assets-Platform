@@ -5,37 +5,47 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
+import { useAuthModal } from "@/context/AuthModalContext";
 import { Leaf, Droplets, Wind, Recycle, Sparkles, CheckCircle, Clock, Gift, TrendingUp } from "lucide-react";
 import { format } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
 
 export default function ESGRewards() {
   const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+  const { authFetch } = useAuth(); 
+const { openAuthModal } = useAuthModal();
+ useEffect(() => {
+  authFetch("/api/v1/auth/me")
+    .then(res => setUser(res.user))
+    .catch(() => setUser(null));
+}, []);
 
   const { data: rewards = [], isLoading } = useQuery({
-    queryKey: ['esg-rewards', user?.email],
-    
-    queryFn: () => user ? base44.entities.ESGReward.filter({ user_email: user.email }) : [],
-    enabled: !!user,
-  });
+  queryKey: ["esg-rewards", user?.email],
+  queryFn: async () => {
+    if (!user) return [];
+
+    const res = await authFetch(
+      `/api/v1/esg-rewards?email=${encodeURIComponent(user.email)}`
+    );
+    return res;
+  },
+  enabled: !!user,
+});
 
   const claimMutation = useMutation({
-    mutationFn: async (rewardId) => {
-      
-      await base44.entities.ESGReward.update(rewardId, { status: 'claimed' });
-    },
-    onSuccess: () => {
-      
-      queryClient.invalidateQueries(['esg-rewards']);
-    }
-  });
+  mutationFn: async (rewardId) => {
+    await authFetch(`/api/v1/esg-rewards/${rewardId}/claim`, {
+      method: "PATCH",
+    });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(["esg-rewards"]);
+  }
+});
 
   const actionTypes = {
     ac_off: { labelKey: 'esg.acOff', icon: Wind, color: 'text-sky-400', bgColor: 'bg-sky-500/10', reward: '$0.50' },
@@ -49,6 +59,8 @@ export default function ESGRewards() {
   const pendingRewards = rewards.filter(r => r.status === 'verified').reduce((acc, r) => acc + (r.reward_amount || 0), 0);
   const totalActions = rewards.length;
 
+
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
@@ -65,9 +77,7 @@ export default function ESGRewards() {
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <
-
-          Card className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 p-5">
+          <  Card className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-emerald-500/20">
                 <Gift 
@@ -80,9 +90,7 @@ export default function ESGRewards() {
               </div>
             </div>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          < Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-amber-500/20">
                 <Clock 
@@ -95,9 +103,7 @@ export default function ESGRewards() {
               </div>
             </div>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-sky-500/20">
                 <TrendingUp 
@@ -110,9 +116,7 @@ export default function ESGRewards() {
               </div>
             </div>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-green-500/20">
                 <Leaf 
@@ -130,9 +134,7 @@ export default function ESGRewards() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Action Types */}
           <div className="lg:col-span-1">
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-semibold mb-4">{t('esg.rewardableActions')}</h3>
               <div className="space-y-3">
                 {Object.entries(actionTypes).map(([key, action]) => {
@@ -177,9 +179,7 @@ export default function ESGRewards() {
 
           {/* Rewards History */}
           <div className="lg:col-span-2">
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-semibold">{t('esg.rewardHistory')}</h3>
                 {pendingRewards > 0 && (
@@ -202,28 +202,27 @@ export default function ESGRewards() {
                 )}
               </div>
 
-              {!user ? (
-                <div className="text-center py-12">
-                  <Leaf 
+               {!user ? (
+      <div className="text-center py-12">
+        <Leaf className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+        <p className="text-slate-400">{t('esg.loginToView')}</p>
 
-                  className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400">{t('esg.loginToView')}</p>
-                  <
-
-                  Button 
-                    className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-900"
-                    
-                    onClick={() => base44.auth.redirectToLogin()}
-                  >
-                    {t('common.login')}
-                  </Button>
-                </div>
-              ) : isLoading ? (
+            <Button  className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-900"
+                 onClick={() => openAuthModal("login")}
+               >
+                  {t("common.login")}
+               </Button>
+      </div>
+    ) : isLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="h-16 bg-slate-800/50 rounded-lg animate-pulse" />
                   ))}
-                </div>
+                </div> 
+                
+                
+
+                
               ) : rewards.length > 0 ? (
                 <div className="space-y-3">
                   {rewards.map((reward) => {
@@ -250,9 +249,7 @@ export default function ESGRewards() {
                           <span className={`font-semibold ${action.color}`}>
                             +${reward.reward_amount?.toFixed(2)}
                           </span>
-                          <
-
-                          Badge className={`${
+                          < Badge className={`${
                             reward.status === 'pending' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                             reward.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                             'bg-slate-500/20 text-slate-400 border-slate-500/30'
@@ -289,9 +286,7 @@ export default function ESGRewards() {
             </Card>
 
             {/* ESG Impact */}
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6 mt-6">
               <h3 className="text-white font-semibold mb-4">{t('esg.impact')}</h3>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-slate-800/50 rounded-lg">
