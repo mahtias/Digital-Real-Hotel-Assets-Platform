@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
 import prisma from '../config/database';
-//import { UserRole } from '@prisma/client';
 
 export const authenticate = async (
   req: Request,
@@ -9,7 +8,17 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const token = extractTokenFromHeader(req.headers.authorization);
+    let token: string | undefined = undefined;
+
+    // 1. CHECK COOKIE TOKEN FIRST
+    if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    // 2. FALLBACK TO AUTHORIZATION HEADER
+    if (!token) {
+      token = extractTokenFromHeader(req.headers.authorization) ?? undefined;
+    }
 
     if (!token) {
       res.status(401).json({
@@ -26,12 +35,10 @@ export const authenticate = async (
         success: false,
         message: 'Invalid or expired token',
       });
-      console.log("AUTH HEADER:", req.headers.authorization);
-      console.log("VERIFY SECRET:", process.env.JWT_SECRET);
       return;
     }
 
-    // Prisma user lookup
+    // Load the user from Prisma
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
     });
@@ -44,10 +51,10 @@ export const authenticate = async (
       return;
     }
 
-    // Attach to request
-     req.user = {
+    // Attach final user to req
+    req.user = {
       userId: decoded.userId,
-      role: decoded.role,
+      role: decoded.role, // keep string as is
     };
 
     next();
@@ -58,4 +65,17 @@ export const authenticate = async (
       message: 'Authentication failed',
     });
   }
+};
+
+export const authorize = (...allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: insufficient permissions',
+      });
+    }
+
+    next();
+  };
 };

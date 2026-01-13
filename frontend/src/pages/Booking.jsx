@@ -61,17 +61,20 @@ const { data: investments = [] } = useQuery({
   queryKey: ["user-investments", user?.email],
   enabled: !!user,
   queryFn: async () => {
-    const res = await fetch(`${API_URL}/api/v1/investments?email=${user.email}`, {
-      credentials: "include",
+    const token = localStorage.getItem("authToken");
+
+    const res = await fetch(`${API_URL}/api/v1/investments`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
     });
 
     if (!res.ok) return [];
 
     const data = await res.json();
 
-    return Array.isArray(data)
-      ? data
-      : data.investments || [];
+    return Array.isArray(data) ? data : data.investments || [];
   }
 });
 
@@ -104,12 +107,12 @@ const { data: investments = [] } = useQuery({
       status: "confirmed",
       booking_code: code,
     };
-
+     const token = localStorage.getItem("authToken");
     const res = await fetch(`${API_URL}/api/v1/bookings`, {
       method: "POST",
-      credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify(payload),
     });

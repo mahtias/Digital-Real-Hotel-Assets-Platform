@@ -100,16 +100,14 @@ export const decodeToken = (token: string): TokenPayload | null => {
  *  Extract token from Authorization header
  * Expects format: "Bearer <token>"
  */
-export const extractTokenFromHeader = (authHeader: string | undefined): string | null => {
-  if (!authHeader) {
-    return null;
-  }
+export const extractTokenFromHeader = (authHeader: string | undefined): string | undefined => {
+  if (!authHeader) return undefined;
 
   const parts = authHeader.split(' ');
-  
-  // Check if format is "Bearer <token>"
+
+  // Expected: "Bearer <token>"
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return null;
+    return undefined;
   }
 
   return parts[1];

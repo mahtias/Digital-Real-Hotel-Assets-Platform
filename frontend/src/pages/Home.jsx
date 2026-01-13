@@ -42,16 +42,14 @@ export default function Home() {
 }
   });
 
-  const { data: investments = [] } = useQuery({
-    queryKey: ["user-investments"],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/v1/investments`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch investments");
-      return res.json();
-    },
-  });
+ const { data: investments = [] } = useQuery({
+  queryKey: ["user-investments"],
+  queryFn: async () => {
+    const res = await authFetch(`/api/v1/investments`);
+    if (!res.ok) throw new Error("Failed to fetch investments");
+    return res.json();
+  }
+});
 
   const totalValue = investments.reduce((acc, inv) => acc + (inv.invested_amount || 0), 0);
   const totalRewards = investments.reduce((acc, inv) => acc + (inv.earned_rewards || 0), 0);

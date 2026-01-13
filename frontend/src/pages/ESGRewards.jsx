@@ -17,6 +17,7 @@ export default function ESGRewards() {
   const queryClient = useQueryClient();
   const { authFetch } = useAuth(); 
 const { openAuthModal } = useAuthModal();
+
  useEffect(() => {
   authFetch("/api/v1/auth/me")
     .then(res => setUser(res.user))

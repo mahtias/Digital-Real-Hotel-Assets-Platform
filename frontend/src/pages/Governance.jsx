@@ -70,7 +70,6 @@ const { data: proposals = [], isLoading } = useQuery({
   mutationFn: async ({ proposalId, voteType }) => {
     await authFetch(`/api/v1/proposals/${proposalId}/vote`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         choice: voteType === "for" ? "FOR" :

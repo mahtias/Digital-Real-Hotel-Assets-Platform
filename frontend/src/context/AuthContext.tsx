@@ -34,9 +34,10 @@ export const AuthProvider = ({ children }) => {
         if (response.ok) {
           const data = await response.json();
           const userData = data.user || data;
-
+            console.log("DECODED /me USER:", userData);
           setUser(userData);
           localStorage.setItem("user", JSON.stringify(userData));
+          
           setIsAuthenticated(true);
         } else {
           logout();
@@ -56,6 +57,7 @@ export const AuthProvider = ({ children }) => {
   // LOGIN
   // ============================
   const login = async ({ email, password }) => {
+    
     try {
       const response = await fetch(`${API}/api/v1/auth/login`, {
         method: "POST",
@@ -64,10 +66,11 @@ export const AuthProvider = ({ children }) => {
       });
 
       const data = await response.json();
-
+       console.log("LOGIN RESPONSE:", data);
       if (response.ok && data.token) {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
+        
          setToken(data.token + ""); 
         setUser(data.user);
         setIsAuthenticated(true);
