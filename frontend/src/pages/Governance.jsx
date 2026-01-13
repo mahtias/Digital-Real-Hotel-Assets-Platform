@@ -49,7 +49,6 @@ const { data: proposals = [], isLoading } = useQuery({
 
   await authFetch("/api/v1/proposals", {
   method: "POST",
-  credentials: "include",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     ...newProposal,
@@ -93,7 +92,6 @@ const { data: proposals = [], isLoading } = useQuery({
     esg_initiative: 'bg-green-500/20 text-green-400 border-green-500/30'
   };
 
-  
   const getStatusIcon = (status) => {
     switch(status) {
       case 'active': return Clock;

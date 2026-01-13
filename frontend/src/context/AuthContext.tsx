@@ -56,32 +56,31 @@ export const AuthProvider = ({ children }) => {
   // LOGIN
   // ============================
   const login = async ({ email, password }) => {
-  try {
-    const response = await fetch(`${API}/api/v1/auth/login`, {
-      method: "POST",
-      credentials: "include", 
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch(`${API}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.ok && data.success) {
-      //  No token is returned now — cookie handles it
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setToken("cookie"); // optional placeholder
+      if (response.ok && data.token) {
+        localStorage.setItem("authToken", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+         setToken(data.token + ""); 
+        setUser(data.user);
+        setIsAuthenticated(true);
 
-      return { success: true };
+        return { success: true };
+      }
+
+      return { success: false, message: data.message || "Login failed" };
+    } catch (err) {
+      console.error("Login error:", err);
+      return { success: false, message: "Network error. Please try again." };
     }
-
-    return { success: false, message: data.message || "Login failed" };
-  } catch (err) {
-    console.error("Login error:", err);
-    return { success: false, message: "Network error. Please try again." };
-  }
-};
+  };
 
   // ============================
   // REGISTER
