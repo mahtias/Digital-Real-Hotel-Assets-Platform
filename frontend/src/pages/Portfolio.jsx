@@ -39,10 +39,10 @@ const { data: investments = [], isLoading } = useQuery({
 
     const res = await authFetch(`/api/v1/investments?email=${user.email}`);
 
-    if (!res.ok) return [];   // <--- ADD THIS
+    if (!res.ok) return [];   
 
     const data = await res.json();
-    return Array.isArray(data) ? data : [];   // <--- AND THIS
+    return Array.isArray(data) ? data : [];  
   },
   enabled: !!user,
 });

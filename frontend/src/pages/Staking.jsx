@@ -1,4 +1,4 @@
-// @ts-nocheck  692bf61c278f72b74d27f374
+// @ts-nocheck  
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +18,9 @@ import { format, differenceInDays, addDays } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
 
 import { useAuth } from "@/context/AuthContext";
+
 export default function Staking() {
+  
   const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const [showStakeDialog, setShowStakeDialog] = useState(false);
@@ -166,24 +168,16 @@ const { data: stakes = [], isLoading } = useQuery({
           
           <Dialog open={showStakeDialog} onOpenChange={setShowStakeDialog}>
             <DialogTrigger asChild>
-              <
-
-              Button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold">
+              <Button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold">
                 <Lock 
 
                 className="w-4 h-4 mr-2" />
                 {t('staking.stakeDra')}
               </Button>
             </DialogTrigger>
-            <
-
-            DialogContent className="bg-slate-900 border-slate-800 max-w-md">
-              <
-
-              DialogHeader>
-                <
-
-                DialogTitle className="text-white flex items-center gap-2">
+            <  DialogContent className="bg-slate-900 border-slate-800 max-w-md">
+              <  DialogHeader>
+                <  DialogTitle className="text-white flex items-center gap-2">
                   <Coins 
 
                   className="w-5 h-5 text-amber-400" />
@@ -217,9 +211,7 @@ const { data: stakes = [], isLoading } = useQuery({
                         onChange={(e) => setStakeAmount(Math.min(Number(e.target.value), draBalance))}
                         className="text-xl font-bold bg-slate-800 border-slate-700 text-white pr-16"
                       />
-                      <
-
-                      Button
+                      <    Button
                         size="sm"
                         variant="ghost"
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-300"
@@ -303,9 +295,7 @@ const { data: stakes = [], isLoading } = useQuery({
                     <p className="text-amber-400 text-xs">{t('staking.earlyUnstakeFee')}</p>
                   </div>
 
-                  <
-
-                  Button 
+                  < Button 
                     className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold"
                     onClick={() => stakeMutation.mutate()}
                     disabled={stakeMutation.isPending || stakeAmount <= 0}
@@ -320,9 +310,7 @@ const { data: stakes = [], isLoading } = useQuery({
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <
-
-          Card className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 border-amber-500/30 p-5">
+          < Card className="bg-gradient-to-br from-amber-500/20 to-amber-500/5 border-amber-500/30 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-amber-500/20">
                 <Lock 
@@ -335,9 +323,7 @@ const { data: stakes = [], isLoading } = useQuery({
               </div>
             </div>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <  Card className="bg-slate-900/50 border-slate-800 p-5">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-emerald-500/20">
                 <Gift 

@@ -192,6 +192,7 @@ model Proposal {
   title             String
   description       String
   type              ProposalType
+  category ProposalCategory?
   proposerId        String         @map("proposer_id")
   hotelAssetId      String?        @map("hotel_asset_id")
   status            ProposalStatus @default(DRAFT)
@@ -349,6 +350,14 @@ enum ProposalType {
   POLICY_CHANGE
   DIVIDEND_DISTRIBUTION
   OTHER
+}
+
+enum ProposalCategory {
+  asset_acquisition
+  fee_adjustment
+  partnership
+  platform_upgrade
+  esg_initiative
 }
 
 enum VoteChoice {

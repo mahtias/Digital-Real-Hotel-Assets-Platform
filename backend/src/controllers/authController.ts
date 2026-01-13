@@ -163,6 +163,17 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
+    // ----------------------------------
+    //  SET COOKIE HERE
+    // ----------------------------------
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,        // must be true on Render HTTPS
+      sameSite: "none",    // REQUIRED for Vercel <-> Render
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
     return res.json({
       success: true,
       message: 'Login successful',
@@ -174,8 +185,7 @@ export const login = async (req: Request, res: Response) => {
         role: user.role,
         kycStatus: user.kycStatus,
         walletAddress: user.walletAddress
-      },
-      token
+      }
     });
 
   } catch (error) {
@@ -183,6 +193,7 @@ export const login = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Server error during login' });
   }
 };
+
 
 // VERIFY EMAIL
 

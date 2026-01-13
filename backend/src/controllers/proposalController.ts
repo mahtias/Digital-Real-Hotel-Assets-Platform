@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { ProposalType, ProposalStatus, VoteChoice } from '@prisma/client';
+import { ProposalType, ProposalStatus,ProposalCategory , VoteChoice } from '@prisma/client';
 
 // CREATE proposal
 export const createProposal = async (req: Request, res: Response) => {
@@ -15,7 +15,8 @@ export const createProposal = async (req: Request, res: Response) => {
       type,
       hotelAssetId,
       quorumRequired,
-      approvalThreshold
+      approvalThreshold,
+       category
     } = req.body;
 
     const proposal = await prisma.proposal.create({
@@ -23,6 +24,7 @@ export const createProposal = async (req: Request, res: Response) => {
         title,
         description,
         type: type as ProposalType,
+         category: category as ProposalCategory,
         hotelAssetId,
         quorumRequired,
         approvalThreshold,

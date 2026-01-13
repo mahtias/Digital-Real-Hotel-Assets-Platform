@@ -49,6 +49,7 @@ const { data: proposals = [], isLoading } = useQuery({
 
   await authFetch("/api/v1/proposals", {
   method: "POST",
+  credentials: "include",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     ...newProposal,
@@ -92,6 +93,7 @@ const { data: proposals = [], isLoading } = useQuery({
     esg_initiative: 'bg-green-500/20 text-green-400 border-green-500/30'
   };
 
+  
   const getStatusIcon = (status) => {
     switch(status) {
       case 'active': return Clock;
@@ -130,30 +132,20 @@ const { data: proposals = [], isLoading } = useQuery({
           {user && (
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <
-
-                Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
+                <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900">
                   <Plus 
 
                   className="w-4 h-4 mr-2" />
                   {t('governance.createProposal')}
                 </Button>
               </DialogTrigger>
-              <
-
-              DialogContent className="bg-slate-900 border-slate-800">
-                <
-
-                DialogHeader>
-                  <
-
-                  DialogTitle className="text-white">{t('governance.createProposal')}</DialogTitle>
+              < DialogContent className="bg-slate-900 border-slate-800">
+                < DialogHeader>
+                  < DialogTitle className="text-white">{t('governance.createProposal')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div>
-                    <
-
-                    Label className="text-slate-400">{t('governance.proposalTitle')}</Label>
+                    <  Label className="text-slate-400">{t('governance.proposalTitle')}</Label>
                     <Input
                       
                       value={newProposal.title}
@@ -162,21 +154,15 @@ const { data: proposals = [], isLoading } = useQuery({
                     />
                   </div>
                   <div>
-                    <
-
-                    Label className="text-slate-400">{t('governance.proposalCategory')}</Label>
+                    < Label className="text-slate-400">{t('governance.proposalCategory')}</Label>
                     <Select 
                       value={newProposal.category} 
                       onValueChange={(v) => setNewProposal({ ...newProposal, category: v })}
                     >
-                      <
-
-                      SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-2">
+                      < SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-2">
                         <SelectValue />
                       </SelectTrigger>
-                      <
-
-                      SelectContent className="bg-slate-800 border-slate-700">
+                      <  SelectContent className="bg-slate-800 border-slate-700">
                         {Object.keys(categoryColors).map((key) => (
                           <
 
@@ -186,9 +172,7 @@ const { data: proposals = [], isLoading } = useQuery({
                     </Select>
                   </div>
                   <div>
-                    <
-
-                    Label className="text-slate-400">{t('governance.proposalDescription')}</Label>
+                    < Label className="text-slate-400">{t('governance.proposalDescription')}</Label>
                     <Textarea
                       
                       value={newProposal.description}
@@ -197,9 +181,7 @@ const { data: proposals = [], isLoading } = useQuery({
                       placeholder={t('governance.descriptionPlaceholder')}
                     />
                   </div>
-                  <
-
-                  Button 
+                  <Button 
                     className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900"
                     onClick={() => createProposalMutation.mutate()}
                     disabled={createProposalMutation.isPending || !newProposal.title}
@@ -225,27 +207,19 @@ const { data: proposals = [], isLoading } = useQuery({
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.activeProposals')}</p>
-            <p className="text-2xl font-bold text-white mt-1">{proposals.filter(p => p.status === 'active').length}</p>
+            <p className="text-2xl font-bold text-white mt-1">{proposals.filter(p => p.status === 'ACTIVE').length}</p>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          < Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.passed')}</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{proposals.filter(p => p.status === 'passed').length}</p>
+            <p className="text-2xl font-bold text-emerald-400 mt-1">{proposals.filter(p => p.status === 'APPROVED').length}</p>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.totalVotingPower')}</p>
             <p className="text-2xl font-bold text-amber-400 mt-1">2.5M DRA</p>
           </Card>
-          <
-
-          Card className="bg-slate-900/50 border-slate-800 p-5">
+          <  Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.participants')}</p>
             <p className="text-2xl font-bold text-violet-400 mt-1">1,234</p>
           </Card>
@@ -276,27 +250,23 @@ const { data: proposals = [], isLoading } = useQuery({
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <
-
-                        Badge className={`${categoryColors[proposal.category]} border`}>
-                          {t(`governance.categories.${proposal.category}`)}
+                        <Badge className={`${categoryColors[proposal.category]} border`}>
+                           {t(`governance.categories.${proposal.category}`)}
                         </Badge>
                         <Badge variant="outline" className={`border-slate-700 ${statusColor}`}>
                           <StatusIcon 
 
                           className="w-3 h-3 mr-1" />
-                          {t(`governance.status.${proposal.status}`)}
+                         {t(`governance.status.${proposal.status?.toLowerCase()}`)}
                         </Badge>
                       </div>
                       <h3 className="text-xl font-semibold text-white mb-2">{proposal.title}</h3>
                       <p className="text-slate-400 text-sm line-clamp-2">{proposal.description}</p>
                     </div>
                     
-                    {proposal.status === 'active' && user && (
+                    {proposal.status === 'ACTIVE' && user && (
                       <div className="flex gap-2">
-                        <
-
-                        Button 
+                        <Button 
                           variant="outline" 
                           size="sm"
                           className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
@@ -309,9 +279,7 @@ const { data: proposals = [], isLoading } = useQuery({
                           className="w-4 h-4 mr-1" />
                           {t('governance.voteFor')}
                         </Button>
-                        <
-
-                        Button 
+                        <   Button 
                           variant="outline" 
                           size="sm"
                           className="border-red-500/50 text-red-400 hover:bg-red-500/10"
