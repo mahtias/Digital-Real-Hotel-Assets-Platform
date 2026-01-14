@@ -6,8 +6,7 @@ export const authService = {
   // =============================
   async register(userData) {
     const response = await api.post('/auth/register', userData);
-    // Backend sends: success + "verify your email"
-    return response.data;
+    return response.data; // backend: "verify your email"
   },
 
   // =============================
@@ -19,7 +18,8 @@ export const authService = {
     if (response.data.success) {
       const { accessToken, refreshToken, user } = response.data.data;
 
-      localStorage.setItem('accessToken', accessToken);
+      // MUST store token so Axios interceptor can send it
+      localStorage.setItem('token', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(user));
     }
@@ -54,14 +54,11 @@ export const authService = {
     return response.data;
   },
 
-  
-
-
   // =============================
   // LOGOUT
   // =============================
   logout() {
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem('token');        // fixed
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
   },
@@ -75,10 +72,13 @@ export const authService = {
   },
 
   isAuthenticated() {
-    return !!localStorage.getItem('accessToken');
+    return !!localStorage.getItem('token'); // fixed
   },
 };
 
+// =============================
+// RESEND VERIFICATION EMAIL
+// =============================
 export async function resendVerificationEmail(email) {
   const response = await api.post('/auth/resend-verification', { email });
   return response.data;

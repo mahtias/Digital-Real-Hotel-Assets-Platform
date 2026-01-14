@@ -337,6 +337,7 @@ const handleResendEmail = async () => {
     )}
   </div>
 
+
   {/* Remember me + Forgot password */}
   <div className="auth-form-options">
     <label className="auth-checkbox">
@@ -360,10 +361,10 @@ const handleResendEmail = async () => {
     {loading ? (
       <>
         <span className="spinner"></span>
-        {t("authLogin.loggingIn")}
+        {t("authLogin.loginBtn")} 
       </>
     ) : (
-      t("authLogin.loginBtn")
+      t("authLogin.loginBtn") 
     )}
   </button>
 

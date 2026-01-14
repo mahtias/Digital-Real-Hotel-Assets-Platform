@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+//import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,9 +30,9 @@ export default function HotelDetail() {
   const [showInvestDialog, setShowInvestDialog] = useState(false);
   const [investSuccess, setInvestSuccess] = useState(false);
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+  // useEffect(() => {
+  //   base44.auth.me().then(setUser).catch(() => setUser(null));
+  // }, []);
 
 const { data: hotel, isLoading } = useQuery({
   queryKey: ['hotel', hotelId],
@@ -53,6 +53,32 @@ const { data: hotel, isLoading } = useQuery({
 
   const tokensToBuy =
     hotel ? investAmount / hotel.tokenPrice : 0;
+
+    type DocumentContent = {
+  title: string;
+  content: string;
+};
+
+const [selectedDocument, setSelectedDocument] = useState<DocumentContent | null>(null);
+
+const documentContents: Record<string, DocumentContent> = {
+  [t('hotelDetail.assetReport')]: {
+    title: t('hotelDetail.assetReport'),
+    content: "The Asset Valuation Report is the bridge between the physical hotel and the digital token; it ensures the \"Digital Twin\" on the blockchain accurately represents the real-world financial worth of the property."
+  },
+  [t('hotelDetail.leaseSummary')]: {
+    title: t('hotelDetail.leaseSummary'),
+    content: "The Lease Contract Summary provides detailed information about current lease agreements, rental terms, tenant obligations, and revenue projections for the property."
+  },
+  [t('hotelDetail.auditReport')]: {
+    title: t('hotelDetail.auditReport'),
+    content: "The Audit Report contains independent verification of the property's financial statements, operational metrics, and compliance with regulatory requirements."
+  },
+  [t('hotelDetail.contractAddress')]: {
+    title: t('hotelDetail.contractAddress'),
+    content: "The Token Contract Address is the unique blockchain identifier for this asset's smart contract, enabling transparent and immutable ownership tracking on the distributed ledger."
+  }
+};
 
   if (isLoading || !hotel) {
     return (
@@ -205,24 +231,61 @@ const { data: hotel, isLoading } = useQuery({
                 </Card>
               </TabsContent>
 
+
               <TabsContent value="documents" className="mt-6">
-                <Card className="bg-slate-900/50 border-slate-800 p-6">
-                  {[
-                    t('hotelDetail.assetReport'),
-                    t('hotelDetail.leaseSummary'),
-                    t('hotelDetail.auditReport'),
-                    t('hotelDetail.contractAddress')
-                  ].map((doc) => (
-                    <div key={doc} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-amber-400" />
-                        <span className="text-white">{doc}</span>
-                      </div>
-                      <Shield className="w-4 h-4 text-emerald-400" />
+              <Card className="bg-slate-900/50 border-slate-800 p-6">
+                {[
+                  t('hotelDetail.assetReport'),
+                  t('hotelDetail.leaseSummary'),
+                  t('hotelDetail.auditReport'),
+                  t('hotelDetail.contractAddress')
+                ].map((doc) => (
+                  <div 
+                    key={doc} 
+                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer mb-3"
+                    onClick={() => setSelectedDocument(documentContents[doc])}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-amber-400" />
+                      <span className="text-white">{doc}</span>
                     </div>
-                  ))}
-                </Card>
-              </TabsContent>
+                    <Shield className="w-4 h-4 text-emerald-400" />
+                  </div>
+                ))}
+              </Card>
+
+              {/* Document Modal */}
+              <Dialog open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)}>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-bold text-amber-400 flex items-center gap-3">
+                      <FileText className="w-6 h-6" />
+                      {selectedDocument?.title}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+                      <p className="text-slate-300 leading-relaxed text-lg">
+                        {selectedDocument?.content}
+                      </p>
+                    </div>
+                    <div className="mt-6 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-400">
+                        <Shield className="w-5 h-5" />
+                        <span className="text-sm">Verified Document</span>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedDocument(null)}
+                        className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-lg transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </TabsContent>
+
 
             </Tabs>
           </div>

@@ -156,3 +156,36 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+
+
+/* SHADCN Calendar - Force white text */
+[data-radix-popper-content-wrapper] .calendar,
+[data-radix-popper-content-wrapper] .calendar * {
+  color: white !important;
+}
+
+/* Month / year text white */
+.calendar .react-calendar__navigation__label,
+.calendar .rdp-caption,
+.calendar .rdp-caption * {
+  color: white !important;
+}
+
+/* Days */
+.calendar .rdp-day {
+  color: white !important;
+}
+
+/* Selected day */
+.calendar .rdp-day[data-selected="true"] {
+  background: #fbbf24 !important; /* amber */
+  color: black !important;
+}
+
+/* Hover */
+.calendar .rdp-day:hover {
+  background: rgba(255,255,255,0.1) !important;
+  color: white !important;
+}
+

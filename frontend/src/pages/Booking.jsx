@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { useAccount } from "wagmi";
+import { toast } from "sonner";
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export default function Booking() {
   const [paymentMethod, setPaymentMethod] = useState('usdc');
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingCode, setBookingCode] = useState('');
-
+ const { address, isConnected } = useAccount();
   
 // logged-in user
 
@@ -250,12 +251,12 @@ const { data: investments = [] } = useQuery({
                       </Button>
                     </PopoverTrigger>
                     < PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
-                      < Calendar mode="single" selected={checkIn} onSelect={setCheckIn} disabled={(date) => date < new Date()} />
+                     <Calendar className="calendar" mode="single" selected={checkIn} onSelect={setCheckIn} disabled={(date) => date < new Date()}/>
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div>
-                  <  Label className="text-slate-400 mb-2 block">{t('booking.checkOut')}</Label>
+                  < Label className="text-slate-400 mb-2 block">{t('booking.checkOut')}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <  Button variant="outline" className="w-full justify-start bg-slate-800 border-slate-700 text-white">
@@ -268,7 +269,7 @@ const { data: investments = [] } = useQuery({
                       </Button>
                     </PopoverTrigger>
                     <  PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700">
-                      <  Calendar mode="single" selected={checkOut} onSelect={setCheckOut} disabled={(date) => date <= (checkIn || new Date())} />
+                      <Calendar className="calendar" mode="single" selected={checkOut} onSelect={setCheckOut} disabled={(date) => date <= (checkIn || new Date())}/>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -278,46 +279,28 @@ const { data: investments = [] } = useQuery({
                 <div>
                   < Label className="text-slate-400 mb-2 block">{t('booking.roomType')}</Label>
                   <Select value={roomType} onValueChange={setRoomType}>
-                    <
-
-                    SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                    < SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <
-
-                    SelectContent className="bg-slate-800 border-slate-700">
-                      <
-
-                      SelectItem value="standard">{t('booking.standard')} - $120{t('booking.perNight')}</SelectItem>
-                      <
-
-                      SelectItem value="deluxe">{t('booking.deluxe')} - $180{t('booking.perNight')}</SelectItem>
-                      <
-
-                      SelectItem value="suite">{t('booking.suite')} - $320{t('booking.perNight')}</SelectItem>
+                    < SelectContent className="bg-slate-800 border-slate-700">
+                      < SelectItem value="standard">{t('booking.standard')} - $120{t('booking.perNight')}</SelectItem>
+                      < SelectItem value="deluxe">{t('booking.deluxe')} - $180{t('booking.perNight')}</SelectItem>
+                      < SelectItem value="suite">{t('booking.suite')} - $320{t('booking.perNight')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <
-
-                  Label className="text-slate-400 mb-2 block">{t('booking.guests')}</Label>
+                  < Label className="text-slate-400 mb-2 block">{t('booking.guests')}</Label>
                   <Select value={guests.toString()} onValueChange={(v) => setGuests(Number(v))}>
-                    <
-
-                    SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                    < SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                       <Users 
 
                       className="w-4 h-4 mr-2" />
                       <SelectValue />
                     </SelectTrigger>
-                    <
-
-                    SelectContent className="bg-slate-800 border-slate-700">
+                    <   SelectContent className="bg-slate-800 border-slate-700">
                       {[1, 2, 3, 4].map((n) => (
-                        <
-
-                        SelectItem key={n} value={n.toString()}>{n} {t('booking.person')}</SelectItem>
+                        <  SelectItem key={n} value={n.toString()}>{n} {t('booking.person')}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -325,9 +308,7 @@ const { data: investments = [] } = useQuery({
               </div>
             </Card>
 
-            <
-
-            Card className="bg-slate-900/50 border-slate-800 p-6">
+            < Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-semibold mb-4">{t('booking.paymentMethod')}</h3>
               <div className="grid md:grid-cols-3 gap-3">
                 {[
@@ -354,9 +335,7 @@ const { data: investments = [] } = useQuery({
 
           {/* Summary */}
           <div>
-            <
-
-            Card className="bg-slate-900/80 border-slate-800 p-6 sticky top-4">
+            < Card className="bg-slate-900/80 border-slate-800 p-6 sticky top-4">
               <h3 className="text-white font-semibold mb-4">{t('booking.orderSummary')}</h3>
               
               {hotel && checkIn && checkOut ? (
@@ -386,16 +365,29 @@ const { data: investments = [] } = useQuery({
                     </div>
                   </div>
 
-                  < Button 
-                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold"
+                                {!isConnected ? (
+                  // Wallet NOT connected
+                  <Button
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold"
+                    onClick={() => toast.error("Connect your wallet before confirming your booking")}
+                  >
+                    Connect Wallet Before Booking
+                  </Button>
+                ) : (
+                  // Wallet connected → allow booking
+                  <Button
+                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 
+                              hover:from-amber-600 hover:to-amber-700 
+                              text-slate-900 font-semibold"
                     onClick={() => createBookingMutation.mutate()}
                     disabled={createBookingMutation.isPending || !user}
                   >
-                    <CreditCard 
-
-                    className="w-4 h-4 mr-2" />
-                    {createBookingMutation.isPending ? t('hotelDetail.processing') : user ? t('booking.confirmBooking') : t('hotelDetail.pleaseLogin')}
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    {createBookingMutation.isPending
+                      ? t('hotelDetail.processing')
+                      : t('booking.confirmBooking')}
                   </Button>
+                )}
                 </>
               ) : (
                 <p className="text-slate-400 text-sm text-center py-4">
@@ -415,6 +407,7 @@ const { data: investments = [] } = useQuery({
               )}
             </Card>
           </div>
+
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import './App.css'
+//import './App.css'
 import { LanguageProvider } from "@/components/common/LanguageContext";
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
