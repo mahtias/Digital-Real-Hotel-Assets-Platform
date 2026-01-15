@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import VisualEditAgent from '@/lib/VisualEditAgent'
-import NavigationTracker from '@/lib/NavigationTracker'
+
 import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
@@ -27,7 +27,7 @@ import ResetPassword from '@/pages/auth/ResetPassword';
 import VerifyEmailSent from '@/pages/auth/VerifyEmailSent';
 import VerifyEmail from '@/pages/auth/VerifyEmail';
 
-//  NEW IMPORTS
+
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import { useAuthModal } from "@/context/AuthModalContext";
 import AuthModal from "@/components/AuthModal";
@@ -45,13 +45,13 @@ const PROTECTED_PAGES = [
   'settings'
 ];
 
-// Layout wrapper
+
 const LayoutWrapper = ({ children, currentPageName }) =>
   Layout ?
     <Layout currentPageName={currentPageName}>{children}</Layout>
     : <>{children}</>;
 
-//  NEW: Modal wrapper inside context
+
 function AuthModalWrapper() {
   const { isOpen, defaultTab, closeAuthModal } = useAuthModal();
 
@@ -63,16 +63,19 @@ function AuthModalWrapper() {
     />
   );
 }
+
 function App() {
   return (
     <LanguageProvider>
-      <AuthProvider>
-        <AuthModalProvider>
-          <WagmiProvider config={config}>
-            <QueryClientProvider client={queryClientInstance}>
-              <RainbowKitProvider>
-                <Router>
-                  <NavigationTracker />
+      <AuthModalProvider>
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClientInstance}>
+            <RainbowKitProvider>
+              
+              <Router>
+
+                {/* IMPORTANT FIX: AuthProvider goes INSIDE Router */}
+                <AuthProvider>
 
                   <Routes>
                     {/* Main Page */}
@@ -91,6 +94,7 @@ function App() {
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/verify-email-sent" element={<VerifyEmailSent />} />
                     <Route path="/verify-email" element={<VerifyEmail />} />
+
 
                     {/* KYC */}
                     <Route path="/kyc/submit" element={<KYCForm />} />
@@ -134,15 +138,16 @@ function App() {
 
                   <Toaster />
                   <VisualEditAgent />
-
-                  {/* GLOBAL AUTH MODAL */}
+                  
                   <AuthModalWrapper />
-                </Router>
-              </RainbowKitProvider>
-            </QueryClientProvider>
-          </WagmiProvider>
-        </AuthModalProvider>
-      </AuthProvider>
+
+                </AuthProvider>
+              </Router>
+
+            </RainbowKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      </AuthModalProvider>
     </LanguageProvider>
   );
 }

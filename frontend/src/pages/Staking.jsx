@@ -18,7 +18,7 @@ import { format, differenceInDays, addDays } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
 
 import { useAuth } from "@/context/AuthContext";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export default function Staking() {
   
   const { t } = useLanguage();
@@ -31,17 +31,19 @@ export default function Staking() {
   const { authFetch } = useAuth();  
   const draBalance = user?.dra_balance || 5000;
 
- useEffect(() => {
-  authFetch("/user/me")
-    .then(setUser)
-    .catch(() => setUser(null));
-}, []);
+//  useEffect(() => {
+//    authFetch("/api/v1/auth/me")
+//      .then(res => res.json())
+//      .then(data => setUser(data.user))
+//      .catch(() => setUser(null));
+//  }, [])
+
 
 const { data: stakes = [], isLoading } = useQuery({
   queryKey: ['dra-staking', user?.email],
   enabled: !!user,
  queryFn: async () => {
-  const res = await authFetch("/staking/me")
+  const res = await fetch(`${API_URL}/api/v1/staking/me`) 
     .catch(() => null);
 
   if (!res) return [];
@@ -68,7 +70,7 @@ const { data: stakes = [], isLoading } = useQuery({
     const startDate = new Date();
     const endDate = addDays(startDate, selectedPeriod);
 
-    await authFetch("/staking", {
+    await fetch(`${API_URL}/api/v1/staking`, {
       method: "POST",
       body: JSON.stringify({
         staked_amount: stakeAmount,
@@ -94,7 +96,7 @@ const { data: stakes = [], isLoading } = useQuery({
 
   const claimMutation = useMutation({
   mutationFn: async (stakeId) => {
-    await authFetch(`/staking/${stakeId}/claim`, {
+    await fetch(`${API_URL}/api/v1/staking/${stakeId}/claim`, {
       method: "POST"
     });
   },
@@ -105,7 +107,7 @@ const { data: stakes = [], isLoading } = useQuery({
 
  const unstakeMutation = useMutation({
   mutationFn: async (stakeId) => {
-    await authFetch(`/staking/${stakeId}/unstake`, {
+    await fetch(`${API_URL}/api/v1/staking/${stakeId}/unstake`, {
       method: "POST"
     });
   },
@@ -130,26 +132,26 @@ const { data: stakes = [], isLoading } = useQuery({
   const expectedRewards = (stakeAmount * lockPeriodConfig[selectedPeriod].apy / 100);
   const votingBoost = stakeAmount * lockPeriodConfig[selectedPeriod].multiplier;
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        < Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
-          <Coins 
+  // if (!user) {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+  //       < Card className="bg-slate-900/50 border-slate-800 p-8 text-center max-w-md">
+  //         <Coins 
 
-          className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <h2 className="text-xl text-white font-semibold mb-2">{t('portfolio.loginRequired')}</h2>
-          <p className="text-slate-400 mb-4">{t('portfolio.loginToView')}</p>
-          < Button 
+  //         className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+  //         <h2 className="text-xl text-white font-semibold mb-2">{t('portfolio.loginRequired')}</h2>
+  //         <p className="text-slate-400 mb-4">{t('portfolio.loginToView')}</p>
+  //         < Button 
             
-            onClick={() => base44.auth.redirectToLogin()}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-900"
-          >
-            {t('common.login')}
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+  //           onClick={() => base44.auth.redirectToLogin()}
+  //           className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+  //         >
+  //           {t('common.login')}
+  //         </Button>
+  //       </Card>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">

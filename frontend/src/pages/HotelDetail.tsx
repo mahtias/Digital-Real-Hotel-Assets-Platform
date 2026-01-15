@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-//import { base44 } from '@/api/base44Client';
+import { toast } from "sonner";
+import { useAccount } from "wagmi";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-
+import { useAuth } from "@/context/AuthContext";
 import { Star, MapPin, Leaf, TrendingUp, Calendar, Home, Users, Shield, FileText, ArrowLeft, Plus, Minus, Wallet, CheckCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -19,16 +20,27 @@ import { useLanguage } from '@/components/common/LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 export default function HotelDetail() {
   
-  const urlParams = new URLSearchParams(window.location.search);
-  const hotelId = urlParams.get('id');
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { t } = useLanguage();
+const urlParams = new URLSearchParams(window.location.search);
+const hotelId = urlParams.get('id');
 
-  const [user, setUser] = useState(null);
-  const [investAmount, setInvestAmount] = useState(100);
-  const [showInvestDialog, setShowInvestDialog] = useState(false);
-  const [investSuccess, setInvestSuccess] = useState(false);
+const navigate = useNavigate();
+const queryClient = useQueryClient();
+const { t } = useLanguage();
+
+const { user, authFetch } = useAuth();
+const { isConnected, address } = useAccount();
+
+const [investAmount, setInvestAmount] = useState(100);
+const [showInvestDialog, setShowInvestDialog] = useState(false);
+const [investSuccess, setInvestSuccess] = useState(false);
+
+if (user === undefined) {
+  return <div className="text-center text-slate-400">Loading...</div>;
+}
+
+const normalizedKyc = user?.kycStatus?.toUpperCase();
+const isKycApproved = normalizedKyc === "APPROVED";
+
 
   // useEffect(() => {
   //   base44.auth.me().then(setUser).catch(() => setUser(null));
@@ -44,6 +56,7 @@ const { data: hotel, isLoading } = useQuery({
   enabled: !!hotelId,
 });
 
+
   // FIXED: Use correct backend fields
   const soldPercentage =
     hotel ? (hotel.tokensSold / hotel.totalTokens) * 100 : 0;
@@ -58,6 +71,23 @@ const { data: hotel, isLoading } = useQuery({
   title: string;
   content: string;
 };
+
+const confirmInvestMutation = useMutation({
+  mutationFn: async () => {
+    return authFetch(`/investments/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hotelId: hotel.id,
+        amount: investAmount
+      })
+    });
+  },
+  onSuccess: () => {
+    setInvestSuccess(true);
+    queryClient.invalidateQueries(["investments"]);
+  }
+});
 
 const [selectedDocument, setSelectedDocument] = useState<DocumentContent | null>(null);
 
@@ -333,12 +363,46 @@ const documentContents: Record<string, DocumentContent> = {
 
               {/* INVEST DIALOG */}
               <Dialog open={showInvestDialog} onOpenChange={setShowInvestDialog}>
-                <DialogTrigger asChild>
-                  <Button className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold text-lg py-6">
-                    <Wallet className="w-5 h-5 mr-2" />
-                    {t('hotelDetail.investNow')}
-                  </Button>
-                </DialogTrigger>
+               <DialogTrigger asChild>
+                      <Button
+                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold text-lg py-6"
+                        disabled={!isConnected || !user || !isKycApproved}
+                      >
+                        <Wallet className="w-5 h-5 mr-2" />
+                        {t("hotelDetail.investNow")}
+                      </Button>
+                    </DialogTrigger>
+
+                    {/* USER NOT LOGGED IN */}
+                    {!user ? (
+                      <p className="text-red-400 text-sm mt-2">You must login or register first.</p>
+                    ) : null}
+
+                    {/* WALLET NOT CONNECTED */}
+                    {user && !isConnected ? (
+                      <p className="text-red-400 text-sm mt-2">Please connect your wallet.</p>
+                    ) : null}
+
+                    {/* EXACT SAME KYC LOGIC YOU WANT */}
+                    {user && normalizedKyc !== "APPROVED" ? (
+                      normalizedKyc === "PENDING" || normalizedKyc === "IN_REVIEW" ? (
+                        <Button
+                          disabled
+                          className="w-full bg-gray-700 text-gray-400 font-semibold cursor-not-allowed"
+                        >
+                          KYC is Pending – Approval Required
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                          onClick={() =>
+                            window.open("/kyc/submit", "_blank", "noopener,noreferrer")
+                          }
+                        >
+                          Complete KYC to Continue
+                        </Button>
+                      )
+                    ) : null}
 
                 <DialogContent className="bg-slate-900 border-slate-800">
                   <DialogHeader>
@@ -424,11 +488,22 @@ const documentContents: Record<string, DocumentContent> = {
                       </div>
 
                       {/* CONFIRM */}
-                      <Button
-                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold"
-                      >
-                        {t('hotelDetail.confirmInvest')}
-                      </Button>
+                     <Button
+                      className={`w-full font-semibold text-slate-900
+                        ${isKycApproved
+                          ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+                          : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                        }`}
+                      disabled={!isKycApproved || !isConnected || !user}
+                      onClick={() => {
+                        if (!user) return toast.error("Please login first.");
+                        if (!isConnected) return toast.error("Connect wallet first.");
+                        if (!isKycApproved) return toast.error("Your KYC must be approved before investing.");
+                        confirmInvestMutation.mutate();
+                      }}
+                    >
+                      {t("hotelDetail.confirmInvest")}
+                    </Button>
                     </div>
                   )}
 

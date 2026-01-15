@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 
 const AuthContext = createContext(null);
 const API = import.meta.env.VITE_API_URL;
@@ -10,15 +17,15 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem("authToken") && !!localStorage.getItem("user");
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() =>
+    !!localStorage.getItem("authToken") && !!localStorage.getItem("user")
+  );
 
   const [loading, setLoading] = useState(true);
 
-  // ============================
-  // VERIFY TOKEN ON REFRESH
-  // ============================
+  // -----------------------------
+  // CHECK AUTH ON REFRESH
+  // -----------------------------
   useEffect(() => {
     const checkAuth = async () => {
       if (!token) {
@@ -28,16 +35,16 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const response = await fetch(`${API}/api/v1/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (response.ok) {
           const data = await response.json();
           const userData = data.user || data;
-            console.log("DECODED /me USER:", userData);
+
           setUser(userData);
           localStorage.setItem("user", JSON.stringify(userData));
-          
+
           setIsAuthenticated(true);
         } else {
           logout();
@@ -53,11 +60,10 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [token]);
 
-  // ============================
+  // -----------------------------
   // LOGIN
-  // ============================
-  const login = async ({ email, password }) => {
-    
+  // -----------------------------
+  const login = useCallback(async ({ email, password }) => {
     try {
       const response = await fetch(`${API}/api/v1/auth/login`, {
         method: "POST",
@@ -66,12 +72,12 @@ export const AuthProvider = ({ children }) => {
       });
 
       const data = await response.json();
-       console.log("LOGIN RESPONSE:", data);
+
       if (response.ok && data.token) {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        
-         setToken(data.token + ""); 
+
+        setToken(data.token);
         setUser(data.user);
         setIsAuthenticated(true);
 
@@ -83,73 +89,86 @@ export const AuthProvider = ({ children }) => {
       console.error("Login error:", err);
       return { success: false, message: "Network error. Please try again." };
     }
-  };
+  }, []);
 
-  // ============================
+  // -----------------------------
   // REGISTER
-  // ============================
-  const register = async ({ firstName, lastName, email, password }) => {
-    try {
-      const response = await fetch(`${API}/api/v1/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, email, password }),
-      });
+  // -----------------------------
+  const register = useCallback(
+    async ({ firstName, lastName, email, password }) => {
+      try {
+        const response = await fetch(`${API}/api/v1/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firstName, lastName, email, password }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (response.ok) {
-        return { success: true };
+        if (response.ok) return { success: true };
+
+        return {
+          success: false,
+          message: data.message || "Registration failed",
+        };
+      } catch (err) {
+        return { success: false, message: "Network error. Try again." };
       }
+    },
+    []
+  );
 
-      return { success: false, message: data.message || "Registration failed" };
-    } catch (err) {
-      return { success: false, message: "Network error. Try again." };
-    }
-  };
-
-  // ============================
+  // -----------------------------
   // LOGOUT
-  // ============================
-  const logout = () => {
+  // -----------------------------
+  const logout = useCallback(() => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
 
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-  };
+  }, []);
 
-  // ============================
-  // AUTH FETCH (automatically attach token)
-  // ============================
-  const authFetch = async (url: string, options: RequestInit = {}) => {
-  const t = localStorage.getItem("authToken");
+  // -----------------------------
+  // AUTH FETCH
+  // -----------------------------
+ const authFetch = useCallback(
+  async (url: string, options: RequestInit = {}) => {
+    const t = token;
 
-  return fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${t}`,
-      ...(options.headers || {})
-    }
-  });
-};
+    return fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${t}`,
+        ...(options.headers ? (options.headers as any) : {}),  
+      },
+    });
+  },
+  [token]
+);
+
+
+  // -----------------------------
+  // STABLE VALUE (PREVENT RE-RENDERS)
+  // -----------------------------
+  const value = useMemo(
+    () => ({
+      isAuthenticated,
+      user,
+      token,
+      loading,
+      login,
+      register,
+      logout,
+      authFetch,
+    }),
+    [isAuthenticated, user, token, loading, login, register, logout, authFetch]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        user,
-        token,
-        loading,
-        login,
-        register,
-        logout,
-        authFetch, 
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 };
 

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,8 @@ import { CalendarIcon, MapPin, Star, Users, CreditCard, CheckCircle, Gift, Tag }
 import { format, differenceInDays } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuth } from "@/context/AuthContext";
+
+
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export default function Booking() {
@@ -32,8 +35,11 @@ export default function Booking() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingCode, setBookingCode] = useState('');
  const { address, isConnected } = useAccount();
+ const navigate = useNavigate();
+ const kycStatus = user?.kycStatus; 
+ const normalizedKyc = kycStatus?.toUpperCase();
   
-// logged-in user
+// logged-in user  86a2465e-482e-49cf-9225-6b9d9091986b
 
 useEffect(() => {
   authFetch("/api/v1/auth/me")
@@ -365,27 +371,45 @@ const { data: investments = [] } = useQuery({
                     </div>
                   </div>
 
-                                {!isConnected ? (
-                  // Wallet NOT connected
+               {!isConnected ? (
                   <Button
                     className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold"
-                    onClick={() => toast.error("Connect your wallet before confirming your booking")}
+                    onClick={() =>
+                      toast.error("Connect your wallet before confirming your booking")
+                    }
                   >
                     Connect Wallet Before Booking
                   </Button>
+                ) : normalizedKyc !== "APPROVED" ? (
+                  normalizedKyc === "PENDING" || normalizedKyc === "IN_REVIEW" ? (
+                    <Button
+                      disabled
+                      className="w-full bg-gray-700 text-gray-400 font-semibold cursor-not-allowed"
+                    >
+                      KYC is Pending – Approval Required
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                      onClick={() =>
+                        window.open("/kyc/submit", "_blank", "noopener,noreferrer")
+                      }
+                    >
+                      Complete KYC to Continue
+                    </Button>
+                  )
                 ) : (
-                  // Wallet connected → allow booking
                   <Button
-                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 
-                              hover:from-amber-600 hover:to-amber-700 
+                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600
+                              hover:from-amber-600 hover:to-amber-700
                               text-slate-900 font-semibold"
                     onClick={() => createBookingMutation.mutate()}
                     disabled={createBookingMutation.isPending || !user}
                   >
                     <CreditCard className="w-4 h-4 mr-2" />
                     {createBookingMutation.isPending
-                      ? t('hotelDetail.processing')
-                      : t('booking.confirmBooking')}
+                      ? t("hotelDetail.processing")
+                      : t("booking.confirmBooking")}
                   </Button>
                 )}
                 </>
