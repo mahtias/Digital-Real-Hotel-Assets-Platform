@@ -206,8 +206,18 @@ export const verifyEmail = async (req: Request, res: Response) => {
   try {
     const token = req.query.token as string;
 
+    // Detect origin (local or production)
+    const referer = req.headers.referer || "";
+    let FRONTEND_URL = "https://digirealassets.io";
+
+    // If the request comes from localhost (any port)
+    if (referer.startsWith("http://localhost") || referer.startsWith("http://127.0.0.1")) {
+      FRONTEND_URL = referer.split("/").slice(0, 3).join("/"); 
+      // Example: http://localhost:5173 → this becomes the redirect base
+    }
+
     if (!token) {
-      return res.status(400).json({ message: "Invalid token" });
+      return res.redirect(`${FRONTEND_URL}/email-verification-failed`);
     }
 
     const user = await prisma.user.findFirst({
@@ -215,11 +225,11 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid or expired token" });
+      return res.redirect(`${FRONTEND_URL}/email-verification-failed`);
     }
 
     if (user.verificationExpires && user.verificationExpires < new Date()) {
-      return res.status(400).json({ message: "Token expired" });
+      return res.redirect(`${FRONTEND_URL}/email-verification-failed`);
     }
 
     await prisma.user.update({
@@ -232,13 +242,14 @@ export const verifyEmail = async (req: Request, res: Response) => {
       }
     });
 
-    return res.json({ message: "Email successfully verified" });
+    return res.redirect(`${FRONTEND_URL}/email-verified`);
 
   } catch (error) {
     console.error("Verify email error:", error);
-    res.status(500).json({ message: "Server error verifying email" });
+    return res.redirect("https://digirealassets.io/email-verification-failed");
   }
 };
+
 
 // RESEND EMAIL VERIFY
 
