@@ -33,6 +33,7 @@ const { isConnected, address } = useAccount();
 const [investAmount, setInvestAmount] = useState(100);
 const [showInvestDialog, setShowInvestDialog] = useState(false);
 const [investSuccess, setInvestSuccess] = useState(false);
+  const [selectedQuarter, setSelectedQuarter] = useState(null)
 
 if (user === undefined) {
   return <div className="text-center text-slate-400">Loading...</div>;
@@ -88,6 +89,15 @@ const confirmInvestMutation = useMutation({
     queryClient.invalidateQueries(["investments"]);
   }
 });
+
+ const quarters = [ "2025 Q4", "2025 Q3", "2025 Q2", "2025 Q1" ]
+
+  const handleOpen = (q) => {
+    setSelectedQuarter({
+      name: q,
+      return: (2 + Math.random() * 0.5).toFixed(2) // mock return
+    })
+  }
 
 const [selectedDocument, setSelectedDocument] = useState<DocumentContent | null>(null);
 
@@ -247,19 +257,56 @@ const documentContents: Record<string, DocumentContent> = {
               </TabsContent>
 
               <TabsContent value="performance" className="mt-6">
-                <Card className="bg-slate-900/50 border-slate-800 p-6">
-                  <h3 className="text-white font-semibold mb-4">{t('hotelDetail.quarterlyReturns')}</h3>
+                  <Card className="bg-slate-900/50 border-slate-800 p-6">
+                    <h3 className="text-white font-semibold mb-4">
+                      {t("hotelDetail.quarterlyReturns")}
+                    </h3>
 
-                  {[ '2025 Q4', '2025 Q3', '2025 Q2', '2025 Q1' ].map((q) => (
-                    <div key={q} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                      <span className="text-slate-400">{q}</span>
-                      <span className="text-emerald-400 font-semibold">
-                        +{(2 + Math.random() * 0.5).toFixed(2)}%
-                      </span>
+                    {quarters.map((q) => (
+                      <div
+                        key={q}
+                        onClick={() => handleOpen(q)}
+                        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-800/80 transition"
+                      >
+                        <span className="text-slate-400">{q}</span>
+                        <span className="text-emerald-400 font-semibold">
+                          +{(2 + Math.random() * 0.5).toFixed(2)}%
+                        </span>
+                      </div>
+                    ))}
+                  </Card>
+                </TabsContent>
+
+                {/* MODAL */}
+                <Dialog open={!!selectedQuarter} onOpenChange={() => setSelectedQuarter(null)}>
+                  <DialogContent className="bg-slate-900 text-white border-slate-700">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-semibold">
+                        Quarterly Report – {selectedQuarter?.name}
+                      </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="mt-4 space-y-3">
+                      <p>
+                        <span className="text-slate-400">Return:</span>{" "}
+                        <span className="text-emerald-400 font-bold">
+                          +{selectedQuarter?.return}%
+                        </span>
+                      </p>
+
+                      <p className="text-slate-300 text-sm">
+                        This is a mock report.
+                      </p>
+                      
+                       <button 
+                        onClick={() => setSelectedQuarter(null)}
+                        className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-lg transition-colors"
+                      >
+                        Close
+                      </button>
                     </div>
-                  ))}
-                </Card>
-              </TabsContent>
+                  </DialogContent>
+                </Dialog>
 
 
               <TabsContent value="documents" className="mt-6">

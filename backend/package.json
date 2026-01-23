@@ -57,11 +57,12 @@
     "sequelize": "^6.35.1",
     "sequelize-typescript": "^2.1.6",
     "sharp": "^0.34.5",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "viem": "^2.44.4"
   },
   "devDependencies": {
     "@types/date-fns": "^2.5.3",
-    "@types/node": "^25.0.3",
+    "@types/node": "^25.0.9",
     "@types/nodemailer": "^7.0.4",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",

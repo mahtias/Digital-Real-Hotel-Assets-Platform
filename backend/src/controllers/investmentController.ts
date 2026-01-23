@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
-import prisma from "../config/database"; 
+import prisma from "../config/database";
+import { web3Service } from "../services/web3Service";   
+import { Prisma } from "@prisma/client";
 
 // GET /api/investments
 export const getUserInvestments = async (req: any, res: Response) => {
@@ -12,7 +14,6 @@ export const getUserInvestments = async (req: any, res: Response) => {
       orderBy: { createdAt: "desc" }
     });
 
-    
     res.json(investments);
   } catch (err) {
     console.error(err);
@@ -24,18 +25,60 @@ export const getUserInvestments = async (req: any, res: Response) => {
 export const createInvestment = async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
-    const data = req.body;
+    const { hotelId, amount, tokenAmount } = req.body;
 
-    const investment = await prisma.investment.create({
-      data: {
-        ...data,
-        userId,
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
     });
 
-    res.json(investment);
+    if (!user?.walletAddress) {
+      return res.status(400).json({ error: "User has no wallet connected" });
+    }
+
+    // 1. Ensure user is whitelisted on-chain
+    const isWhitelisted = await web3Service.isUserWhitelisted(user.walletAddress);
+
+    if (!isWhitelisted) {
+      await web3Service.whitelistUser(user.walletAddress);
+    }
+
+    // 2. Mint investment tokens via HATToken contract
+    const txHash = await web3Service.mintInvestmentTokens(
+      hotelId,
+      user.walletAddress,
+      tokenAmount
+    );
+
+    // 3. Save investment record in DB
+    const investment = await prisma.investment.create({
+  data: {
+    userId,
+    hotelAssetId: hotelId,
+    transactionHash: txHash,
+
+    // Provided from request
+    tokenAmount,
+    amount,
+
+    // Required Decimal defaults
+    earnedRewards: new Prisma.Decimal(0),
+    investedAmount: new Prisma.Decimal(amount),
+    pendingRewards: new Prisma.Decimal(0),
+    stakedAmount: new Prisma.Decimal(0),
+
+    createdBy: userId,
+    createdById: userId
+  },
+});
+
+    res.json({
+      success: true,
+      investment,
+      txHash
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error("Create investment error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -50,6 +93,7 @@ export const getInvestmentById = async (req: Request, res: Response) => {
 
     res.json(investment);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -64,6 +108,7 @@ export const updateInvestment = async (req: Request, res: Response) => {
 
     res.json(updated);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -77,6 +122,7 @@ export const deleteInvestment = async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };

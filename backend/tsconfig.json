@@ -4,7 +4,7 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": ".", 
+    "rootDir": "./src",
     "removeComments": true,
     "strict": true,
     "esModuleInterop": true,
@@ -19,26 +19,24 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
 
-  
-    "types": ["node"], 
-    "typeRoots": [ "./src/types", "./node_modules/@types" ],
-    "baseUrl": "./src",
+    "types": ["node"],
+    "typeRoots": ["./src/types", "./node_modules/@types"],
+
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["./*"],
-      "@config/*": ["config/*"],
-      "@models/*": ["models/*"],
-      "@controllers/*": ["controllers/*"],
-      "@services/*": ["services/*"],
-      "@middleware/*": ["middleware/*"],
-      "@routes/*": ["routes/*"],
-      "@utils/*": ["utils/*"],
-      "@types/*": ["types/*"]
+      "@/*": ["src/*"],
+      "@config/*": ["src/config/*"],
+      "@models/*": ["src/models/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@services/*": ["src/services/*"],
+      "@middleware/*": ["src/middleware/*"],
+      "@routes/*": ["src/routes/*"],
+      "@utils/*": ["src/utils/*"],
+      "@types/*": ["src/types/*"]
     }
   },
 
-  "include": [
-    "./**/*.ts"
-  ],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"],
 
   "ts-node": {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 import {KYCRegistry} from "../contracts/KYCRegistry.sol";
@@ -28,7 +28,7 @@ contract KYCRegistryTest is Test {
     
     function setUp() public {
         vm.startPrank(admin);
-        kyc = new KYCRegistry();
+        kyc = new KYCRegistry(verifier);
         kyc.grantRole(kyc.VERIFIER_ROLE(), verifier);
         vm.stopPrank();
     }

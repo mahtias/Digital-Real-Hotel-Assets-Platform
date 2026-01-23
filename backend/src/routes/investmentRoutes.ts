@@ -25,4 +25,4 @@ router.put("/:id", authenticate, updateInvestment);
 // DELETE /api/investments/:id
 router.delete("/:id", authenticate, deleteInvestment);
 
-export default router
+export default router;
