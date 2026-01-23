@@ -9,9 +9,9 @@ const accounts_1 = require("viem/accounts");
 const chains_1 = require("viem/chains");
 const HATToken_json_1 = __importDefault(require("../../../out/HATToken.sol/HATToken.json"));
 const hatAbi = HATToken_json_1.default.abi;
-console.log("DEBUG PRIVATE KEY:", process.env.PRIVATE_KEY);
-const HAT_CONTRACT = process.env.HAT_CONTRACT;
-const account = (0, accounts_1.privateKeyToAccount)(process.env.PRIVATE_KEY);
+console.log("DEBUG PRIVATE KEY:", process.env.PRIVATE_KEY_COINBASE);
+const HAT_CONTRACT = process.env.HAT_CONTRACT_ADDRESS;
+const account = (0, accounts_1.privateKeyToAccount)(process.env.PRIVATE_KEY_COINBASE);
 exports.hat = {
     wallet: (0, viem_1.createWalletClient)({
         chain: chains_1.base,
