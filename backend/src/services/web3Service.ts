@@ -114,6 +114,7 @@ export class Web3Service {
         };
       }
 
+      
       // --------------------------
       // HAT TOKEN FUNCTIONS
       // --------------------------
