@@ -1,0 +1,19 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const client_1 = require("@prisma/client");
+const userController_1 = require("../controllers/userController");
+const router = (0, express_1.Router)();
+router.get('/profile', auth_middleware_1.authenticate, userController_1.getUserProfile);
+router.put('/profile', auth_middleware_1.authenticate, userController_1.updateUserProfile);
+router.get('/portfolio', auth_middleware_1.authenticate, userController_1.getUserPortfolio);
+router.get('/transactions', auth_middleware_1.authenticate, userController_1.getUserTransactions);
+router.patch('/wallet', auth_middleware_1.authenticate, userController_1.updateWalletAddress);
+router.get('/', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), userController_1.getAllUsers);
+router.get('/:userId/statistics', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), userController_1.getUserStatistics);
+router.put('/:userId/role', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), userController_1.updateUserRole);
+router.delete('/:userId', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), userController_1.deactivateUser);
+router.post('/:userId/reactivate', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(client_1.UserRole.ADMIN), userController_1.reactivateUser);
+exports.default = router;
+//# sourceMappingURL=userRoutes.js.map

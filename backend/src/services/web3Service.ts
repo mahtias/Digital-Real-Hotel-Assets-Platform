@@ -37,7 +37,7 @@ export class Web3Service {
     const kycAddress = process.env.KYC_CONTRACT_ADDRESS;
 
     if (!kycAddress) {
-      console.warn("⚠️  No KYC_CONTRACT_ADDRESS provided. KYC blockchain features disabled.");
+      console.warn("  No KYC_CONTRACT_ADDRESS provided. KYC blockchain features disabled.");
       this.kycContract = null;
     } else {
       this.kycContract = new ethers.Contract(
@@ -53,7 +53,7 @@ export class Web3Service {
         const hatAddress = process.env.HAT_CONTRACT_ADDRESS;
 
         if (!hatAddress) {
-          console.warn("⚠️  No HAT_CONTRACT_ADDRESS provided. Token + whitelist features disabled.");
+          console.warn("  No HAT_CONTRACT_ADDRESS provided. Token + whitelist features disabled.");
           this.hatContract = null;
         } else {
           this.hatContract = new ethers.Contract(
