@@ -14,7 +14,7 @@ export async function sendAdminKycEmail(user: any) {
 
     await transporter.sendMail({
   from: process.env.EMAIL_FROM,
-  to: "dra@digirealassets.io",
+  to: "admin@digirealassets.io",
   subject: "New KYC Submission Pending Approval",
   html: `
     <h3>New KYC Submission</h3>
@@ -31,14 +31,17 @@ export async function sendAdminKycEmail(user: any) {
     Open Admin Dashboard
     </a>
 
-    
+  
   `
 });
 
-// <br /><br />
+  
+    // <br /><br />
     // <p>Local testing:</p>
     // <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">
+    //   Open Admin Dashboard
     // </a>
+
 
     console.log("Admin KYC email sent.");
   } catch (error) {
