@@ -33,7 +33,7 @@ export async function sendAdminKycEmail(user: any) {
 
     <br /><br />
     <p>Local testing:</p>
-    <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">http://localhost:5174/admin
+    <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">
     </a>
   `
 });
