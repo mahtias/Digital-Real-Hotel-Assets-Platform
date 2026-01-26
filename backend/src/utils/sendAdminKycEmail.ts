@@ -20,11 +20,11 @@ export async function sendAdminKycEmail(user: any) {
     <h3>New KYC Submission</h3>
     <p>A new user has submitted KYC and is waiting for approval.</p>
 
-    <p><strong>Name:</strong> ${user.first_name} ${user.last_name}</p>
+    <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
     <p><strong>Email:</strong> ${user.email}</p>
 
     <p>Please review the KYC:</p>
-      <a href="https://digirealassets.io/admin"
+      <a href="https://my-backend-api-8oe4.onrender.com/digirealassets.io/admin"
     target="_blank" 
     rel="noopener noreferrer"
     style="background:#007bff;color:#fff;padding:10px 15px;text-decoration:none;border-radius:4px;">
