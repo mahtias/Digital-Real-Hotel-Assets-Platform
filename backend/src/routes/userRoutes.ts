@@ -16,7 +16,8 @@ import {
 
 const router = Router();
 
-
+//  Add wallet update route
+router.patch('/wallet', authenticate, updateWalletAddress);
 // Current user routes
 router.get('/profile', authenticate, getUserProfile);
 
@@ -26,8 +27,7 @@ router.get('/portfolio', authenticate, getUserPortfolio);
 
 router.get('/transactions', authenticate, getUserTransactions);
 
-//  Add wallet update route
-router.patch('/wallet', authenticate, updateWalletAddress);
+
 
 // Admin user management routes
 router.get(

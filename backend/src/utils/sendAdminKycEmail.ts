@@ -24,7 +24,7 @@ export async function sendAdminKycEmail(user: any) {
     <p><strong>Email:</strong> ${user.email}</p>
 
     <p>Please review the KYC:</p>
-      <a href="https://my-backend-api-8oe4.onrender.com/digirealassets.io/admin"
+      <a href="https://digirealassets.io/admin"
     target="_blank" 
     rel="noopener noreferrer"
     style="background:#007bff;color:#fff;padding:10px 15px;text-decoration:none;border-radius:4px;">
