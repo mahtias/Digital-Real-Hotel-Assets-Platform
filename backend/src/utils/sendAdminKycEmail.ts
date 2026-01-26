@@ -20,7 +20,7 @@ export async function sendAdminKycEmail(user: any) {
     <h3>New KYC Submission</h3>
     <p>A new user has submitted KYC and is waiting for approval.</p>
 
-    <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
+    <p><strong>Name:</strong> ${user.first_name} ${user.last_name}</p>
     <p><strong>Email:</strong> ${user.email}</p>
 
     <p>Please review the KYC:</p>

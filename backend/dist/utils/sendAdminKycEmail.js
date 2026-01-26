@@ -24,7 +24,7 @@ async function sendAdminKycEmail(user) {
     <h3>New KYC Submission</h3>
     <p>A new user has submitted KYC and is waiting for approval.</p>
 
-    <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
+    <p><strong>Name:</strong> ${user.first_name} ${user.last_name}</p>
     <p><strong>Email:</strong> ${user.email}</p>
 
     <p>Please review the KYC:</p>
@@ -37,7 +37,7 @@ async function sendAdminKycEmail(user) {
 
     <br /><br />
     <p>Local testing:</p>
-    <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">http://localhost:5174/admin
+    <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">
     </a>
   `
         });

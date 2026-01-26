@@ -16,7 +16,7 @@ export declare class Web3Service {
         documentHash: any;
         verifiedBy: any;
         rejectionReason: any;
-    }>;
+    } | null>;
     whitelistUser(userAddress: string): Promise<string>;
     isUserWhitelisted(userAddress: string): Promise<boolean>;
     mintInvestmentTokens(hotelId: number, userAddress: string, tokenAmount: number): Promise<string>;
