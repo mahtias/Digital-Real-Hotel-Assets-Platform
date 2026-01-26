@@ -14,7 +14,7 @@ export async function sendAdminKycEmail(user: any) {
 
     await transporter.sendMail({
   from: process.env.EMAIL_FROM,
-  to: "dean@digirealassets.io",
+  to: "dra@digirealassets.io",
   subject: "New KYC Submission Pending Approval",
   html: `
     <h3>New KYC Submission</h3>

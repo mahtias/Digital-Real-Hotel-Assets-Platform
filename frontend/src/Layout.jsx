@@ -338,8 +338,8 @@ function LayoutContent({ children }) {
             {/* Footer Info - Stack on mobile */}
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 text-xs sm:text-sm text-slate-500 text-center">
              <p>Contact Us :</p>
-             <a href="mailto:dean@digirealassets.io" className="text-slate-400">
-              DRA@digirealassets.io
+             <a href="mailto:dra@digirealassets.io" className="text-slate-400">
+              dra@digirealassets.io
              </a>
              <a href="https://www.base.org/" target="_blank"
             rel="noopener noreferrer"
