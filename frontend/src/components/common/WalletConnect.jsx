@@ -14,7 +14,7 @@ import axios from 'axios';
 export default function WalletConnect() {
   const { language } = useLanguage();
   const { address, isConnected, chain } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { disconnectAsync } = useDisconnect();
   const { logout } = useAuth();
   const [copied, setCopied] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
@@ -44,44 +44,51 @@ export default function WalletConnect() {
     return `https://basescan.org/address/${address}`;
   };
 
-  const { token } = useAuth();
+  const { token,refreshUser } = useAuth();
 
 useEffect(() => {
   if (isConnected && address && token) {
-    console.log("Wallet connected, sending to backend...");
+    console.log("Wallet connected — syncing with backend...");
 
     axios.patch(
       "/api/v1/user/wallet",
       { walletAddress: address },
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    .then(res => {
+    .then(async res => {
       console.log("Wallet saved to DB:", res.data);
+
+      //  REFRESH USER AFTER WALLET CONNECTS
+      await refreshUser();
+      console.log("User synced: KYC updated");
     })
     .catch(err => {
       console.error("Wallet save failed:", err.response?.data || err.message);
     });
   }
-}, [isConnected, address, token]);
+}, [isConnected, address, token, refreshUser]);
 
   const handleDisconnect = async () => {
-    try {
-      console.log(' Starting full disconnect...');
-      disconnect();
-      console.log(' Wallet disconnected');
-      logout();
-      console.log(' Auth logout complete');
-      localStorage.removeItem('walletAddress');
-      localStorage.removeItem('walletConnected');
-      setShowDialog(false);
-      window.location.href = '/';
-      console.log(' Full disconnect complete');
-    } catch (error) {
-      console.error(' Disconnect error:', error);
-      localStorage.clear();
-      window.location.href = '/';
-    }
-  };
+  try {
+    console.log("Starting wallet disconnect...");
+
+    await disconnectAsync();
+
+    console.log("Wallet provider disconnected");
+
+    // DO NOT LOGOUT USER
+    // Just clear wallet UI state
+    localStorage.removeItem("walletAddress");
+    localStorage.removeItem("walletConnected");
+
+    setShowDialog(false);
+
+    console.log("Wallet disconnect complete");
+
+  } catch (error) {
+    console.error("Wallet disconnect error:", error);
+  }
+};
 
   const texts = {
     en: {

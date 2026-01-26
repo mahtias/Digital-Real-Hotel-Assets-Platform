@@ -22,20 +22,14 @@ class Web3Service {
         this.signer = new ethers_1.ethers.Wallet(privateKey, this.provider);
         const kycAddress = process.env.KYC_CONTRACT_ADDRESS;
         if (!kycAddress) {
-            console.warn("  No KYC_CONTRACT_ADDRESS provided. KYC blockchain features disabled.");
-            this.kycContract = null;
+            throw new Error(" Missing KYC_CONTRACT_ADDRESS in .env");
         }
-        else {
-            this.kycContract = new ethers_1.ethers.Contract(kycAddress, KYCRegistry_json_1.default.abi, this.signer);
-        }
+        this.kycContract = new ethers_1.ethers.Contract(kycAddress, KYCRegistry_json_1.default.abi, this.signer);
         const hatAddress = process.env.HAT_CONTRACT_ADDRESS;
         if (!hatAddress) {
-            console.warn("  No HAT_CONTRACT_ADDRESS provided. Token + whitelist features disabled.");
-            this.hatContract = null;
+            throw new Error(" Missing HAT_CONTRACT_ADDRESS in .env");
         }
-        else {
-            this.hatContract = new ethers_1.ethers.Contract(hatAddress, HATToken_json_1.default.abi, this.signer);
-        }
+        this.hatContract = new ethers_1.ethers.Contract(hatAddress, HATToken_json_1.default.abi, this.signer);
     }
     createDocumentHash(kycData) {
         const dataString = JSON.stringify({
@@ -49,53 +43,82 @@ class Web3Service {
         return "0x" + (0, crypto_1.createHash)("sha256").update(dataString).digest("hex");
     }
     async submitKYCOnChain(level, documentHash) {
-        if (!this.kycContract)
-            throw new Error("KYC smart contract not configured");
-        const tx = await this.kycContract.submitKYC(level, documentHash);
-        return (await tx.wait()).hash;
+        try {
+            const tx = await this.kycContract.submitKYC(level, documentHash);
+            const receipt = await tx.wait();
+            return receipt.hash;
+        }
+        catch (err) {
+            console.error("Submit KYC error:", err);
+            throw err;
+        }
     }
     async approveKYCOnChain(user, validity) {
-        if (!this.kycContract)
-            throw new Error("KYC smart contract not configured");
-        const tx = await this.kycContract.approveKYC(user, validity);
-        return (await tx.wait()).hash;
+        try {
+            const tx = await this.kycContract.approveKYC(user, validity);
+            return (await tx.wait()).hash;
+        }
+        catch (err) {
+            console.error("Approve KYC error:", err);
+            throw err;
+        }
     }
     async rejectKYCOnChain(user, reason) {
-        if (!this.kycContract)
-            throw new Error("KYC smart contract not configured");
-        const tx = await this.kycContract.rejectKYC(user, reason);
-        return (await tx.wait()).hash;
+        try {
+            const tx = await this.kycContract.rejectKYC(user, reason);
+            return (await tx.wait()).hash;
+        }
+        catch (err) {
+            console.error("Reject KYC error:", err);
+            throw err;
+        }
     }
     async getKYCRecord(user) {
-        if (!this.kycContract)
-            return null;
-        const r = await this.kycContract.getKYCRecord(user);
-        return {
-            level: Number(r.level),
-            status: Number(r.status),
-            approvedAt: Number(r.approvedAt),
-            expiresAt: Number(r.expiresAt),
-            documentHash: r.documentHash,
-            verifiedBy: r.verifiedBy,
-            rejectionReason: r.rejectionReason,
-        };
+        try {
+            const r = await this.kycContract.getKYCRecord(user);
+            return {
+                level: Number(r.level),
+                status: Number(r.status),
+                approvedAt: Number(r.approvedAt),
+                expiresAt: Number(r.expiresAt),
+                documentHash: r.documentHash,
+                verifiedBy: r.verifiedBy,
+                rejectionReason: r.rejectionReason,
+            };
+        }
+        catch (err) {
+            console.error("Get KYC record error:", err);
+            throw err;
+        }
     }
     async whitelistUser(userAddress) {
-        if (!this.hatContract)
-            throw new Error("HAT token contract not configured");
-        const tx = await this.hatContract.setWhitelisted(userAddress, true);
-        return (await tx.wait()).hash;
+        try {
+            const tx = await this.hatContract.setWhitelisted(userAddress, true);
+            return (await tx.wait()).hash;
+        }
+        catch (err) {
+            console.error("Whitelist error:", err);
+            throw err;
+        }
     }
     async isUserWhitelisted(userAddress) {
-        if (!this.hatContract)
+        try {
+            return await this.hatContract.isWhitelisted(userAddress);
+        }
+        catch (err) {
+            console.error("Check whitelist error:", err);
             return false;
-        return await this.hatContract.isWhitelisted(userAddress);
+        }
     }
     async mintInvestmentTokens(hotelId, userAddress, tokenAmount) {
-        if (!this.hatContract)
-            throw new Error("HAT token contract not configured");
-        const tx = await this.hatContract.mintToInvestor(hotelId, userAddress, tokenAmount);
-        return (await tx.wait()).hash;
+        try {
+            const tx = await this.hatContract.mintToInvestor(hotelId, userAddress, tokenAmount);
+            return (await tx.wait()).hash;
+        }
+        catch (err) {
+            console.error("Mint token error:", err);
+            throw err;
+        }
     }
 }
 exports.Web3Service = Web3Service;

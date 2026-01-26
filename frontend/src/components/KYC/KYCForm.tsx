@@ -405,7 +405,7 @@ export const KYCForm = () => {
           <h3 className="text-xl font-semibold mb-2">Step 3: Upload Documents</h3>
 
           <div className="mb-4">
-            <label htmlFor="documentFront" className="block mb-1 font-medium">Document Front</label>
+            <label htmlFor="documentFront" className="block mb-1 font-medium">Document Front (Passport,drive License etc)</label>
             <input
               id="documentFront"
               ref={(el) => (fileInputsRef.current.documentFront = el)}
@@ -427,7 +427,7 @@ export const KYCForm = () => {
           </div>
 
           <div className="mb-4">
-            <label htmlFor="documentBack" className="block mb-1 font-medium">Document Back</label>
+            <label htmlFor="documentBack" className="block mb-1 font-medium">Document Back Document Front (Passport,drive License etc)</label>
             <input
               id="documentBack"
               ref={(el) => (fileInputsRef.current.documentBack = el)}

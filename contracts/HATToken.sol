@@ -145,8 +145,8 @@ contract HATToken is ERC1155, Ownable {
         });
     }
 
-    function deleteHotel(uint256 hotelId) external onlyOwner {
-        require(hotels[hotelId].totalTokens > 0, "Hotel does not exist");
-        delete hotels[hotelId];
-    }
+    // function deleteHotel(uint256 hotelId) external onlyOwner {
+    //     require(hotels[hotelId].totalTokens > 0, "Hotel does not exist");
+    //     delete hotels[hotelId];
+    // }
 }

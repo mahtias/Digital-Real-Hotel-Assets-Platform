@@ -93,7 +93,7 @@ router.post('/submit', auth_1.authenticate, upload.fields([
     (0, express_validator_1.body)('documentNumber').notEmpty(),
     (0, express_validator_1.body)('address').notEmpty(),
 ], validation_1.validateRequest, kycController.submitKYC);
-router.get('/status', auth_1.authenticate, kycController.getKYCStatus);
+router.get('/status/:id', auth_1.authenticate, kycController.getKYCStatus);
 router.get('/all', auth_1.authenticate, [
     (0, express_validator_1.query)('page').optional().isInt({ min: 1 }),
     (0, express_validator_1.query)('limit').optional().isInt({ min: 1, max: 100 }),

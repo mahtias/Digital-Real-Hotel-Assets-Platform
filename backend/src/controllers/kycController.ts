@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
+import { sendAdminKycEmail } from "../utils/sendAdminKycEmail";
 
 const uploadDir = path.join(__dirname, '../../uploads/kyc');
 
@@ -11,9 +12,9 @@ const deleteFile = (fileName?: string | null) => {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 };
 
-// ==================================================
+
 // SUBMIT KYC
-// ==================================================
+
 export const submitKYC = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -49,6 +50,14 @@ export const submitKYC = async (req: Request, res: Response) => {
       data,
     });
 
+      const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true }
+    });
+
+    //  Notify admin
+    if (user) sendAdminKycEmail(user);
+    
     return res.json({ success: true, data: kyc });
 
   } catch (error: any) {
@@ -59,9 +68,9 @@ export const submitKYC = async (req: Request, res: Response) => {
   }
 };
 
-// ==================================================
+
 // GET KYC BY ID
-// ==================================================
+
 export const getKYCById = async (req: Request, res: Response) => {
   try {
     const kyc = await prisma.kyc.findUnique({
@@ -85,9 +94,9 @@ export const getKYCById = async (req: Request, res: Response) => {
   }
 };
 
-// ==================================================
+
 // GET ALL KYC (ADMIN)
-// ==================================================
+
 export const getAllKYC = async (req: Request, res: Response) => {
   try {
     const list = await prisma.kyc.findMany({
@@ -109,9 +118,9 @@ export const getAllKYC = async (req: Request, res: Response) => {
   }
 };
 
-// ==================================================
+
 // REVIEW KYC (ADMIN)
-// ==================================================
+
 export const reviewKYC = async (req: Request, res: Response) => {
   try {
     const { status, rejectionReason } = req.body;
@@ -122,16 +131,25 @@ export const reviewKYC = async (req: Request, res: Response) => {
       reviewedBy: req.user?.userId
     };
 
-    if (status === 'REJECTED') {
+    if (status === "REJECTED") {
       data.rejectionReason = rejectionReason;
     } else {
       data.rejectionReason = null;
       data.approvedAt = new Date();
     }
 
+    // Update KYC table
     const updated = await prisma.kyc.update({
       where: { id: req.params.id },
       data
+    });
+
+    //  VERY IMPORTANT: Sync USER table
+    await prisma.user.update({
+      where: { id: updated.userId },
+      data: {
+        kycStatus: status === "APPROVED" ? "APPROVED" : "PENDING"
+      }
     });
 
     return res.json({ success: true, data: updated });
@@ -141,9 +159,10 @@ export const reviewKYC = async (req: Request, res: Response) => {
   }
 };
 
-// ==================================================
+
+
 // UPDATE KYC (RESUBMIT)
-// ==================================================
+
 export const updateKYC = async (req: Request, res: Response) => {
   try {
     const existing = await prisma.kyc.findUnique({
@@ -202,9 +221,9 @@ export const updateKYC = async (req: Request, res: Response) => {
   }
 };
 
-// ==================================================
+
 // DELETE KYC
-// ==================================================
+
 export const deleteKYC = async (req: Request, res: Response) => {
   try {
     const existing = await prisma.kyc.findUnique({
@@ -228,9 +247,9 @@ export const deleteKYC = async (req: Request, res: Response) => {
   }
 };
 
-// ==================================================
+
 // PENDING KYC
-// ==================================================
+
 export const getPendingKYCs = async () => {
   return await prisma.kyc.findMany({
     where: { status: "PENDING" },
@@ -273,9 +292,9 @@ export const getKYCStatus = async (req: Request, res: Response) => {
     });
   }
 };
-// ==================================================
+
 // STATISTICS
-// ==================================================
+
 export const getKYCStatistics = async (req: Request, res: Response) => {
   try {
     const stats = {

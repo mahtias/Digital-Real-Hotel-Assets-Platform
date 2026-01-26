@@ -26,9 +26,28 @@ const hotelId = urlParams.get('id');
 const navigate = useNavigate();
 const queryClient = useQueryClient();
 const { t } = useLanguage();
-
-const { user, authFetch } = useAuth();
 const { isConnected, address } = useAccount();
+const { user, authFetch, refreshUser } = useAuth();
+
+// Refresh on page load
+useEffect(() => {
+  refreshUser();
+}, []);
+
+// Refresh when wallet connects
+useEffect(() => {
+  if (isConnected) {
+    refreshUser();
+  }
+}, [isConnected]);
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    refreshUser();
+  }, 5000); // check every 5 seconds
+
+  return () => clearInterval(interval);
+}, []);
 
 const [investAmount, setInvestAmount] = useState(100);
 const [showInvestDialog, setShowInvestDialog] = useState(false);
@@ -41,11 +60,6 @@ if (user === undefined) {
 
 const normalizedKyc = user?.kycStatus?.toUpperCase();
 const isKycApproved = normalizedKyc === "APPROVED";
-
-
-  // useEffect(() => {
-  //   base44.auth.me().then(setUser).catch(() => setUser(null));
-  // }, []);
 
 const { data: hotel, isLoading } = useQuery({
   queryKey: ['hotel', hotelId],
@@ -430,26 +444,29 @@ const documentContents: Record<string, DocumentContent> = {
                       <p className="text-red-400 text-sm mt-2">Please connect your wallet.</p>
                     ) : null}
 
-                    {/* EXACT SAME KYC LOGIC YOU WANT */}
-                    {user && normalizedKyc !== "APPROVED" ? (
-                      normalizedKyc === "PENDING" || normalizedKyc === "IN_REVIEW" ? (
-                        <Button
-                          disabled
-                          className="w-full bg-gray-700 text-gray-400 font-semibold cursor-not-allowed"
-                        >
-                          KYC is Pending – Approval Required
-                        </Button>
-                      ) : (
-                        <Button
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-                          onClick={() =>
-                            window.open("/kyc/submit", "_blank", "noopener,noreferrer")
-                          }
-                        >
-                          Complete KYC to Continue
-                        </Button>
-                      )
-                    ) : null}
+                    
+                    {/* KYC LOGIC */}
+                    {user && isConnected && normalizedKyc !== "APPROVED" && (
+                      <>
+                        {normalizedKyc === "PENDING" || normalizedKyc === "REJECTED" ? (
+                          <Button
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold mt-2"
+                            onClick={() => window.open("/kyc/submit", "_blank", "noopener,noreferrer")}
+                          >
+                            Complete KYC to Continue
+                          </Button>
+                        ) : null}
+
+                        {normalizedKyc === "IN_REVIEW" && (
+                          <Button
+                            disabled
+                            className="w-full bg-gray-700 text-gray-400 font-semibold cursor-not-allowed mt-2"
+                          >
+                            KYC is Under Review
+                          </Button>
+                        )}
+                      </>
+                    )}
 
                 <DialogContent className="bg-slate-900 border-slate-800">
                   <DialogHeader>

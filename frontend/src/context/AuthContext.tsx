@@ -149,6 +149,27 @@ export const AuthProvider = ({ children }) => {
   [token]
 );
 
+const refreshUser = useCallback(async () => {
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${API}/api/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const userData = data.user || data;
+
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      return userData;
+    }
+  } catch (err) {
+    console.error("Failed to refresh user:", err);
+  }
+}, [token]);
 
   // -----------------------------
   // STABLE VALUE (PREVENT RE-RENDERS)
@@ -163,8 +184,9 @@ export const AuthProvider = ({ children }) => {
       register,
       logout,
       authFetch,
+       refreshUser,
     }),
-    [isAuthenticated, user, token, loading, login, register, logout, authFetch]
+    [isAuthenticated, user, token, loading, login, register, logout, authFetch, refreshUser,]
   );
 
   return (

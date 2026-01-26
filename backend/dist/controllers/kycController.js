@@ -7,6 +7,7 @@ exports.getKYCStatistics = exports.getKYCStatus = exports.getPendingKYCs = expor
 const database_1 = __importDefault(require("../config/database"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const sendAdminKycEmail_1 = require("../utils/sendAdminKycEmail");
 const uploadDir = path_1.default.join(__dirname, '../../uploads/kyc');
 const deleteFile = (fileName) => {
     if (!fileName)
@@ -45,6 +46,12 @@ const submitKYC = async (req, res) => {
         const kyc = await database_1.default.kyc.create({
             data,
         });
+        const user = await database_1.default.user.findUnique({
+            where: { id: userId },
+            select: { email: true }
+        });
+        if (user)
+            (0, sendAdminKycEmail_1.sendAdminKycEmail)(user);
         return res.json({ success: true, data: kyc });
     }
     catch (error) {
@@ -105,7 +112,7 @@ const reviewKYC = async (req, res) => {
             reviewedAt: new Date(),
             reviewedBy: req.user?.userId
         };
-        if (status === 'REJECTED') {
+        if (status === "REJECTED") {
             data.rejectionReason = rejectionReason;
         }
         else {
@@ -115,6 +122,12 @@ const reviewKYC = async (req, res) => {
         const updated = await database_1.default.kyc.update({
             where: { id: req.params.id },
             data
+        });
+        await database_1.default.user.update({
+            where: { id: updated.userId },
+            data: {
+                kycStatus: status === "APPROVED" ? "APPROVED" : "PENDING"
+            }
         });
         return res.json({ success: true, data: updated });
     }

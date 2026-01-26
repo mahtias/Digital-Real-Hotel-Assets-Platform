@@ -75,7 +75,7 @@ router.post(
 );
 
 // Get user's KYC status
-router.get('/status', authenticate, kycController.getKYCStatus);
+router.get('/status/:id', authenticate, kycController.getKYCStatus);
 
 // Get all KYC submissions (Admin)
 router.get(

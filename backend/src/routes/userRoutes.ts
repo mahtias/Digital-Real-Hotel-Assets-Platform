@@ -16,6 +16,7 @@ import {
 
 const router = Router();
 
+
 // Current user routes
 router.get('/profile', authenticate, getUserProfile);
 
