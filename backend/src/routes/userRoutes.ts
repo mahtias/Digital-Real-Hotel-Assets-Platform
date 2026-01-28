@@ -1,18 +1,8 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
-import {
-  getUserProfile,
-  updateUserProfile,
-  getUserPortfolio,
-  getUserTransactions,
-  getAllUsers,
-  updateUserRole,
-  deactivateUser,
-  getUserStatistics,
-  reactivateUser,
-  updateWalletAddress
-} from '../controllers/userController';
+import {getUserProfile, updateUserProfile, getUserPortfolio, getUserTransactions,
+  getAllUsers,updateUserRole,deactivateUser, getUserStatistics, reactivateUser,updateWalletAddress } from '../controllers/userController';
 
 const router = Router();
 
