@@ -50,10 +50,15 @@ useEffect(() => {
   if (isConnected && address && token) {
     console.log("Wallet connected — syncing with backend...");
 
-    axios.patch(
-      "/api/v1/user/wallet",
+      axios.patch(
+      `${import.meta.env.VITE_API_URL}/api/v1/user/wallet`,
       { walletAddress: address },
-      { headers: { Authorization: `Bearer ${token}` } }
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        withCredentials: true,
+      }
     )
     .then(async res => {
       console.log("Wallet saved to DB:", res.data);
