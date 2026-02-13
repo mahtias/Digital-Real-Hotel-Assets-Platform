@@ -195,18 +195,18 @@ declare class KYCService {
                 role: import(".prisma/client").$Enums.UserRole;
                 isEmailVerified: boolean;
                 emailVerifiedAt: Date | null;
-                verificationToken: string | null;
-                verificationExpires: Date | null;
-                resetPasswordToken: string | null;
-                resetPasswordExpires: Date | null;
                 kycStatus: import(".prisma/client").$Enums.KycStatus;
                 kycSubmittedAt: Date | null;
                 kycApprovedAt: Date | null;
-                kycExpiresAt: Date | null;
-                verificationLevel: import(".prisma/client").$Enums.VerificationLevel | null;
                 walletAddress: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                kycExpiresAt: Date | null;
+                verificationLevel: import(".prisma/client").$Enums.VerificationLevel | null;
+                verificationExpires: Date | null;
+                verificationToken: string | null;
+                resetPasswordExpires: Date | null;
+                resetPasswordToken: string | null;
             };
         } & {
             id: string;

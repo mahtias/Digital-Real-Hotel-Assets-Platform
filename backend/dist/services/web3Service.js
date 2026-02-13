@@ -5,97 +5,93 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.web3Service = exports.Web3Service = void 0;
 const ethers_1 = require("ethers");
-const crypto_1 = require("crypto");
+const database_1 = __importDefault(require("../config/database"));
 const KYCRegistry_json_1 = __importDefault(require("../../../out/KYCRegistry.sol/KYCRegistry.json"));
 const HATToken_json_1 = __importDefault(require("../../../out/HATToken.sol/HATToken.json"));
+const Investment_json_1 = __importDefault(require("../../../out/Investment.sol/Investment.json"));
 class Web3Service {
     constructor() {
-        const rpc = process.env.RPC_URL;
+        const rpc = process.env.BASE_SEPOLIA_RPC || process.env.RPC_URL;
         if (!rpc)
-            throw new Error(" Missing RPC_URL in .env");
+            throw new Error("Missing BASE_SEPOLIA_RPC or RPC_URL in .env");
+        console.log('🔗 Using RPC:', rpc);
         this.provider = new ethers_1.ethers.JsonRpcProvider(rpc);
-        const privateKey = process.env.PRIVATE_KEY_METAMASK ||
-            process.env.PRIVATE_KEY_COINBASE;
+        const privateKey = process.env.PRIVATE_KEY;
         if (!privateKey) {
-            throw new Error(" Missing PRIVATE_KEY_METAMASK or PRIVATE_KEY_COINBASE in .env");
+            throw new Error("Missing PRIVATE_KEY in .env");
         }
         this.signer = new ethers_1.ethers.Wallet(privateKey, this.provider);
         const kycAddress = process.env.KYC_CONTRACT_ADDRESS;
         if (!kycAddress) {
-            console.warn("  No KYC_CONTRACT_ADDRESS provided. KYC blockchain features disabled.");
-            this.kycContract = null;
+            throw new Error("Missing KYC_CONTRACT_ADDRESS in .env");
         }
-        else {
-            this.kycContract = new ethers_1.ethers.Contract(kycAddress, KYCRegistry_json_1.default.abi, this.signer);
-        }
+        this.kycContract = new ethers_1.ethers.Contract(kycAddress, KYCRegistry_json_1.default.abi, this.signer);
+        console.log('✅ KYC connected:', kycAddress);
         const hatAddress = process.env.HAT_CONTRACT_ADDRESS;
         if (!hatAddress) {
-            console.warn("  No HAT_CONTRACT_ADDRESS provided. Token + whitelist features disabled.");
-            this.hatContract = null;
+            throw new Error("Missing HAT_CONTRACT_ADDRESS in .env");
+        }
+        this.hatContract = new ethers_1.ethers.Contract(hatAddress, HATToken_json_1.default.abi, this.signer);
+        console.log(' HAT connected:', hatAddress);
+        const investmentAddress = process.env.INVESTMENT_CONTRACT_ADDRESS;
+        if (investmentAddress) {
+            this.investmentContract = new ethers_1.ethers.Contract(investmentAddress, Investment_json_1.default.abi, this.signer);
+            console.log(' Investment connected:', investmentAddress);
         }
         else {
-            this.hatContract = new ethers_1.ethers.Contract(hatAddress, HATToken_json_1.default.abi, this.signer);
+            console.warn(' No INVESTMENT_CONTRACT_ADDRESS → Direct HAT mint only');
         }
     }
-    createDocumentHash(kycData) {
-        const dataString = JSON.stringify({
-            fullName: kycData.fullName,
-            dateOfBirth: kycData.dateOfBirth,
-            nationality: kycData.nationality,
-            idNumber: kycData.idNumber,
-            idType: kycData.idType,
-            timestamp: Date.now(),
-        });
-        return "0x" + (0, crypto_1.createHash)("sha256").update(dataString).digest("hex");
-    }
-    async submitKYCOnChain(level, documentHash) {
-        if (!this.kycContract)
-            throw new Error("KYC smart contract not configured");
-        const tx = await this.kycContract.submitKYC(level, documentHash);
-        return (await tx.wait()).hash;
-    }
-    async approveKYCOnChain(user, validity) {
-        if (!this.kycContract)
-            throw new Error("KYC smart contract not configured");
-        const tx = await this.kycContract.approveKYC(user, validity);
-        return (await tx.wait()).hash;
-    }
-    async rejectKYCOnChain(user, reason) {
-        if (!this.kycContract)
-            throw new Error("KYC smart contract not configured");
-        const tx = await this.kycContract.rejectKYC(user, reason);
-        return (await tx.wait()).hash;
-    }
-    async getKYCRecord(user) {
-        if (!this.kycContract)
-            return null;
-        const r = await this.kycContract.getKYCRecord(user);
-        return {
-            level: Number(r.level),
-            status: Number(r.status),
-            approvedAt: Number(r.approvedAt),
-            expiresAt: Number(r.expiresAt),
-            documentHash: r.documentHash,
-            verifiedBy: r.verifiedBy,
-            rejectionReason: r.rejectionReason,
-        };
-    }
-    async whitelistUser(userAddress) {
-        if (!this.hatContract)
-            throw new Error("HAT token contract not configured");
-        const tx = await this.hatContract.setWhitelisted(userAddress, true);
-        return (await tx.wait()).hash;
-    }
-    async isUserWhitelisted(userAddress) {
-        if (!this.hatContract)
+    async isKycVerified(address) {
+        try {
+            const verified = await this.kycContract.isKycVerified(address);
+            return verified;
+        }
+        catch (error) {
+            console.error('KYC check failed:', error);
             return false;
-        return await this.hatContract.isWhitelisted(userAddress);
+        }
     }
     async mintInvestmentTokens(hotelId, userAddress, tokenAmount) {
-        if (!this.hatContract)
-            throw new Error("HAT token contract not configured");
-        const tx = await this.hatContract.mintToInvestor(hotelId, userAddress, tokenAmount);
-        return (await tx.wait()).hash;
+        console.log(' MINT DEBUG:', { hotelId, userAddress, tokenAmount });
+        try {
+            const network = await this.provider.getNetwork();
+            console.log(' Network:', network.chainId.toString());
+            const hotel = await database_1.default.hotelAsset.findUnique({
+                where: { id: hotelId }
+            });
+            if (!hotel)
+                throw new Error(`Hotel ${hotelId} not found`);
+            const tokenId = hotel.tokenId || BigInt(1);
+            console.log(` Minting tokenId=${tokenId} → ${userAddress}`);
+            let tx;
+            if (this.investmentContract) {
+                try {
+                    console.log('💼 Using Investment contract → invest()');
+                    const usdcAmount = ethers_1.ethers.parseUnits((tokenAmount * Number(hotel.tokenPrice)).toString(), 6);
+                    tx = await this.investmentContract.invest(BigInt(hotel.tokenId), usdcAmount);
+                }
+                catch (invError) {
+                    console.log(' Investment failed → Direct HAT mint');
+                }
+            }
+            if (!tx) {
+                console.log(' Direct HAT mint');
+                try {
+                    tx = await this.hatContract.mintToInvestor(tokenId, userAddress, tokenAmount);
+                }
+                catch {
+                    tx = await this.hatContract.mint(userAddress, tokenId, tokenAmount, "0x");
+                }
+            }
+            const receipt = await tx.wait();
+            console.log(' MINT SUCCESS:', receipt.hash);
+            return receipt.hash;
+        }
+        catch (err) {
+            console.error(' MINT FAILED:', err.message);
+            throw new Error(`Mint failed: ${err.message}`);
+        }
     }
 }
 exports.Web3Service = Web3Service;

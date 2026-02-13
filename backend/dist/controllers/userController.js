@@ -3,31 +3,36 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reactivateUser = exports.getUserStatistics = exports.deactivateUser = exports.updateUserRole = exports.getAllUsers = exports.getUserTransactions = exports.updateWalletAddress = exports.getUserPortfolio = exports.updateUserProfile = exports.getUserProfile = void 0;
+exports.reactivateUser = exports.getUserStatistics = exports.deactivateUser = exports.updateUserRole = exports.getAllUsers = exports.getUserTransactions = exports.updateWalletAddress = exports.confirmAllInvestments = exports.getUserPortfolio = exports.updateUserProfile = exports.getUserTokens = exports.getUserProfile = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const getUserProfile = async (req, res) => {
     try {
         const userId = req.user?.userId;
+        const user = await database_1.default.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                kycStatus: true,
+                walletAddress: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
         res.json({
             success: true,
-            data: {
-                id: userId,
-                email: req.user?.email,
-                role: req.user?.role,
-                profile: {
-                    firstName: 'John',
-                    lastName: 'Doe',
-                    phone: '+1234567890',
-                    avatar: '/uploads/avatars/default.jpg',
-                    kycStatus: 'pending',
-                    isVerified: false
-                },
-                createdAt: new Date(),
-                updatedAt: new Date()
-            }
+            data: user
         });
     }
     catch (error) {
+        console.error('Profile error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch user profile',
@@ -36,6 +41,58 @@ const getUserProfile = async (req, res) => {
     }
 };
 exports.getUserProfile = getUserProfile;
+const getUserTokens = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const investments = await database_1.default.investment.findMany({
+            where: {
+                userId,
+                status: 'CONFIRMED',
+                deletedAt: null
+            },
+            include: {
+                hotelAsset: {
+                    select: {
+                        tokenPrice: true,
+                        name: true
+                    }
+                }
+            }
+        });
+        const totalHAT = investments.reduce((sum, inv) => {
+            const amount = inv.amount ? parseFloat(inv.amount.toString()) : 0;
+            const tokenPrice = inv.hotelAsset?.tokenPrice ? parseFloat(inv.hotelAsset.tokenPrice.toString()) : 1;
+            return sum + (amount / tokenPrice);
+        }, 0);
+        const totalValue = investments.reduce((sum, inv) => {
+            const amount = inv.amount ? parseFloat(inv.amount.toString()) : 0;
+            return sum + amount;
+        }, 0);
+        res.json({
+            success: true,
+            data: {
+                totalHAT: totalHAT.toFixed(2),
+                properties: investments.length,
+                totalValue: totalValue.toFixed(2),
+                investments: investments.map(inv => {
+                    const amount = inv.amount ? parseFloat(inv.amount.toString()) : 0;
+                    const tokenPrice = inv.hotelAsset?.tokenPrice ? parseFloat(inv.hotelAsset.tokenPrice.toString()) : 1;
+                    return {
+                        name: inv.hotelAsset?.name || 'Unknown',
+                        amount: amount.toFixed(2),
+                        tokens: (amount / tokenPrice).toFixed(2),
+                        status: inv.status
+                    };
+                })
+            }
+        });
+    }
+    catch (error) {
+        console.error('Tokens error:', error);
+        res.status(500).json({ success: false, message: 'Tokens fetch failed' });
+    }
+};
+exports.getUserTokens = getUserTokens;
 const updateUserProfile = async (req, res) => {
     try {
         const userId = req.user?.userId;
@@ -73,50 +130,69 @@ exports.updateUserProfile = updateUserProfile;
 const getUserPortfolio = async (req, res) => {
     try {
         const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated"
+            });
+        }
+        const investments = await database_1.default.investment.findMany({
+            where: {
+                userId,
+                status: { in: ['PENDING', 'CONFIRMED'] }
+            },
+            include: {
+                hotelAsset: {
+                    select: {
+                        id: true,
+                        name: true,
+                        location: true,
+                        country: true,
+                        tokenSymbol: true,
+                        tokenPrice: true,
+                        apy: true,
+                        imageUrl: true,
+                        occupancyRate: true,
+                        starRating: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        const totalInvestment = investments.reduce((sum, inv) => sum + parseFloat(inv.investedAmount.toString()), 0);
+        const totalTokens = investments.reduce((sum, inv) => sum + Number(inv.tokenAmount), 0);
+        const totalProperties = investments.length;
+        const currentValue = totalInvestment * 1.05;
         res.json({
             success: true,
             data: {
-                totalInvestment: 50000,
-                totalProperties: 5,
-                totalTokens: 500,
-                currentValue: 52500,
-                totalReturn: 2500,
+                totalInvestment: Math.round(totalInvestment),
+                totalProperties,
+                totalTokens,
+                currentValue: Math.round(currentValue),
+                totalReturn: Math.round(currentValue - totalInvestment),
                 returnPercentage: 5.0,
-                properties: [
-                    {
-                        propertyId: 'prop_1',
-                        propertyName: 'Luxury Apartment in Downtown',
-                        tokensOwned: 100,
-                        investmentAmount: 10000,
-                        currentValue: 10500,
-                        returnAmount: 500,
-                        returnPercentage: 5.0,
-                        purchaseDate: new Date('2024-01-15'),
-                        propertyImage: '/uploads/properties/prop1.jpg'
-                    },
-                    {
-                        propertyId: 'prop_2',
-                        propertyName: 'Commercial Office Space',
-                        tokensOwned: 200,
-                        investmentAmount: 20000,
-                        currentValue: 21000,
-                        returnAmount: 1000,
-                        returnPercentage: 5.0,
-                        purchaseDate: new Date('2024-02-20'),
-                        propertyImage: '/uploads/properties/prop2.jpg'
-                    }
-                ],
+                properties: investments.map(inv => ({
+                    propertyId: inv.hotelAssetId,
+                    propertyName: `${inv.hotelAsset.name} (${inv.hotelAsset.location})`,
+                    tokensOwned: Number(inv.tokenAmount),
+                    investmentAmount: parseFloat(inv.investedAmount.toString()),
+                    currentValue: parseFloat(inv.investedAmount.toString()) * 1.05,
+                    returnAmount: parseFloat(inv.investedAmount.toString()) * 0.05,
+                    returnPercentage: 5.0,
+                    purchaseDate: inv.createdAt.toISOString(),
+                    propertyImage: inv.hotelAsset.imageUrl,
+                    tokenSymbol: inv.hotelAsset.tokenSymbol,
+                    apy: inv.hotelAsset.apy,
+                    occupancyRate: inv.hotelAsset.occupancyRate,
+                    starRating: inv.hotelAsset.starRating,
+                    status: inv.status
+                })),
                 recentDividends: [
                     {
-                        propertyName: 'Luxury Apartment in Downtown',
-                        amount: 250,
-                        date: new Date('2024-03-01'),
-                        status: 'paid'
-                    },
-                    {
-                        propertyName: 'Commercial Office Space',
-                        amount: 500,
-                        date: new Date('2024-03-01'),
+                        propertyName: '曼谷瑰丽酒店',
+                        amount: 42.5,
+                        date: new Date(Date.now() - 86400000 * 30).toISOString(),
                         status: 'paid'
                     }
                 ]
@@ -124,6 +200,7 @@ const getUserPortfolio = async (req, res) => {
         });
     }
     catch (error) {
+        console.error('Portfolio error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch portfolio',
@@ -132,6 +209,36 @@ const getUserPortfolio = async (req, res) => {
     }
 };
 exports.getUserPortfolio = getUserPortfolio;
+const confirmAllInvestments = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const adminId = req.user?.userId;
+        const targetUserId = userId || adminId;
+        const updated = await database_1.default.investment.updateMany({
+            where: {
+                userId: targetUserId,
+                status: 'PENDING'
+            },
+            data: {
+                status: 'CONFIRMED'
+            }
+        });
+        res.json({
+            success: true,
+            message: `Confirmed ${updated.count} investments`,
+            userId: targetUserId,
+            count: updated.count
+        });
+    }
+    catch (error) {
+        console.error('Confirm investments error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to confirm investments'
+        });
+    }
+};
+exports.confirmAllInvestments = confirmAllInvestments;
 const updateWalletAddress = async (req, res) => {
     try {
         const { walletAddress } = req.body;
