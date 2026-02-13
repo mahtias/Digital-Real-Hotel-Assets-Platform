@@ -158,14 +158,33 @@ export const updateUserProfile = async (req: Request, res: Response) => {
  */
 export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
   try {
+    // 🔥🔥 RENDER DEBUG - CRITICAL!
+    console.log("🔥 PORTFOLIO DEBUG - START:", {
+      timestamp: new Date().toISOString(),
+      userId: req.user?.userId,
+      userEmail: req.user?.email,
+      authHeader: req.headers.authorization?.slice(0,50),
+      allInvestmentsCount: await prisma.investment.count(),
+      studioInvestments: await prisma.investment.count({ 
+        where: { userId: { contains: 'studio' } } 
+      }),
+      pendingInvestments: await prisma.investment.count({ 
+        where: { status: { in: ['PENDING', 'CONFIRMED'] } } 
+      })
+    });
+
     const userId = req.user?.userId;
-    
+
     if (!userId) {
+      console.log("❌ NO USER ID - AUTHENTICATION FAILED!");
+      console.log("FULL REQ.USER:", JSON.stringify(req.user));
       return res.status(401).json({ 
         success: false, 
-        message: "User not authenticated" 
+        message: "User not authenticated - check token" 
       });
     }
+
+    console.log("✅ USER FOUND, FETCHING INVESTMENTS FOR:", userId);
 
     const investments = await prisma.investment.findMany({
       where: { 
@@ -191,6 +210,8 @@ export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: 'desc' }
     });
 
+    console.log("📊 FOUND INVESTMENTS:", investments.length, "for user:", userId);
+
     // ✅ FIXED: Decimal → Number conversion
     const totalInvestment = investments.reduce(
       (sum, inv) => sum + parseFloat(inv.investedAmount.toString()), 0
@@ -200,6 +221,12 @@ export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
     );
     const totalProperties = investments.length;
     const currentValue = totalInvestment * 1.05;
+
+    console.log("💰 PORTFOLIO SUMMARY:", {
+      totalInvestment: Math.round(totalInvestment),
+      totalProperties,
+      totalTokens
+    });
 
     res.json({
       success: true,
@@ -238,7 +265,7 @@ export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Portfolio error:', error);
+    console.error('❌ PORTFOLIO ERROR:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch portfolio',
@@ -246,6 +273,7 @@ export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
 
 export const confirmAllInvestments = async (req: AuthRequest, res: Response) => {
   try {
