@@ -31,16 +31,16 @@ export async function sendAdminKycEmail(user: any) {
     Open Admin Dashboard
     </a>
 
-  
+  <br /><br />
+    <p>Local testing:</p>
+    <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">
+      Open Admin Dashboard
+    </a>
   `
 });
 
   
-    // <br /><br />
-    // <p>Local testing:</p>
-    // <a href="http://localhost:5173/admin" target="_blank" rel="noopener noreferrer">
-    //   Open Admin Dashboard
-    // </a>
+    
 
 
     console.log("Admin KYC email sent.");

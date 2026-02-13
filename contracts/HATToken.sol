@@ -1,152 +1,162 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ERC1155} from  "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import {Ownable} from  "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./KYCRegistry.sol";
 
-contract HATToken is ERC1155, Ownable {
+/**
+ * @title HATToken
+ * @notice ERC1155 token representing fractional hotel ownership shares
+ * @dev Each token ID represents a different hotel property
+ */
+contract HATToken is ERC1155, AccessControl, ReentrancyGuard {
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    struct HotelMetadata {
-        string name;
-        string location;
-        string country;
-        string imageUrl;
-        uint256 totalTokens;
-        uint256 tokenPrice;
-        string description;
+    KYCRegistry public kycRegistry;
+
+    string public name;
+    string public symbol;
+
+    // Custom errors
+    error KYCRequired();
+    error TransferNotAllowed();
+    error NotManager();
+
+    event KYCRegistrySet(address indexed kycRegistry);
+    event TokensMinted(address indexed to, uint256 indexed tokenId, uint256 amount);
+    event TokensBurned(address indexed from, uint256 indexed tokenId, uint256 amount);
+
+    /**
+     * @notice Constructor
+     */
+    constructor() ERC1155("") {
+        name = "Hotel Asset Token";
+        symbol = "HAT";
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, msg.sender);
     }
 
-    mapping(uint256 => HotelMetadata) public hotels; 
-    
-    // Transfer restriction (KYC whitelist)
-    mapping(address => bool) public isWhitelisted;
-
-    // Revenue tracking
-    mapping(uint256 => mapping(address => uint256)) public revenue;
-
-    event HotelCreated(uint256 indexed hotelId, uint256 supply);
-    event HotelMinted(uint256 indexed hotelId, address indexed to, uint256 amount);
-    event RevenueAdded(uint256 indexed hotelId, uint256 totalAmount);
-    event RevenueClaimed(address indexed user, uint256 indexed hotelId, uint256 amount);
-
-    constructor() ERC1155("") Ownable(msg.sender) {}
-
-    // 1. CREATE HOTEL
-    function createHotel(
-        uint256 hotelId,
-        string memory name,
-        string memory location,
-        string memory country,
-        string memory imageUrl,
-        uint256 totalTokens,
-        uint256 tokenPrice,
-        string memory description
-    ) external onlyOwner {
-        require(hotels[hotelId].totalTokens == 0, "Hotel already exists");
-
-        hotels[hotelId] = HotelMetadata({
-            name: name,
-            location: location,
-            country: country,
-            imageUrl: imageUrl,
-            totalTokens: totalTokens,
-            tokenPrice: tokenPrice,
-            description: description
-        });
-
-
-        _mint(msg.sender, hotelId, totalTokens, "");
-
-        emit HotelCreated(hotelId, totalTokens);
+    /**
+     * @notice Set the KYC registry contract
+     * @param _kycRegistry Address of the KYC registry
+     */
+    function setKYCRegistry(address _kycRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        kycRegistry = KYCRegistry(_kycRegistry);
+        emit KYCRegistrySet(_kycRegistry);
     }
 
-    // 2. MINT TOKENS TO INVESTOR
-    function mintToInvestor(
-        uint256 hotelId,
-        address investor,
-        uint256 tokenAmount
-    ) external onlyOwner {
-        require(isWhitelisted[investor], "Investor not KYC approved");
+    /**
+     * @notice Mint new tokens (hotel shares)
+     * @dev Only callable by contracts with MANAGER_ROLE
+     * @param to Address to mint tokens to (must be KYC verified)
+     * @param id Token ID (hotel ID)
+     * @param amount Amount of tokens to mint
+     * @param data Additional data
+     */
+    function mint(address to, uint256 id, uint256 amount, bytes memory data) external onlyRole(MANAGER_ROLE) {
+        if (address(kycRegistry) != address(0)) {
+            if (!kycRegistry.isKYCVerified(to)) revert KYCRequired();
+        }
 
-        _safeTransferFrom(owner(), investor, hotelId, tokenAmount, "");
-
-        emit HotelMinted(hotelId, investor, tokenAmount);
+        _mint(to, id, amount, data);
+        emit TokensMinted(to, id, amount);
     }
 
-    // 3. KYC
-    function setWhitelisted(address user, bool status) external onlyOwner {
-        isWhitelisted[user] = status;
+    function mintForTest(address to, uint256 tokenId, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _mint(to, tokenId, amount, "");
+        emit TokensMinted(to, tokenId, amount);
     }
 
-    // ✔ CORRECT KYC TRANSFER HOOK (OZ 5.4.0)
-    function _update(
+    /**
+     * @notice Mint multiple token types at once
+     * @param to Address to mint tokens to
+     * @param ids Array of token IDs
+     * @param amounts Array of amounts
+     * @param data Additional data
+     */
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
+        external
+        onlyRole(MANAGER_ROLE)
+    {
+        if (address(kycRegistry) != address(0)) {
+            if (!kycRegistry.isKYCVerified(to)) revert KYCRequired();
+        }
+
+        _mintBatch(to, ids, amounts, data);
+    }
+
+    /**
+     * @notice Burn tokens
+     * @param from Address to burn from
+     * @param id Token ID
+     * @param amount Amount to burn
+     */
+    function burn(address from, uint256 id, uint256 amount) external {
+        if (from != msg.sender && !isApprovedForAll(from, msg.sender)) {
+            revert TransferNotAllowed();
+        }
+
+        _burn(from, id, amount);
+        emit TokensBurned(from, id, amount);
+    }
+
+    /**
+     * @notice Burn multiple token types
+     * @param from Address to burn from
+     * @param ids Array of token IDs
+     * @param amounts Array of amounts
+     */
+    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external {
+        if (from != msg.sender && !isApprovedForAll(from, msg.sender)) {
+            revert TransferNotAllowed();
+        }
+
+        _burnBatch(from, ids, amounts);
+    }
+
+    /**
+     * @notice Override safeTransferFrom to add KYC check
+     */
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) public override {
+        if (address(kycRegistry) != address(0)) {
+            if (!kycRegistry.isKYCVerified(to)) revert KYCRequired();
+        }
+
+        super.safeTransferFrom(from, to, id, amount, data);
+    }
+
+    /**
+     * @notice Override safeBatchTransferFrom to add KYC check
+     */
+    function safeBatchTransferFrom(
         address from,
         address to,
         uint256[] memory ids,
-        uint256[] memory amounts
-    ) internal override {
-        // block transfers (not mint/burn) to non-KYC users
-        if (from != address(0) && to != address(0)) {
-            require(isWhitelisted[to], "Recipient not KYC verified");
+        uint256[] memory amounts,
+        bytes memory data
+    ) public override {
+        if (address(kycRegistry) != address(0)) {
+            if (!kycRegistry.isKYCVerified(to)) revert KYCRequired();
         }
 
-        super._update(from, to, ids, amounts);
+        super.safeBatchTransferFrom(from, to, ids, amounts, data);
     }
 
-    // 4. REVENUE
-    function addRevenue(uint256 hotelId) external payable onlyOwner {
-        require(msg.value > 0, "Send ETH revenue");
-        emit RevenueAdded(hotelId, msg.value);
+    /**
+     * @notice Check if contract supports an interface
+     */
+    function supportsInterface(bytes4 interfaceId) public view override(ERC1155, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 
-    function assignRevenue(
-        uint256 hotelId,
-        address investor,
-        uint256 amountWei
-    ) external onlyOwner {
-        revenue[hotelId][investor] += amountWei;
+    /**
+     * @notice Set URI for all token types
+     * @param newuri New URI
+     */
+    function setURI(string memory newuri) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setURI(newuri);
     }
-
-    function claimRevenue(uint256 hotelId) external {
-        uint256 amt = revenue[hotelId][msg.sender];
-        require(amt > 0, "Nothing to claim");
-
-        revenue[hotelId][msg.sender] = 0;
-        payable(msg.sender).transfer(amt);
-
-        emit RevenueClaimed(msg.sender, hotelId, amt);
-    }
-
-    // 6. METADATA URI
-    function uri(uint256 hotelId) public view override returns (string memory) {
-        return hotels[hotelId].imageUrl;
-    }
-
-    function updateHotelMetadata(
-        uint256 hotelId,
-        string memory name,
-        string memory location,
-        string memory country,
-        string memory imageUrl,
-        uint256 totalTokens,
-        uint256 tokenPrice,
-        string memory description
-    ) external onlyOwner {
-        require(hotels[hotelId].totalTokens > 0, "Hotel does not exist");
-
-        hotels[hotelId] = HotelMetadata({
-            name: name,
-            location: location,
-            country: country,
-            imageUrl: imageUrl,
-            totalTokens: totalTokens,
-            tokenPrice: tokenPrice,
-            description: description
-        });
-    }
-
-    // function deleteHotel(uint256 hotelId) external onlyOwner {
-    //     require(hotels[hotelId].totalTokens > 0, "Hotel does not exist");
-    //     delete hotels[hotelId];
-    // }
 }

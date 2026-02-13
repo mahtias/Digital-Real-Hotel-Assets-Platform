@@ -12,9 +12,9 @@ import type { Abi } from "viem";
 import hatJson from "../../../out/HATToken.sol/HATToken.json";
 
 const hatAbi: Abi = hatJson.abi as Abi;
-console.log("DEBUG PRIVATE KEY:", process.env.PRIVATE_KEY_COINBASE);
+console.log("DEBUG PRIVATE KEY:", process.env.PRIVATE_KEY);
 const HAT_CONTRACT = process.env.HAT_CONTRACT_ADDRESS as `0x${string}`;
-const account = privateKeyToAccount(process.env.PRIVATE_KEY_COINBASE! as `0x${string}`);
+const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
 
 
 export const hat: any = {

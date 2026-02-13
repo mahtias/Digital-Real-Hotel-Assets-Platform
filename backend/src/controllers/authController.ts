@@ -129,6 +129,28 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
+// export const login = async (req, res) => {
+//   const { email, password } = req.body;
+  
+//   console.log('🔐 PM LOGIN:', email);
+  
+//   // PM DEMO CREDENTIALS
+//   if (email === 'admin@digireal.com' && password === 'password123') {
+//     return res.json({
+//       success: true,
+//       token: 'pm-demo-token-2024',
+//       user: { 
+//         id: 1, 
+//         email, 
+//         name: 'Platform Admin',
+//         role: 'ADMIN'
+//       }
+//     });
+//   }
+  
+//   // Real login logic here...
+//   res.status(401).json({ error: 'Invalid credentials' });
+// };
 // LOGIN (BLOCK IF EMAIL NOT VERIFIED)
 
 export const login = async (req: Request, res: Response) => {

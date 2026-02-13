@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
 
-    enum KYCLevel { NONE, BASIC, ADVANCED }
-    enum KYCStatus { NONE, PENDING, APPROVED, REJECTED, EXPIRED }
+    enum KYCLevel {
+        NONE,
+        BASIC,
+        ADVANCED
+    }
+    enum KYCStatus {
+        NONE,
+        PENDING,
+        APPROVED,
+        REJECTED,
+        EXPIRED
+    }
 
     struct KYCRecord {
         KYCLevel level;
@@ -21,7 +30,6 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
         address verifiedBy;
         string rejectionReason;
     }
-    
 
     mapping(address => KYCRecord) private kycRecords;
     mapping(bytes32 => bool) public usedDocumentHashes;
@@ -32,7 +40,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
     event KYCRevoked(address indexed user, address indexed revoker, string reason);
 
     constructor(address backendVerifier)
-       // AccessControl(msg.sender)
+        // AccessControl(msg.sender)
         ReentrancyGuard()
         Pausable()
     {
@@ -45,20 +53,15 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
         return kycRecords[_user].status;
     }
 
-    function submitKYC(KYCLevel _level, bytes32 _documentHash)
-        external
-        whenNotPaused
-        nonReentrant
-    {
+    function submitKYC(KYCLevel _level, bytes32 _documentHash) external whenNotPaused nonReentrant {
         require(_level != KYCLevel.NONE, "Invalid KYC level");
         require(_documentHash != bytes32(0), "Invalid document hash");
         require(!usedDocumentHashes[_documentHash], "Document hash already used");
 
         KYCRecord storage record = kycRecords[msg.sender];
         require(
-            record.status == KYCStatus.NONE ||
-            record.status == KYCStatus.REJECTED ||
-            record.status == KYCStatus.EXPIRED,
+            record.status == KYCStatus.NONE || record.status == KYCStatus.REJECTED
+                || record.status == KYCStatus.EXPIRED,
             "KYC already pending or approved"
         );
 
@@ -77,11 +80,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit KYCSubmitted(msg.sender, _level, _documentHash, block.timestamp);
     }
 
-    function approveKYC(address _user, uint256 _validityDuration)
-        external
-        onlyRole(VERIFIER_ROLE)
-        whenNotPaused
-    {
+    function approveKYC(address _user, uint256 _validityDuration) external onlyRole(VERIFIER_ROLE) whenNotPaused {
         require(_user != address(0), "Invalid address");
         KYCRecord storage record = kycRecords[_user];
         require(record.status == KYCStatus.PENDING, "KYC not pending");
@@ -95,11 +94,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit KYCApproved(_user, record.level, msg.sender, record.expiresAt);
     }
 
-    function rejectKYC(address _user, string calldata _reason)
-        external
-        onlyRole(VERIFIER_ROLE)
-        whenNotPaused
-    {
+    function rejectKYC(address _user, string calldata _reason) external onlyRole(VERIFIER_ROLE) whenNotPaused {
         require(_user != address(0), "Invalid address");
         KYCRecord storage record = kycRecords[_user];
         require(record.status == KYCStatus.PENDING, "KYC not pending");
@@ -112,10 +107,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit KYCRejected(_user, msg.sender, _reason);
     }
 
-    function revokeKYC(address _user, string calldata _reason)
-        external
-        onlyRole(VERIFIER_ROLE)
-    {
+    function revokeKYC(address _user, string calldata _reason) external onlyRole(VERIFIER_ROLE) {
         require(_user != address(0), "Invalid address");
         KYCRecord storage record = kycRecords[_user];
         require(record.status == KYCStatus.APPROVED, "KYC not approved");
@@ -128,25 +120,20 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable {
 
     function isKYCValid(address _user) public view returns (bool) {
         KYCRecord memory record = kycRecords[_user];
-        return record.status == KYCStatus.APPROVED &&
-               block.timestamp < record.expiresAt;
+        return record.status == KYCStatus.APPROVED && block.timestamp < record.expiresAt;
     }
 
-    function hasKYCLevel(address _user, KYCLevel _level)
-        external
-        view
-        returns (bool)
-    {
+    function isKYCVerified(address _user) external view returns (bool) {
+        return isKYCValid(_user);
+    }
+
+    function hasKYCLevel(address _user, KYCLevel _level) external view returns (bool) {
         if (!isKYCValid(_user)) return false;
         KYCRecord memory record = kycRecords[_user];
-        return uint(record.level) >= uint(_level);
+        return uint256(record.level) >= uint256(_level);
     }
 
-    function getKYCRecord(address _user)
-        external
-        view
-        returns (KYCRecord memory)
-    {
+    function getKYCRecord(address _user) external view returns (KYCRecord memory) {
         return kycRecords[_user];
     }
 

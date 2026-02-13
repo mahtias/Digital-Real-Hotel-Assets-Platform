@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authRoutes from './authRoutes';
 import kycRoutes from './kycRoutes';
 import userRoutes from './userRoutes';
-import hotelRoutes from './hotelRoutes';
+import hotelRoutes from './hotelAssetRoutes';
 import investmentRoutes from './investmentRoutes';
 import bookingRoutes from './bookingRoutes'
 import proposalRoutes from './proposalRoutes';
@@ -27,7 +27,7 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/kyc', kycRoutes);
 router.use('/user', userRoutes);
-router.use('/hotel', hotelRoutes);
+router.use('/hotel-assets', hotelRoutes);
 router.use('/investments', investmentRoutes);
 router.use('/book', bookingRoutes);
 router.use('/proposals', proposalRoutes);

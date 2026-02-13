@@ -1,0 +1,233 @@
+No files changed, compilation skipped
+Traces:
+  [5890545] DeployAll::run()
+    ├─ [0] VM::envUint("PRIVATE_KEY") [staticcall]
+    │   └─ ← [Return] <env var value>
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb
+    ├─ [0] console::log("Deployer:", 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Treasury:", 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::startBroadcast(<pk>)
+    │   └─ ← [Return]
+    ├─ [1751189] → new HATToken@0x717144d298b145815b7b06031470f5DDa2F7DF72
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   ├─ emit RoleGranted(role: 0x241ecf16d79d0f8dbfb92cbc07fe17840425976cf0667f022fe9877caa831b08, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   └─ ← [Return] 8158 bytes of code
+    ├─ [0] console::log("HATToken:", HATToken: [0x717144d298b145815b7b06031470f5DDa2F7DF72]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [459919] → new MockUSDC@0x1eC3b7864849501FBd81990A9cdB150c868596d6
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, value: 1000000000000 [1e12])
+    │   └─ ← [Return] 1842 bytes of code
+    ├─ [0] console::log("MockUSDC:", MockUSDC: [0x1eC3b7864849501FBd81990A9cdB150c868596d6]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [1234742] → new KYCRegistry@0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   ├─ emit RoleGranted(role: 0x0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   ├─ emit RoleGranted(role: 0x0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09, account: HATToken: [0x717144d298b145815b7b06031470f5DDa2F7DF72], sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   └─ ← [Return] 5679 bytes of code
+    ├─ [0] console::log("KYCRegistry:", KYCRegistry: [0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [1365488] → new HotelAssetManager@0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   ├─ emit RoleGranted(role: 0xb1fadd3142ab2ad7f1337ea4d97112bcc8337fc11ce5b20cb04ad038adf99819, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   └─ ← [Return] 6244 bytes of code
+    ├─ [0] console::log("HotelAssetManager:", HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [817078] → new Investment@0x7db2AE61E62B72EB2D3e9668580b94206C8285CE
+    │   ├─ emit OwnershipTransferred(from: 0x0000000000000000000000000000000000000000, to: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   └─ ← [Return] 3738 bytes of code
+    ├─ [0] console::log("Investment:", Investment: [0x7db2AE61E62B72EB2D3e9668580b94206C8285CE]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [27359] HATToken::grantRole(0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6, HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17])
+    │   ├─ emit RoleGranted(role: 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6, account: HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17], sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   └─ ← [Stop]
+    ├─ [27359] HATToken::grantRole(0x241ecf16d79d0f8dbfb92cbc07fe17840425976cf0667f022fe9877caa831b08, HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17])
+    │   ├─ emit RoleGranted(role: 0x241ecf16d79d0f8dbfb92cbc07fe17840425976cf0667f022fe9877caa831b08, account: HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17], sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    │   └─ ← [Stop]
+    ├─ [0] console::log(" Roles granted") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [24145] HotelAssetManager::setInvestmentContract(Investment: [0x7db2AE61E62B72EB2D3e9668580b94206C8285CE])
+    │   ├─ emit InvestmentContractSet(investmentContract: Investment: [0x7db2AE61E62B72EB2D3e9668580b94206C8285CE])
+    │   └─ ← [Return]
+    ├─ [0] console::log(" Investment linked") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopBroadcast()
+    │   └─ ← [Return]
+    ├─ [0] console::log("\n UPDATE .env with these:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("HAT_CONTRACT_ADDRESS=", HATToken: [0x717144d298b145815b7b06031470f5DDa2F7DF72]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("HOTEL_ASSET_MANAGER_ADDRESS=", HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("KYC_CONTRACT_ADDRESS=", KYCRegistry: [0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb]) [staticcall]
+    │   └─ ← [Stop]
+    └─ ← [Return]
+
+
+Script ran successfully.
+
+== Logs ==
+  Deployer: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb
+  Treasury: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb
+  HATToken: 0x717144d298b145815b7b06031470f5DDa2F7DF72
+  MockUSDC: 0x1eC3b7864849501FBd81990A9cdB150c868596d6
+  KYCRegistry: 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb
+  HotelAssetManager: 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17
+  Investment: 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE
+   Roles granted
+   Investment linked
+  
+ UPDATE .env with these:
+  HAT_CONTRACT_ADDRESS= 0x717144d298b145815b7b06031470f5DDa2F7DF72
+  HOTEL_ASSET_MANAGER_ADDRESS= 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17
+  KYC_CONTRACT_ADDRESS= 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb
+
+## Setting up 1 EVM.
+==========================
+Simulated On-chain Traces:
+
+  [1751189] → new HATToken@0x717144d298b145815b7b06031470f5DDa2F7DF72
+    ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    ├─ emit RoleGranted(role: 0x241ecf16d79d0f8dbfb92cbc07fe17840425976cf0667f022fe9877caa831b08, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    └─ ← [Return] 8158 bytes of code
+
+  [459919] → new MockUSDC@0x1eC3b7864849501FBd81990A9cdB150c868596d6
+    ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, value: 1000000000000 [1e12])
+    └─ ← [Return] 1842 bytes of code
+
+  [1234742] → new KYCRegistry@0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb
+    ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    ├─ emit RoleGranted(role: 0x0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    ├─ emit RoleGranted(role: 0x0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09, account: HATToken: [0x717144d298b145815b7b06031470f5DDa2F7DF72], sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    └─ ← [Return] 5679 bytes of code
+
+  [1365488] → new HotelAssetManager@0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17
+    ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    ├─ emit RoleGranted(role: 0xb1fadd3142ab2ad7f1337ea4d97112bcc8337fc11ce5b20cb04ad038adf99819, account: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb, sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    └─ ← [Return] 6244 bytes of code
+
+  [817078] → new Investment@0x7db2AE61E62B72EB2D3e9668580b94206C8285CE
+    ├─ emit OwnershipTransferred(from: 0x0000000000000000000000000000000000000000, to: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    └─ ← [Return] 3738 bytes of code
+
+  [29359] HATToken::grantRole(0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6, HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17])
+    ├─ emit RoleGranted(role: 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6, account: HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17], sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    └─ ← [Stop]
+
+  [29359] HATToken::grantRole(0x241ecf16d79d0f8dbfb92cbc07fe17840425976cf0667f022fe9877caa831b08, HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17])
+    ├─ emit RoleGranted(role: 0x241ecf16d79d0f8dbfb92cbc07fe17840425976cf0667f022fe9877caa831b08, account: HotelAssetManager: [0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17], sender: 0x118AaA088863Af0179C5cB1fdb0df00fA52f52Cb)
+    └─ ← [Stop]
+
+  [26145] HotelAssetManager::setInvestmentContract(Investment: [0x7db2AE61E62B72EB2D3e9668580b94206C8285CE])
+    ├─ emit InvestmentContractSet(investmentContract: Investment: [0x7db2AE61E62B72EB2D3e9668580b94206C8285CE])
+    └─ ← [Return]
+
+
+==========================
+
+Chain 84532
+
+Estimated gas price: 0.003 gwei
+
+Estimated total gas used for script: 8469345
+
+Estimated amount required: 0.000025408035 ETH
+
+==========================
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+##
+Start verification for (5) contracts
+Start verifying contract `0x717144d298b145815b7b06031470f5DDa2F7DF72` deployed on base-sepolia
+EVM version: cancun
+Compiler version: 0.8.24
+Optimizations:    200
+
+Submitting verification for [contracts/HATToken.sol:HATToken] 0x717144d298b145815b7b06031470f5DDa2F7DF72.
+
+Submitting verification for [contracts/HATToken.sol:HATToken] 0x717144d298b145815b7b06031470f5DDa2F7DF72.
+
+Submitting verification for [contracts/HATToken.sol:HATToken] 0x717144d298b145815b7b06031470f5DDa2F7DF72.
+
+Submitting verification for [contracts/HATToken.sol:HATToken] 0x717144d298b145815b7b06031470f5DDa2F7DF72.
+
+Submitting verification for [contracts/HATToken.sol:HATToken] 0x717144d298b145815b7b06031470f5DDa2F7DF72.
+
+Submitting verification for [contracts/HATToken.sol:HATToken] 0x717144d298b145815b7b06031470f5DDa2F7DF72.
+Start verifying contract `0x1eC3b7864849501FBd81990A9cdB150c868596d6` deployed on base-sepolia
+EVM version: cancun
+Compiler version: 0.8.24
+Optimizations:    200
+
+Submitting verification for [contracts/MockUSDC.sol:MockUSDC] 0x1eC3b7864849501FBd81990A9cdB150c868596d6.
+
+Submitting verification for [contracts/MockUSDC.sol:MockUSDC] 0x1eC3b7864849501FBd81990A9cdB150c868596d6.
+
+Submitting verification for [contracts/MockUSDC.sol:MockUSDC] 0x1eC3b7864849501FBd81990A9cdB150c868596d6.
+
+Submitting verification for [contracts/MockUSDC.sol:MockUSDC] 0x1eC3b7864849501FBd81990A9cdB150c868596d6.
+
+Submitting verification for [contracts/MockUSDC.sol:MockUSDC] 0x1eC3b7864849501FBd81990A9cdB150c868596d6.
+
+Submitting verification for [contracts/MockUSDC.sol:MockUSDC] 0x1eC3b7864849501FBd81990A9cdB150c868596d6.
+Start verifying contract `0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb` deployed on base-sepolia
+EVM version: cancun
+Compiler version: 0.8.24
+Optimizations:    200
+Constructor args: 000000000000000000000000717144d298b145815b7b06031470f5dda2f7df72
+
+Submitting verification for [contracts/KYCRegistry.sol:KYCRegistry] 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb.
+
+Submitting verification for [contracts/KYCRegistry.sol:KYCRegistry] 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb.
+
+Submitting verification for [contracts/KYCRegistry.sol:KYCRegistry] 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb.
+
+Submitting verification for [contracts/KYCRegistry.sol:KYCRegistry] 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb.
+
+Submitting verification for [contracts/KYCRegistry.sol:KYCRegistry] 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb.
+
+Submitting verification for [contracts/KYCRegistry.sol:KYCRegistry] 0x50aC9FF81E3C467d3Baef73B1E7E08D0ceec5eeb.
+Start verifying contract `0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17` deployed on base-sepolia
+EVM version: cancun
+Compiler version: 0.8.24
+Optimizations:    200
+Constructor args: 000000000000000000000000717144d298b145815b7b06031470f5dda2f7df72
+
+Submitting verification for [contracts/HotelAssetManager.sol:HotelAssetManager] 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17.
+
+Submitting verification for [contracts/HotelAssetManager.sol:HotelAssetManager] 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17.
+
+Submitting verification for [contracts/HotelAssetManager.sol:HotelAssetManager] 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17.
+
+Submitting verification for [contracts/HotelAssetManager.sol:HotelAssetManager] 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17.
+
+Submitting verification for [contracts/HotelAssetManager.sol:HotelAssetManager] 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17.
+
+Submitting verification for [contracts/HotelAssetManager.sol:HotelAssetManager] 0x3Cf24c2806D8d4AB08fAF3861F6065f003deCf17.
+Start verifying contract `0x7db2AE61E62B72EB2D3e9668580b94206C8285CE` deployed on base-sepolia
+EVM version: cancun
+Compiler version: 0.8.24
+Optimizations:    200
+Constructor args: 0000000000000000000000001ec3b7864849501fbd81990a9cdb150c868596d600000000000000000000000050ac9ff81e3c467d3baef73b1e7e08d0ceec5eeb0000000000000000000000003cf24c2806d8d4ab08faf3861f6065f003decf17000000000000000000000000118aaa088863af0179c5cb1fdb0df00fa52f52cb
+
+Submitting verification for [contracts/Investment.sol:Investment] 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE.
+
+Submitting verification for [contracts/Investment.sol:Investment] 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE.
+
+Submitting verification for [contracts/Investment.sol:Investment] 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE.
+
+Submitting verification for [contracts/Investment.sol:Investment] 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE.
+
+Submitting verification for [contracts/Investment.sol:Investment] 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE.
+
+Submitting verification for [contracts/Investment.sol:Investment] 0x7db2AE61E62B72EB2D3e9668580b94206C8285CE.
+
+Transactions saved to: /home/hinkookadonis/digirealassets/broadcast/DeployAll.s.sol/84532/run-latest.json
+
+Sensitive values saved to: /home/hinkookadonis/digirealassets/cache/DeployAll.s.sol/84532/run-latest.json
+

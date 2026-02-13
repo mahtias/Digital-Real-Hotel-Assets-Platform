@@ -1,590 +1,428 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card } from "@/components/ui/card";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, 
+  DialogTrigger, DialogDescription 
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
-import { Star, MapPin, Leaf, TrendingUp, Calendar, Home, Users, Shield, FileText, ArrowLeft, Plus, Minus, Wallet, CheckCircle } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { format } from 'date-fns';
+import { Star, MapPin, Leaf, TrendingUp, Calendar, Home, Users, Shield, FileText, ArrowLeft, Wallet, CheckCircle, DollarSign, ExternalLink } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useLanguage } from '@/components/common/LanguageContext';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
+
 export default function HotelDetail() {
-  
-const urlParams = new URLSearchParams(window.location.search);
-const hotelId = urlParams.get('id');
+  // 1. URL + Navigation
+  const [searchParams] = useSearchParams();
+  const hotelId = searchParams.get('id') || '692bf7e5e51d3a2d1ee44f6b';
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
-const navigate = useNavigate();
-const queryClient = useQueryClient();
-const { t } = useLanguage();
-const { isConnected, address } = useAccount();
-const { user, authFetch, refreshUser } = useAuth();
+  // 2. Wallet + Auth
+  const { isConnected, address } = useAccount();
+  const { user, authFetch, refreshUser } = useAuth();
 
-// Refresh on page load
-useEffect(() => {
-  refreshUser();
-}, []);
+  // 3. STATES
+  const [investAmount, setInvestAmount] = useState(100);
+  const [showInvestDialog, setShowInvestDialog] = useState(false);
+  const [showKycDialog, setShowKycDialog] = useState(false);
+  const [investSuccess, setInvestSuccess] = useState(false);
+  const [txHash, setTxHash] = useState(null);
 
-// Refresh when wallet connects
-useEffect(() => {
-  if (isConnected) {
-    refreshUser();
-  }
-}, [isConnected]);
+  //  HOTEL STATE
+  const [hotel, setHotel] = useState(null);
+  const [hotelLoading, setHotelLoading] = useState(true);
+  const [hotelError, setHotelError] = useState(null);
 
-useEffect(() => {
-  const interval = setInterval(() => {
-    refreshUser();
-  }, 5000); // check every 5 seconds
+  //  HOTEL FETCH
+  useEffect(() => {
+    if (!hotelId) return;
 
-  return () => clearInterval(interval);
-}, []);
+    console.log('🔍 Loading hotel:', hotelId);
+    setHotelLoading(true);
+    setHotelError(null);
 
-const [investAmount, setInvestAmount] = useState(100);
-const [showInvestDialog, setShowInvestDialog] = useState(false);
-const [investSuccess, setInvestSuccess] = useState(false);
-  const [selectedQuarter, setSelectedQuarter] = useState(null)
+    fetch(`${API_URL}/api/v1/hotel-assets/${hotelId}`)
+      .then(res => {
+        console.log('📡 Response:', res.status);
+        if (!res.ok) throw new Error(`Hotel not found: ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        console.log('✅ Hotel loaded:', data.id, data.name);
 
-if (user === undefined) {
-  return <div className="text-center text-slate-400">Loading...</div>;
-}
+        // ✅ Image fix
+        if (data.imageUrl) {
+          data.imageUrl = data.imageUrl.startsWith('http') 
+            ? data.imageUrl 
+            : `${API_URL}${data.imageUrl}`;
+          data.image = data.imageUrl;
+        } else {
+          data.image = '/hotel-placeholder.jpg';
+        }
 
-const normalizedKyc = user?.kycStatus?.toUpperCase();
-const isKycApproved = normalizedKyc === "APPROVED";
+        setHotel(data);
+      })
+      .catch(err => {
+        console.error(' Hotel error:', err);
+        setHotelError(err.message);
+        toast.error('Failed to load hotel');
+      })
+      .finally(() => setHotelLoading(false));
+  }, [hotelId]);
 
-const { data: hotel, isLoading } = useQuery({
-  queryKey: ['hotel', hotelId],
-  queryFn: async () => {
-    const res = await fetch(`${API_URL}/api/v1/hotel?id=${hotelId}`);
-    const data = await res.json();
-    return data[0];
-  },
-  enabled: !!hotelId,
-});
+  // 5. KYC Status
+  const normalizedKyc = user?.kycStatus?.toUpperCase();
+  const isKycApproved = normalizedKyc === "APPROVED";
+  const isLoggedIn = !!user;
 
+  // 6. CALCULATIONS
+  const tokensToBuy = hotel ? ((investAmount / (hotel.tokenPrice || 0.001)) * 1000).toFixed(0) : 0;
+const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalTokens ?? 1) * 100,  100): 0;
 
-  // FIXED: Use correct backend fields
-  const soldPercentage =
-    hotel ? (hotel.tokensSold / hotel.totalTokens) * 100 : 0;
-
-  const tokensAvailable =
-    hotel ? hotel.totalTokens - hotel.tokensSold : 0;
-
-  const tokensToBuy =
-    hotel ? investAmount / hotel.tokenPrice : 0;
-
-    type DocumentContent = {
-  title: string;
-  content: string;
-};
-
-const confirmInvestMutation = useMutation({
+  //   FIXED INVEST MUTATION
+ const investMutation = useMutation({
   mutationFn: async () => {
-    return authFetch(`/investments/create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // 🔥 ADD tokenAmount calc
+    const tokensToBuy = Math.floor(investAmount / hotel.tokenPrice);
+    
+    console.log(' INVEST DATA:', { 
+      hotelId: hotel.id,
+      amount: investAmount, 
+      walletAddress: address,
+      userId: user?.id,
+      tokenAmount: tokensToBuy  // 🔥 NEW!
+    });
+
+    if (!hotel?.id) throw new Error('Hotel ID missing');
+    if (!isConnected || !address) throw new Error('Connect wallet first');
+    if (!isKycApproved) throw new Error('KYC required');
+
+    // 🔥 ADD tokenAmount to body
+    const backendRes = await authFetch(`${API_URL}/api/v1/investments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
         hotelId: hotel.id,
-        amount: investAmount
+        amount: investAmount,
+        walletAddress: address,
+        tokenAmount: tokensToBuy  // 🔥 ADD THIS LINE!
       })
     });
+
+    if (!backendRes.ok) {
+      const errorText = await backendRes.text();
+      throw new Error(`Investment failed: ${errorText}`);
+    }
+
+    const responseData = await backendRes.json();
+    console.log('✅ Backend response:', responseData);
+    return responseData;
   },
-  onSuccess: () => {
+  onSuccess: (data) => {
+    console.log('🎉 INVESTMENT SUCCESS:', data);
+    toast.success(data.message || `Invested $${investAmount}!`);
     setInvestSuccess(true);
-    queryClient.invalidateQueries(["investments"]);
+    setShowInvestDialog(false);
+    
+    // 🔥 ADD THESE 2 LINES:
+    queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+    queryClient.invalidateQueries({ queryKey: ['investments', user?.email] });
+    
+    refreshUser();
+  },
+  onError: (error) => {
+    console.error('❌ Investment error:', error);
+    toast.error(error.message || 'Investment failed');
   }
 });
 
- const quarters = [ "2025 Q4", "2025 Q3", "2025 Q2", "2025 Q1" ]
+  
 
-  const handleOpen = (q) => {
-    setSelectedQuarter({
-      name: q,
-      return: (2 + Math.random() * 0.5).toFixed(2) // mock return
-    })
-  }
+  // 7. Event handlers
+  const handleInvestClick = useCallback(() => {
+    if (!isLoggedIn) {
+      toast.error('Please login first');
+      navigate('/login');
+      return;
+    }
+    if (!isKycApproved) {
+      setShowKycDialog(true);
+      return;
+    }
+    if (!isConnected) {
+      toast.error('Connect your wallet');
+      return;
+    }
+    setShowInvestDialog(true);
+  }, [isLoggedIn, isKycApproved, isConnected, navigate]);
 
-const [selectedDocument, setSelectedDocument] = useState<DocumentContent | null>(null);
-
-const documentContents: Record<string, DocumentContent> = {
-  [t('hotelDetail.assetReport')]: {
-    title: t('hotelDetail.assetReport'),
-    content: "The Asset Valuation Report is the bridge between the physical hotel and the digital token; it ensures the \"Digital Twin\" on the blockchain accurately represents the real-world financial worth of the property."
-  },
-  [t('hotelDetail.leaseSummary')]: {
-    title: t('hotelDetail.leaseSummary'),
-    content: "The Lease Contract Summary provides detailed information about current lease agreements, rental terms, tenant obligations, and revenue projections for the property."
-  },
-  [t('hotelDetail.auditReport')]: {
-    title: t('hotelDetail.auditReport'),
-    content: "The Audit Report contains independent verification of the property's financial statements, operational metrics, and compliance with regulatory requirements."
-  },
-  [t('hotelDetail.contractAddress')]: {
-    title: t('hotelDetail.contractAddress'),
-    content: "The Token Contract Address is the unique blockchain identifier for this asset's smart contract, enabling transparent and immutable ownership tracking on the distributed ledger."
-  }
-};
-
-  if (isLoading || !hotel) {
+  // 8. LOADING / ERROR STATES
+  if (hotelLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-slate-700 border-t-emerald-500 rounded-full animate-spin mx-auto mb-8"></div>
+          <h1 className="text-2xl font-bold text-slate-300 mb-2">Loading Hotel...</h1>
+          <p className="text-slate-500">Fetching property details</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+  if (hotelError || !hotel) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Home className="w-10 h-10 text-slate-500" />
+          </div>
+          <h1 className="text-3xl font-bold text-slate-200 mb-4">Hotel Not Found</h1>
+          <p className="text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
+            The hotel you're looking for doesn't exist or is not available.
+          </p>
+          {/* ✅ BACK BUTTON */}
+          <div className="space-y-3">
+            <Link 
+              to="/hotels" 
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3 px-8 rounded-2xl shadow-xl shadow-emerald-500/25 transition-all w-full justify-center"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Browse Hotels
+            </Link>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(-1)}
+              className="w-full border-slate-400 hover:bg-slate-800 text-slate-300"
+            >
+              ← Go Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      {/* HERO IMAGE */}
-      <div className="relative h-64 md:h-96">
-        <img 
-          src={hotel.imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1920"}
-          alt={hotel.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
-        
+  // 9. MAIN UI
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* ✅ BACK BUTTON - TOP */}
         <Button 
           variant="ghost" 
-          className="absolute top-4 left-4 text-white hover:bg-white/10"
           onClick={() => navigate(-1)}
+          className="mb-8 text-slate-300 hover:bg-slate-800/50 hover:text-white border-slate-600 w-fit h-12 px-6 rounded-2xl backdrop-blur-sm"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          {t('hotelDetail.back')}
+          Back to Hotels
         </Button>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 -mt-32 relative z-10 pb-20">
-        <div className="grid lg:grid-cols-3 gap-8">
-
-          {/* MAIN CONTENT */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-slate-900/80 backdrop-blur border-slate-800 p-6">
-
-              <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-
-                    {/* ESG */}
-                    {hotel.esgScore >= 80 && (
-                      <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        <Leaf className="w-3 h-3 mr-1" />
-                        ESG {hotel.esgScore}
-                      </Badge>
-                    )}
-
-                    {/* TOKEN SYMBOL */}
-                    <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                      {hotel.tokenSymbol}
-                    </Badge>
-                  </div>
-
-                  <h1 className="text-3xl font-bold text-white">{hotel.name}</h1>
-                  <p className="text-slate-400 flex items-center gap-1 mt-1">
-                    <MapPin className="w-4 h-4" />
-                    {hotel.location}, {hotel.country}
-                  </p>
-                </div>
-
-                {/* STAR RATING */}
-                <div className="flex items-center gap-1">
-                  {[...Array(hotel.starRating || 4)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />
+        {/* HERO SECTION */}
+        <div className="relative bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-8 lg:p-12 mb-12 shadow-2xl border border-slate-700/50">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 rounded-3xl" />
+          <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex gap-1">
+                  {[...Array(4)].map((_, i) => (
+                    <Star key={i} className="w-6 h-6 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
+                <Badge variant="secondary" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                  4.2 Stars
+                </Badge>
               </div>
-
-              <p className="text-slate-300 leading-relaxed">{hotel.description}</p>
-            </Card>
-
-            {/* TABS */}
-            <Tabs defaultValue="overview">
-              <TabsList className="bg-slate-900/50 border border-slate-800 w-full justify-start">
-                <TabsTrigger value="overview">{t('hotelDetail.overview')}</TabsTrigger>
-                <TabsTrigger value="performance">{t('hotelDetail.performance')}</TabsTrigger>
-                <TabsTrigger value="documents">{t('hotelDetail.documents')}</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="mt-6">
-                <div className="grid md:grid-cols-2 gap-4">
-
-                  {/* ROOMS */}
-                  <Card className="bg-slate-900/50 border-slate-800 p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-amber-500/10">
-                        <Home className="w-5 h-5 text-amber-400" />
-                      </div>
-                      <span className="text-slate-400">{t('hotelDetail.rooms')}</span>
-                    </div>
-                    <p className="text-2xl font-bold text-white">{hotel.roomCount}</p>
-                  </Card>
-
-                  {/* OCCUPANCY */}
-                  <Card className="bg-slate-900/50 border-slate-800 p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-emerald-500/10">
-                        <Users className="w-5 h-5 text-emerald-400" />
-                      </div>
-                      <span className="text-slate-400">{t('hotelDetail.occupancy')}</span>
-                    </div>
-                    <p className="text-2xl font-bold text-white">{hotel.occupancyRate}%</p>
-                  </Card>
-
-                  {/* REVPAR */}
-                  <Card className="bg-slate-900/50 border-slate-800 p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-sky-500/10">
-                        <TrendingUp className="w-5 h-5 text-sky-400" />
-                      </div>
-                      <span className="text-slate-400">{t('hotelDetail.revpar')}</span>
-                    </div>
-                    <p className="text-2xl font-bold text-white">${hotel.revpar}</p>
-                  </Card>
-
-                  {/* LEASE END */}
-                  <Card className="bg-slate-900/50 border-slate-800 p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-violet-500/10">
-                        <Calendar className="w-5 h-5 text-violet-400" />
-                      </div>
-                      <span className="text-slate-400">{t('hotelDetail.leaseEnd')}</span>
-                    </div>
-
-                    <p className="text-2xl font-bold text-white">
-                      {hotel.leaseEndDate
-                        ? format(new Date(hotel.leaseEndDate), 'yyyy/MM')
-                        : '2030/12'}
-                    </p>
-                  </Card>
-
-                </div>
-              </TabsContent>
-
-              <TabsContent value="performance" className="mt-6">
-                  <Card className="bg-slate-900/50 border-slate-800 p-6">
-                    <h3 className="text-white font-semibold mb-4">
-                      {t("hotelDetail.quarterlyReturns")}
-                    </h3>
-
-                    {quarters.map((q) => (
-                      <div
-                        key={q}
-                        onClick={() => handleOpen(q)}
-                        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-800/80 transition"
-                      >
-                        <span className="text-slate-400">{q}</span>
-                        <span className="text-emerald-400 font-semibold">
-                          +{(2 + Math.random() * 0.5).toFixed(2)}%
-                        </span>
-                      </div>
-                    ))}
-                  </Card>
-                </TabsContent>
-
-                {/* MODAL */}
-                <Dialog open={!!selectedQuarter} onOpenChange={() => setSelectedQuarter(null)}>
-                  <DialogContent className="bg-slate-900 text-white border-slate-700">
-                    <DialogHeader>
-                      <DialogTitle className="text-xl font-semibold">
-                        Quarterly Report – {selectedQuarter?.name}
-                      </DialogTitle>
-                    </DialogHeader>
-
-                    <div className="mt-4 space-y-3">
-                      <p>
-                        <span className="text-slate-400">Return:</span>{" "}
-                        <span className="text-emerald-400 font-bold">
-                          +{selectedQuarter?.return}%
-                        </span>
-                      </p>
-
-                      <p className="text-slate-300 text-sm">
-                        This is a mock report.
-                      </p>
-                      
-                       <button 
-                        onClick={() => setSelectedQuarter(null)}
-                        className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-lg transition-colors"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-
-              <TabsContent value="documents" className="mt-6">
-              <Card className="bg-slate-900/50 border-slate-800 p-6">
-                {[
-                  t('hotelDetail.assetReport'),
-                  t('hotelDetail.leaseSummary'),
-                  t('hotelDetail.auditReport'),
-                  t('hotelDetail.contractAddress')
-                ].map((doc) => (
-                  <div 
-                    key={doc} 
-                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer mb-3"
-                    onClick={() => setSelectedDocument(documentContents[doc])}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-amber-400" />
-                      <span className="text-white">{doc}</span>
-                    </div>
-                    <Shield className="w-4 h-4 text-emerald-400" />
-                  </div>
-                ))}
-              </Card>
-
-              {/* Document Modal */}
-              <Dialog open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)}>
-                <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold text-amber-400 flex items-center gap-3">
-                      <FileText className="w-6 h-6" />
-                      {selectedDocument?.title}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="mt-4">
-                    <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
-                      <p className="text-slate-300 leading-relaxed text-lg">
-                        {selectedDocument?.content}
-                      </p>
-                    </div>
-                    <div className="mt-6 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <Shield className="w-5 h-5" />
-                        <span className="text-sm">Verified Document</span>
-                      </div>
-                      <button 
-                        onClick={() => setSelectedDocument(null)}
-                        className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-lg transition-colors"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </TabsContent>
-
-
-            </Tabs>
+              <h1 className="text-5xl lg:text-6xl font-black bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent mb-6 leading-tight">
+                {hotel.name}
+              </h1>
+              <div className="flex items-center gap-2 mb-6 text-slate-300">
+                <MapPin className="w-6 h-6" />
+                <span>{hotel.location}, {hotel.country}</span>
+              </div>
+              <div className="flex flex-wrap gap-3 text-sm">
+                <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 bg-emerald-500/10">
+                  <TrendingUp className="w-4 h-4 mr-1" />
+                  {hotel.apy || 0}% APY
+                </Badge>
+                <Badge variant="outline" className="border-blue-500/50 text-blue-400 bg-blue-500/10">
+                  <Users className="w-4 h-4 mr-1" />
+                  {hotel.occupancyRate || 0}% Occupancy
+                </Badge>
+                <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
+                  <Leaf className="w-4 h-4 mr-1" />
+                  ESG {hotel.esgScore || 0}
+                </Badge>
+              </div>
+            </div>
+            <div className="relative">
+              <img 
+                src={hotel.image} 
+                alt={hotel.name}
+                className="w-full h-80 lg:h-96 object-cover rounded-2xl shadow-2xl border-4 border-slate-700/50"
+              />
+              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl shadow-2xl border-4 border-slate-900 flex items-center justify-center">
+                <DollarSign className="w-12 h-12 text-white" />
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* STATS + INVEST */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          {/* STATS */}
+          <Card className="bg-slate-900/50 backdrop-blur-xl border-slate-700/50 shadow-2xl hover:shadow-emerald-500/10 transition-all">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl font-black text-slate-200">
+                 Investment Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+               <div className="flex justify-between text-slate-400">
+                <span>{hotel.tokenSymbol || 'HAT'} Tokens</span>
+                <span>{(hotel.tokensSold ?? 0).toLocaleString()} / {(hotel.totalTokens ?? 0).toLocaleString()}</span>
+              </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Invested</span>
+                  <span>${hotel.totalInvestment?.toLocaleString() || '0'}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Token Price</span>
+                  <span>${(hotel.tokenPrice || 0.001).toFixed(3)}</span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-3">
+                  <div 
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 h-3 rounded-full transition-all"
+                    style={{ width: `${soldPercentage}%` }}
+                  />
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-emerald-400">
+                    {soldPercentage.toFixed(0)}% Funded
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* INVEST CARD */}
-          <div className="space-y-6">
-            <Card className="bg-slate-900/80 backdrop-blur border-slate-800 p-6 sticky top-4">
-
-              <div className="text-center mb-6">
-                <p className="text-slate-400 text-sm">{t('hotelDetail.tokenPrice')}</p>
-                <p className="text-4xl font-bold text-white">${hotel.tokenPrice}</p>
-                <p className="text-amber-400 text-sm mt-1">/{hotel.tokenSymbol}</p>
+          <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-xl border-emerald-500/30 shadow-2xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 bg-clip-text text-transparent">
+                Invest Now
+              </CardTitle>
+              <p className="text-slate-400 text-lg">Own a piece of {hotel.name}</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Amount Slider */}
+              <div className="space-y-3">
+                <label className="flex justify-between text-sm font-medium text-slate-300">
+                  <span>Investment Amount</span>
+                  <span>${investAmount}</span>
+                </label>
+                <Input
+                  type="range"
+                  min="50"
+                  max="5000"
+                  step="50"
+                  value={investAmount}
+                  onChange={(e) => setInvestAmount(Number(e.target.value))}
+                  className="h-3 bg-slate-700 w-full"
+                />
               </div>
 
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">{t('hotelDetail.apy')}</span>
-                  <span className="text-emerald-400 font-semibold">{hotel.apy}%</span>
+              {/* Tokens Preview */}
+              <div className="text-center p-4 bg-slate-900/50 rounded-2xl border border-slate-700/50">
+                <div className="text-3xl font-black text-emerald-400 mb-1">
+                  {tokensToBuy} HAT
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">{t('hotelDetail.totalValue')}</span>
-                  <span className="text-white">${hotel.totalValue.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">{t('hotelDetail.totalTokens')}</span>
-                  <span className="text-white">{hotel.totalTokens.toLocaleString()}</span>
-                </div>
+                <div className="text-sm text-slate-500">Tokens you'll receive</div>
               </div>
 
-              <div className="space-y-2 mb-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">{t('hotelDetail.progress')}</span>
-                <span className="text-white">{soldPercentage.toFixed(1)}%</span>
-              </div>
-
-              <Progress
-                value={soldPercentage}
-                className="h-2 bg-slate-800 [&>div]:bg-white"
-              />
-
-              <p className="text-xs text-slate-500">
-                {tokensAvailable.toLocaleString()} {t('hotelDetail.remaining')}
-              </p>
-            </div>
-
-              {/* INVEST DIALOG */}
-              <Dialog open={showInvestDialog} onOpenChange={setShowInvestDialog}>
-               <DialogTrigger asChild>
-                      <Button
-                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold text-lg py-6"
-                        disabled={!isConnected || !user || !isKycApproved}
-                      >
-                        <Wallet className="w-5 h-5 mr-2" />
-                        {t("hotelDetail.investNow")}
-                      </Button>
-                    </DialogTrigger>
-
-                    {/* USER NOT LOGGED IN */}
-                    {!user ? (
-                      <p className="text-red-400 text-sm mt-2">You must login or register first.</p>
-                    ) : null}
-
-                    {/* WALLET NOT CONNECTED */}
-                    {user && !isConnected ? (
-                      <p className="text-red-400 text-sm mt-2">Please connect your wallet.</p>
-                    ) : null}
-
-                    
-                    {/* KYC LOGIC */}
-                    {user && isConnected && normalizedKyc !== "APPROVED" && (
-                      <>
-                        {normalizedKyc === "PENDING" || normalizedKyc === "REJECTED" ? (
-                          <Button
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold mt-2"
-                            onClick={() => window.open("/kyc/submit", "_blank", "noopener,noreferrer")}
-                          >
-                            Complete KYC to Continue
-                          </Button>
-                        ) : null}
-
-                        {normalizedKyc === "IN_REVIEW" && (
-                          <Button
-                            disabled
-                            className="w-full bg-gray-700 text-gray-400 font-semibold cursor-not-allowed mt-2"
-                          >
-                            KYC is Under Review
-                          </Button>
-                        )}
-                      </>
-                    )}
-
-                <DialogContent className="bg-slate-900 border-slate-800">
-                  <DialogHeader>
-                    <DialogTitle className="text-white">
-                      {t('hotelDetail.investIn')} {hotel.name}
-                    </DialogTitle>
-                  </DialogHeader>
-
-                  {/* SUCCESS MESSAGE */}
-                  {investSuccess ? (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="w-8 h-8 text-emerald-400" />
-                      </div>
-                      <h3 className="text-xl text-white font-semibold mb-2">{t('hotelDetail.investSuccess')}</h3>
-                      <p className="text-slate-400">
-                        {t('hotelDetail.purchased')} {tokensToBuy.toFixed(2)} {hotel.tokenSymbol}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6 py-4">
-
-                      {/* AMOUNT */}
-                      <div>
-                        <label className="text-slate-400 text-sm mb-2 block">
-                          {t('hotelDetail.investAmount')}
-                        </label>
-
-                        <div className="flex items-center gap-3">
-                          <Button variant="outline" size="icon" className="border-slate-700"
-                            onClick={() => setInvestAmount(Math.max(1, investAmount - 100))}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-
-                          <Input
-                            type="number"
-                            value={investAmount}
-                            onChange={(e) => setInvestAmount(Number(e.target.value))}
-                            className="text-center text-xl font-bold bg-slate-800 border-slate-700 text-white"
-                          />
-
-                          <Button variant="outline" size="icon" className="border-slate-700"
-                            onClick={() => setInvestAmount(investAmount + 100)}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-
-                        {/* QUICK BUTTONS */}
-                        <div className="flex gap-2 mt-3">
-                          {[100, 500, 1000, 5000].map((amount) => (
-                            <Button key={amount}
-                              variant="outline"
-                              size="sm"
-                              className={`flex-1 border-slate-700 ${
-                                investAmount === amount
-                                  ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                                  : "text-slate-400"
-                              }`}
-                              onClick={() => setInvestAmount(amount)}
-                            >
-                              ${amount}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* SUMMARY */}
-                      <div className="bg-slate-800/50 rounded-lg p-4 space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">{t('hotelDetail.tokensReceive')}</span>
-                          <span className="text-white font-semibold">
-                            {tokensToBuy.toFixed(2)} {hotel.tokenSymbol}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">{t('hotelDetail.expectedYield')}</span>
-                          <span className="text-emerald-400 font-semibold">
-                            ${(investAmount * hotel.apy / 100).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* CONFIRM */}
-                     <Button
-                      className={`w-full font-semibold text-slate-900
-                        ${isKycApproved
-                          ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-                          : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        }`}
-                      disabled={!isKycApproved || !isConnected || !user}
-                      onClick={() => {
-                        if (!user) return toast.error("Please login first.");
-                        if (!isConnected) return toast.error("Connect wallet first.");
-                        if (!isKycApproved) return toast.error("Your KYC must be approved before investing.");
-                        confirmInvestMutation.mutate();
-                      }}
+              {/* MAIN BUTTON */}
+              {isKycApproved && isConnected ? (
+                <Dialog open={showInvestDialog} onOpenChange={setShowInvestDialog}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="w-full h-16 text-2xl font-black bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow-2xl shadow-emerald-500/25 text-white tracking-wide"
+                      disabled={investMutation.isPending}
                     >
-                      {t("hotelDetail.confirmInvest")}
+                       Invest ${investAmount}
                     </Button>
-                    </div>
-                  )}
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-700/50 max-w-md">
+                    <DialogHeader className="text-center">
+                      <DialogTitle className="text-2xl">Confirm Investment</DialogTitle>
+                      <DialogDescription className="text-slate-400">
+                        Pay ${investAmount} to receive {tokensToBuy} HAT tokens
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Button
+                      className="w-full h-14 font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 mt-4"
+                      onClick={() => investMutation.mutate()}
+                      disabled={investMutation.isPending}
+                    >
+                      {investMutation.isPending ? '⏳ Creating Investment...' : '✅ Confirm & Invest'}
+                    </Button>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button 
+                  onClick={handleInvestClick}
+                  className="w-full h-16 text-2xl font-black bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 shadow-xl text-white tracking-wide disabled:opacity-50"
+                  disabled={!isConnected || investMutation.isPending}
+                >
+                  {isKycApproved ? ' Connect Wallet' : 'Complete KYC'}
+                </Button>
+              )}
 
+              {/* KYC Dialog */}
+              <Dialog open={showKycDialog} onOpenChange={setShowKycDialog}>
+                <DialogTrigger asChild />
+                <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-700/50">
+                  <DialogHeader className="text-center">
+                    <DialogTitle>KYC Verification Required</DialogTitle>
+                    <DialogDescription>
+                      Complete KYC to unlock hotel investments
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="pt-4">
+                    <Link 
+                      to="/kyc/submit" target="_blank" rel="noopener noreferrer"
+                      className="w-full block bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-orange-500/25"
+                    >
+                      Start KYC Now <ExternalLink className="w-5 h-5" />
+                    </Link>
+                  </div>
                 </DialogContent>
               </Dialog>
-
-              {/* BOOKING BUTTON */}
-              <Link to={createPageUrl(`Booking?hotel_id=${hotel.id}`)}>
-                <Button variant="outline" className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold">
-                  {t('hotelDetail.bookStay')}
-                </Button>
-              </Link>
-
-            </Card>
-          </div>
-
+            </CardContent>
+          </Card>
         </div>
+
+        {/* DESCRIPTION */}
+        {hotel.description && (
+          <Card className="mt-12 bg-slate-900/30 backdrop-blur-xl border-slate-700/30">
+            <CardHeader>
+              <CardTitle className="text-2xl font-black text-slate-200 flex items-center gap-2">
+                 About {hotel.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {hotel.description}
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

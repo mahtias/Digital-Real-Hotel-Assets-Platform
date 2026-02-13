@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
-import {getUserProfile, updateUserProfile, getUserPortfolio, getUserTransactions,
+import {getUserProfile, updateUserProfile, getUserPortfolio, getUserTransactions,confirmAllInvestments,getUserTokens,
   getAllUsers,updateUserRole,deactivateUser, getUserStatistics, reactivateUser,updateWalletAddress } from '../controllers/userController';
 
 const router = Router();
@@ -16,7 +16,8 @@ router.put('/profile', authenticate, updateUserProfile);
 router.get('/portfolio', authenticate, getUserPortfolio);
 
 router.get('/transactions', authenticate, getUserTransactions);
-
+router.get('/tokens', authenticate, getUserTokens);  
+router.patch('/investments/confirm-all', confirmAllInvestments);
 
 
 // Admin user management routes
