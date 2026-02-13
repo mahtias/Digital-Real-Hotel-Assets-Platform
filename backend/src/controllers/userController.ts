@@ -275,6 +275,7 @@ export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
 };
 
 
+
 export const confirmAllInvestments = async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.body;
