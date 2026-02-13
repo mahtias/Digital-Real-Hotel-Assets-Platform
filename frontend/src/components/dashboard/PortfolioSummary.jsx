@@ -44,7 +44,7 @@ export default function PortfolioSummary({
         {/* 🔥 WALLET HAT BALANCE */}
         <div className="text-center p-4 bg-slate-800/50 rounded-xl">
           <p className="text-slate-400 text-xs mb-1">HAT Wallet</p>
-          <p className="text-xl md:text-2xl font-bold text-amber-400 flex items-center justify-center gap-1">
+          <p className="text-xl md:text-2xl font-bold text-amber-400  flex items-center justify-center gap-1">
             {hatBalance?.toFixed(2) || '0'} HAT
             <span className="text-sm font-normal text-white ml-1">
               ${((hatBalance || 0) * hatPrice).toLocaleString()}
@@ -82,14 +82,14 @@ export default function PortfolioSummary({
                 </div>
                 <div>
                   <p className="text-white font-medium text-sm">{inv.hotel_name || inv.hotelAsset?.name || 'HAT Hotel'}</p>
-                  <p className="text-slate-400 text-xs">
+                  <p className="text-slate-20 text-xs">
                     {inv.token_amount?.toLocaleString() || inv.amount} HAT
                   </p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-white font-bold">${(inv.invested_amount || inv.amount)?.toLocaleString()}</p>
-                <p className="text-emerald-400 text-xs">
+                <p className="text-emerald-20 text-xs">
                   +{(((inv.earned_rewards || 0) / (inv.invested_amount || 1)) * 100).toFixed(1)}%
                 </p>
               </div>

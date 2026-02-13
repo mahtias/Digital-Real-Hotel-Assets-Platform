@@ -15,7 +15,7 @@ import PortfolioSummary from "@/components/dashboard/PortfolioSummary";
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuth } from "@/context/AuthContext";
 
-// YOUR ABIS & CONTRACTS
+// 🔥 YOUR ABIS & CONTRACTS
 import { HAT_ABI } from '@/contracts/abis';
 import { HAT_TOKEN_ADDRESS } from '@/config/chains';
 
@@ -26,7 +26,7 @@ export default function Home() {
   const { t } = useLanguage();
   const { authFetch } = useAuth();
 
-  //  WALLET CONNECTION & HAT BALANCE
+  // 🔥 WALLET CONNECTION & HAT BALANCE
   const { address, isConnected } = useAccount();
   const { data: hatBalance } = useReadContract({
     address: HAT_TOKEN_ADDRESS,
@@ -36,7 +36,7 @@ export default function Home() {
     watch: true,
   });
 
-  //  Load user data
+  // 🔥 Load user data
   useEffect(() => {
     authFetch("/api/v1/auth/me")
       .then(res => res.json())
@@ -44,7 +44,7 @@ export default function Home() {
       .catch(() => setUser(null));
   }, [authFetch]);
 
-  //  HOTELS
+  // 🔥 HOTELS
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
     queryFn: async () => {
@@ -125,7 +125,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/*  STATS WITH WALLET HAT */}
+          {/* 🔥 STATS WITH WALLET HAT */}
           <StatsOverview 
             totalValue={totalValue}
             totalRewards={totalRewards}

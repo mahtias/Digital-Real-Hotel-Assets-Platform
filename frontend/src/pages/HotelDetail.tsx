@@ -42,11 +42,22 @@ export default function HotelDetail() {
   const [hotelLoading, setHotelLoading] = useState(true);
   const [hotelError, setHotelError] = useState(null);
 
+  // 🔍 DEBUG LOGGING
+  useEffect(() => {
+    console.log('🔍 USER STATUS:', {
+      loggedIn: !!user,
+      userId: user?.id,
+      kycStatus: user?.kycStatus,
+      isConnected,
+      address: address?.slice(0,6) + '...'
+    });
+  }, [user, isConnected, address]);
+
   //  HOTEL FETCH
   useEffect(() => {
     if (!hotelId) return;
 
-    console.log('🔍 Loading hotel:', hotelId);
+    console.log(' Loading hotel:', hotelId);
     setHotelLoading(true);
     setHotelError(null);
 
@@ -57,7 +68,7 @@ export default function HotelDetail() {
         return res.json();
       })
       .then(data => {
-        console.log('✅ Hotel loaded:', data.id, data.name);
+        console.log(' Hotel loaded:', data.id, data.name);
 
         // ✅ Image fix
         if (data.imageUrl) {
@@ -86,84 +97,90 @@ export default function HotelDetail() {
 
   // 6. CALCULATIONS
   const tokensToBuy = hotel ? ((investAmount / (hotel.tokenPrice || 0.001)) * 1000).toFixed(0) : 0;
-const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalTokens ?? 1) * 100,  100): 0;
+  const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalTokens ?? 1) * 100,  100): 0;
 
   //   FIXED INVEST MUTATION
- const investMutation = useMutation({
-  mutationFn: async () => {
-    // 🔥 ADD tokenAmount calc
-    const tokensToBuy = Math.floor(investAmount / hotel.tokenPrice);
-    
-    console.log(' INVEST DATA:', { 
-      hotelId: hotel.id,
-      amount: investAmount, 
-      walletAddress: address,
-      userId: user?.id,
-      tokenAmount: tokensToBuy  // 🔥 NEW!
-    });
+  const investMutation = useMutation({
+    mutationFn: async () => {
+      //  ADD tokenAmount calc
+      const tokensToBuy = Math.floor(investAmount / hotel.tokenPrice);
 
-    if (!hotel?.id) throw new Error('Hotel ID missing');
-    if (!isConnected || !address) throw new Error('Connect wallet first');
-    if (!isKycApproved) throw new Error('KYC required');
-
-    // 🔥 ADD tokenAmount to body
-    const backendRes = await authFetch(`${API_URL}/api/v1/investments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+      console.log(' INVEST DATA:', { 
         hotelId: hotel.id,
-        amount: investAmount,
+        amount: investAmount, 
         walletAddress: address,
-        tokenAmount: tokensToBuy  // 🔥 ADD THIS LINE!
-      })
-    });
+        userId: user?.id,
+        tokenAmount: tokensToBuy
+      });
 
-    if (!backendRes.ok) {
-      const errorText = await backendRes.text();
-      throw new Error(`Investment failed: ${errorText}`);
+      if (!hotel?.id) throw new Error('Hotel ID missing');
+      if (!isConnected || !address) throw new Error('Connect wallet first');
+      if (!isKycApproved) throw new Error('KYC required');
+
+      const backendRes = await authFetch(`${API_URL}/api/v1/investments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          hotelId: hotel.id,
+          amount: investAmount,
+          walletAddress: address,
+          tokenAmount: tokensToBuy
+        })
+      });
+
+      if (!backendRes.ok) {
+        const errorText = await backendRes.text();
+        throw new Error(`Investment failed: ${errorText}`);
+      }
+
+      const responseData = await backendRes.json();
+      console.log(' Backend response:', responseData);
+      return responseData;
+    },
+    onSuccess: (data) => {
+      console.log(' INVESTMENT SUCCESS:', data);
+      toast.success(data.message || `Invested $${investAmount}!`);
+      setInvestSuccess(true);
+      setShowInvestDialog(false);
+
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['investments', user?.email] });
+      refreshUser();
+    },
+    onError: (error) => {
+      console.error(' Investment error:', error);
+      toast.error(error.message || 'Investment failed');
     }
+  });
 
-    const responseData = await backendRes.json();
-    console.log('✅ Backend response:', responseData);
-    return responseData;
-  },
-  onSuccess: (data) => {
-    console.log('🎉 INVESTMENT SUCCESS:', data);
-    toast.success(data.message || `Invested $${investAmount}!`);
-    setInvestSuccess(true);
-    setShowInvestDialog(false);
-    
-    // 🔥 ADD THESE 2 LINES:
-    queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-    queryClient.invalidateQueries({ queryKey: ['investments', user?.email] });
-    
-    refreshUser();
-  },
-  onError: (error) => {
-    console.error('❌ Investment error:', error);
-    toast.error(error.message || 'Investment failed');
-  }
-});
-
-  
-
-  // 7. Event handlers
+  // 🔥 FIXED handleInvestClick - PERFECT FLOW
   const handleInvestClick = useCallback(() => {
+    console.log(' Button clicked - Status:', { isLoggedIn, isKycApproved, isConnected });
+    
+    // 1. NOT LOGGED IN → LOGIN
     if (!isLoggedIn) {
-      toast.error('Please login first');
+      toast.info('👤 Please login to invest');
       navigate('/login');
       return;
     }
+    
+    // 2. NO KYC → SHOW KYC DIALOG
     if (!isKycApproved) {
+      toast.info(' KYC verification required');
       setShowKycDialog(true);
       return;
     }
-    if (!isConnected) {
-      toast.error('Connect your wallet');
+    
+    // 3. NO WALLET → WALLET CONNECT
+    if (!isConnected || !address) {
+      toast.info(' Please connect your wallet');
       return;
     }
+    
+    // 4. ALL GOOD → INVEST DIALOG
+    console.log(' All checks passed - opening invest dialog');
     setShowInvestDialog(true);
-  }, [isLoggedIn, isKycApproved, isConnected, navigate]);
+  }, [isLoggedIn, isKycApproved, isConnected, address, navigate]);
 
   // 8. LOADING / ERROR STATES
   if (hotelLoading) {
@@ -189,7 +206,6 @@ const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalT
           <p className="text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
             The hotel you're looking for doesn't exist or is not available.
           </p>
-          {/* ✅ BACK BUTTON */}
           <div className="space-y-3">
             <Link 
               to="/hotels" 
@@ -215,7 +231,7 @@ const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalT
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* ✅ BACK BUTTON - TOP */}
+        {/* ✅ BACK BUTTON */}
         <Button 
           variant="ghost" 
           onClick={() => navigate(-1)}
@@ -286,10 +302,10 @@ const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalT
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-               <div className="flex justify-between text-slate-400">
-                <span>{hotel.tokenSymbol || 'HAT'} Tokens</span>
-                <span>{(hotel.tokensSold ?? 0).toLocaleString()} / {(hotel.totalTokens ?? 0).toLocaleString()}</span>
-              </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>{hotel.tokenSymbol || 'HAT'} Tokens</span>
+                  <span>{(hotel.tokensSold ?? 0).toLocaleString()} / {(hotel.totalTokens ?? 0).toLocaleString()}</span>
+                </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Invested</span>
                   <span>${hotel.totalInvestment?.toLocaleString() || '0'}</span>
@@ -313,7 +329,7 @@ const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalT
             </CardContent>
           </Card>
 
-          {/* INVEST CARD */}
+          {/* 🔥 FIXED INVEST CARD - PERFECT LOGIC FLOW */}
           <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-xl border-emerald-500/30 shadow-2xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 bg-clip-text text-transparent">
@@ -347,15 +363,19 @@ const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalT
                 <div className="text-sm text-slate-500">Tokens you'll receive</div>
               </div>
 
-              {/* MAIN BUTTON */}
-              {isKycApproved && isConnected ? (
+              {/* 🔥 PERFECT BUTTON LOGIC */}
+              {isKycApproved && isConnected && !!address ? (
+                // ✅ STEP 4: SHOW INVEST BUTTON
                 <Dialog open={showInvestDialog} onOpenChange={setShowInvestDialog}>
                   <DialogTrigger asChild>
                     <Button 
-                      className="w-full h-16 text-2xl font-black bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow-2xl shadow-emerald-500/25 text-white tracking-wide"
+                      className="w-full h-16 text-2xl font-black bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow-2xl shadow-emerald-500/25 text-white tracking-wide relative overflow-hidden group/invest"
                       disabled={investMutation.isPending}
                     >
-                       Invest ${investAmount}
+                      <span className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-teal-500 opacity-0 group-hover/invest:opacity-100 transition-opacity" />
+                      <span className="relative flex items-center justify-center gap-2">
+                        💰 Invest ${investAmount}
+                      </span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-700/50 max-w-md">
@@ -366,41 +386,87 @@ const soldPercentage = hotel ? Math.min( (hotel.tokensSold ?? 0) / (hotel.totalT
                       </DialogDescription>
                     </DialogHeader>
                     <Button
-                      className="w-full h-14 font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 mt-4"
+                      className="w-full h-14 font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 mt-4 shadow-2xl shadow-emerald-500/25"
                       onClick={() => investMutation.mutate()}
                       disabled={investMutation.isPending}
                     >
-                      {investMutation.isPending ? '⏳ Creating Investment...' : '✅ Confirm & Invest'}
+                      {investMutation.isPending ? ' Creating Investment...' : ' Confirm & Invest'}
                     </Button>
                   </DialogContent>
                 </Dialog>
               ) : (
+                // 🔥 SINGLE BUTTON WITH PERFECT LOGIC
                 <Button 
                   onClick={handleInvestClick}
-                  className="w-full h-16 text-2xl font-black bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 shadow-xl text-white tracking-wide disabled:opacity-50"
-                  disabled={!isConnected || investMutation.isPending}
+                  className="w-full h-16 text-2xl font-black relative overflow-hidden group shadow-xl tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  disabled={investMutation.isPending}
                 >
-                  {isKycApproved ? ' Connect Wallet' : 'Complete KYC'}
+                  {/* Dynamic gradient background */}
+                  <div 
+  className={`absolute inset-0 transition-all duration-300 group-hover:scale-105 ${
+    (() => {
+      if (!isLoggedIn) return "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 ring-2 ring-blue-400/50";
+      if (!isKycApproved) return "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/25 ring-2 ring-amber-400/50";
+      if (!isConnected) return "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/25 ring-2 ring-purple-400/50";
+      return "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 shadow-2xl ring-2 ring-emerald-400/50";
+    })()
+  }`}
+/>
+
+                  {/* Dynamic text + icon */}
+                  <span className="relative flex items-center justify-center gap-3 h-full z-10 text-white font-black">
+                    {(() => {
+                      // STEP 1: LOGIN
+                      if (!isLoggedIn) return <>
+                        <Shield className="w-7 h-7" />
+                        Login Required
+                      </>;
+                      
+                      // STEP 2: KYC  
+                      if (!isKycApproved) return <>
+                        <FileText className="w-7 h-7" />
+                        Complete KYC
+                      </>;
+                      
+                      // STEP 3: WALLET
+                      if (!isConnected || !address) return <>
+                        <Wallet className="w-7 h-7" />
+                        Connect Wallet
+                      </>;
+                      
+                      // Should never reach here
+                      return <>Invest ${investAmount}</>;
+                    })()}
+                  </span>
                 </Button>
               )}
 
               {/* KYC Dialog */}
               <Dialog open={showKycDialog} onOpenChange={setShowKycDialog}>
                 <DialogTrigger asChild />
-                <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-700/50">
-                  <DialogHeader className="text-center">
-                    <DialogTitle>KYC Verification Required</DialogTitle>
-                    <DialogDescription>
-                      Complete KYC to unlock hotel investments
+                <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-700/50 max-w-md p-0">
+                  <DialogHeader className="text-center p-8 pb-6">
+                    <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-orange-500/25">
+                      <FileText className="w-10 h-10 text-white" />
+                    </div>
+                    <DialogTitle className="text-2xl font-black">KYC Verification Required</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      Complete identity verification to unlock premium hotel investments
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="pt-4">
+                  <div className="p-6 pt-0">
                     <Link 
-                      to="/kyc/submit" target="_blank" rel="noopener noreferrer"
-                      className="w-full block bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-orange-500/25"
+                      to="/kyc/submit" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full block bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-orange-500/25 transition-all text-lg"
                     >
-                      Start KYC Now <ExternalLink className="w-5 h-5" />
+                       Start KYC Now 
+                      <ExternalLink className="w-5 h-5" />
                     </Link>
+                    <p className="text-xs text-slate-500 text-center mt-4">
+                      Usually approved within 24 hours
+                    </p>
                   </div>
                 </DialogContent>
               </Dialog>
