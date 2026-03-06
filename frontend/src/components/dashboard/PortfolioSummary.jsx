@@ -11,8 +11,8 @@ export default function PortfolioSummary({
   investments, 
   totalValue, 
   totalRewards,
-  hatBalance = 0,  // 🔥 NEW: Wallet HAT balance
-  hatPrice = 20    // 🔥 HAT price $20
+  hatBalance = 0,  
+  hatPrice = 20    
 }) {
   const { t } = useLanguage();
 

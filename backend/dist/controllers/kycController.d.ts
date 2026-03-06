@@ -10,6 +10,12 @@ export declare const getPendingKYCs: () => Promise<{
     createdAt: Date;
     updatedAt: Date;
     userId: string;
+    address: string;
+    status: import(".prisma/client").$Enums.KycStatus;
+    approvedAt: Date | null;
+    expiresAt: Date | null;
+    documentHash: string | null;
+    rejectionReason: string | null;
     fullName: string;
     dateOfBirth: Date;
     nationality: string;
@@ -17,24 +23,19 @@ export declare const getPendingKYCs: () => Promise<{
     state: string;
     postalCode: string;
     country: string;
-    rejectionReason: string | null;
     submittedAt: Date;
     reviewedAt: Date | null;
-    address: string;
     documentNumber: string;
     documentType: string;
-    status: import(".prisma/client").$Enums.KycStatus;
-    approvedAt: Date | null;
     blockchainTx: string | null;
     blockchainVerifier: string | null;
-    documentHash: string | null;
-    expiresAt: Date | null;
     addressProof: string | null;
     documentBack: string | null;
     documentFront: string | null;
     selfieImage: string | null;
     reviewedBy: string | null;
 }[]>;
+export declare const checkKYCStatus: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 export declare const getKYCStatus: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const getKYCStatistics: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=kycController.d.ts.map

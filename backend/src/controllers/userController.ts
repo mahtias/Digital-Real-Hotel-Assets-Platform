@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-
+//import { generateToken } from '../utils/jwt';
+//import {KYCService} from '../services/KYCService'
+import { KycStatus } from '@prisma/client';    
+import kyc from '../blockchain/kyc'; 
+//import { verifyMessage } from 'viem'; 
 
 interface AuthRequest extends Request {
   user?: {
@@ -13,45 +17,45 @@ interface AuthRequest extends Request {
 /**
  * Get current user profile
  */
-export const getUserProfile = async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+// export const getUserProfile = async (req: AuthRequest, res: Response) => {
+//   try {
+//     const userId = req.user?.userId;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId! },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        //profileImage: true,  // ✅ FIXED: profileImage (not avatar)
-        kycStatus: true,
-        //isKycVerified: true, // ✅ FIXED: isKycVerified
-        walletAddress: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+//     const user = await prisma.user.findUnique({
+//       where: { id: userId! },
+//       select: {
+//         id: true,
+//         email: true,
+//         role: true,
+//         firstName: true,
+//         lastName: true,
+//         phone: true,
+//         //profileImage: true,  // ✅ FIXED: profileImage (not avatar)
+//         kycStatus: true,
+//         //isKycVerified: true, // ✅ FIXED: isKycVerified
+//         walletAddress: true,
+//         createdAt: true,
+//         updatedAt: true
+//       }
+//     });
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+//     if (!user) {
+//       return res.status(404).json({ success: false, message: 'User not found' });
+//     }
 
-    res.json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    console.error('Profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user profile',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-};
+//     res.json({
+//       success: true,
+//       data: user
+//     });
+//   } catch (error) {
+//     console.error('Profile error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to fetch user profile',
+//       error: error instanceof Error ? error.message : 'Unknown error'
+//     });
+//   }
+// };
 
 export const getUserTokens = async (req: AuthRequest, res: Response) => {
   try {
@@ -265,7 +269,7 @@ export const getUserPortfolio = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ PORTFOLIO ERROR:', error);
+    console.error(' PORTFOLIO ERROR:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch portfolio',
@@ -307,46 +311,103 @@ export const confirmAllInvestments = async (req: AuthRequest, res: Response) => 
     });
   }
 };
+
+
 export const updateWalletAddress = async (req: Request, res: Response) => {
   try {
     const { walletAddress } = req.body;
     const userId = req.user?.userId;
 
-    if (!walletAddress) {
-      return res.status(400).json({ error: "Wallet address is required" });
-    }
+    console.log(' Updating wallet for user:', userId);
+    console.log(' New wallet address:', walletAddress);
 
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized: user not found" });
-    }
-
-    // 1. Check if this wallet address already belongs to another user
-    const existingUser = await prisma.user.findUnique({
-      where: { walletAddress }
-    });
-
-    if (existingUser && existingUser.id !== userId) {
+    // Validate Ethereum address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
       return res.status(400).json({
-        error: "Wallet address already in use by another user"
+        success: false,
+        message: 'Invalid Ethereum address format'
       });
     }
 
-    // 2. Update wallet
+    // Check if wallet already exists for another user
+    const existingWallet = await prisma.user.findFirst({
+      where: {
+        walletAddress,
+        id: { not: userId }
+      }
+    });
+
+    if (existingWallet) {
+      return res.status(400).json({
+        success: false,
+        message: 'Wallet address already registered to another account'
+      });
+    }
+
+    // Update wallet address
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { walletAddress }
+      data: { walletAddress },
+      include: {
+        kyc: true
+      }
     });
+
+    console.log(' Wallet updated in database');
+
+    //  NEW: If KYC is already approved, sync to blockchain
+    if (updatedUser.kyc && updatedUser.kyc.status === KycStatus.APPROVED) {
+      try {
+        console.log(' Syncing KYC approval to blockchain...');
+        
+        const txHash = await kyc.verifyUser(walletAddress);
+        
+        if (txHash && txHash !== 'ALREADY_VERIFIED') {
+          console.log(' KYC synced to blockchain:', txHash);
+          
+          // Update KYC record with transaction hash
+          await prisma.kyc.update({
+            where: { id: updatedUser.kyc.id },
+            data: { blockchainTx: txHash }
+          });
+        } else {
+          console.log('  User already verified on blockchain');
+        }
+
+      } catch (error: any) {
+        console.error(' Blockchain sync failed:', error.message);
+        // Don't fail the wallet update if blockchain sync fails
+      }
+    }
+
+    // Check blockchain verification status
+    let blockchainVerified = false;
+    try {
+      blockchainVerified = await kyc.isVerified(walletAddress);
+    } catch (error) {
+      console.error(' Blockchain verification check failed:', error);
+    }
 
     return res.json({
       success: true,
-      message: "Wallet address saved successfully",
-      user: updatedUser
+      data: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        walletAddress: updatedUser.walletAddress,
+        kycStatus: updatedUser.kycStatus,
+        blockchain: {
+          verified: blockchainVerified,
+          txHash: updatedUser.kyc?.blockchainTx || null
+        }
+      },
+      message: 'Wallet address updated successfully'
     });
 
-  } catch (err: any) {
-    return res.status(500).json({
-      error: "Error updating wallet address",
-      details: err?.message
+  } catch (error: any) {
+    console.error(' Update wallet error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 };
@@ -673,6 +734,65 @@ export const reactivateUser = async (req: Request, res: Response) => {
       success: false,
       message: 'Failed to reactivate user',
       error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+export const getUserProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        lastName: true,
+        role: true,
+        walletAddress: true,
+        kycStatus: true,
+        kycApprovedAt: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // ✅ NEW: Add blockchain verification status
+    let blockchainVerified = false;
+    let blockchainError = null;
+
+    if (user.walletAddress && user.kycStatus === 'APPROVED') {
+      try {
+        blockchainVerified = await kyc.isVerified(user.walletAddress);
+      } catch (error: any) {
+        console.error('Blockchain check error:', error);
+        blockchainError = error.message;
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        ...user,
+        blockchain: {
+          verified: blockchainVerified,
+          error: blockchainError
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Get profile error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 };

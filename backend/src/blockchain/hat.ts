@@ -9,7 +9,7 @@ import { base } from "viem/chains";
 
 import type { Abi } from "viem";
 
-import hatJson from "../../../out/HATToken.sol/HATToken.json";
+import hatJson from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
 
 const hatAbi: Abi = hatJson.abi as Abi;
 console.log("DEBUG PRIVATE KEY:", process.env.PRIVATE_KEY);

@@ -49,11 +49,11 @@ export const AdminKYCReview = () => {
     try {
       const token = localStorage.getItem("authToken");
 
-      await axios.post(
-        `${API_URL}/api/v1/kyc/admin/approve/${kycId}`,
-        { level, notes: "Approved after review" },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    await axios.post(
+  `${API_URL}/api/v1/kyc/admin/approve/${kycId}`,
+  {},
+  { headers: { Authorization: `Bearer ${token}` } }
+);
 
       alert("KYC Approved!");
       fetchPendingKYCs();

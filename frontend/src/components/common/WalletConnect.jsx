@@ -1,53 +1,98 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useDisconnect, useReadContract } from 'wagmi';
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi'; // ✅ Add useSignMessage
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wallet, Copy, ExternalLink, LogOut, Check, RefreshCw } from "lucide-react";
+import { Wallet, Copy, ExternalLink, LogOut, Check, ShieldCheck } from "lucide-react";
 import { useLanguage } from './LanguageContext';
 import { useAuth } from '@/context/AuthContext';
-import { useEffect } from 'react';
 import axios from 'axios';
-
+import { toast } from 'sonner';
 
 export default function WalletConnect() {
   const { language } = useLanguage();
   const { address, isConnected, chain } = useAccount();
   const { disconnectAsync } = useDisconnect();
-  const { logout } = useAuth();
+  const { signMessageAsync } = useSignMessage(); // ✅ Get signature function
+  const { token, refreshUser, user } = useAuth(); // ✅ Get user
   const [copied, setCopied] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // HAT CONTRACT - UPDATE THIS ADDRESS
-  const HAT_CONTRACT_ADDRESS = import.meta.env.VITE_HAT_CONTRACT || "0x16976c631c64372c20618cd84a41363bbb79ba17";
-  
-  // FIXED ABI - NO TYPESCRIPT
-  const HAT_ABI = [
-    {
-      "inputs": [
-        {"name": "account", "type": "address"},
-        {"name": "id", "type": "uint256"}
-      ],
-      "name": "balanceOf",
-      "outputs": [{"name": "", "type": "uint256"}],
-      "stateMutability": "view",
-      "type": "function"
+  // ✅ Sync wallet to backend when connected
+  useEffect(() => {
+    if (isConnected && address && token && !isSyncing) {
+      // Check if wallet is already linked
+      if (user?.walletAddress?.toLowerCase() === address.toLowerCase()) {
+        console.log("✅ Wallet already linked");
+        return;
+      }
+      
+      syncWalletToBackend();
     }
-  ];
+  }, [isConnected, address, token, user]);
 
-  // HAT BALANCE
-  const {
-    data: hatBalance,
-    isLoading: hatLoading,
-    refetch: refreshHat
-  } = useReadContract({
-    address: HAT_CONTRACT_ADDRESS,
-    abi: HAT_ABI,
-    functionName: 'balanceOf',
-    args: [address || '0x0', '0'],
-    enabled: !!address
-  });
+  const syncWalletToBackend = async () => {
+    try {
+      setIsSyncing(true);
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔐 LINKING WALLET WITH SIGNATURE");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Address:", address);
+
+      // ✅ Step 1: Create message to sign
+      const message = `Link wallet to KYC account: ${user?.id || 'unknown'}`;
+      console.log("📝 Message to sign:", message);
+
+      // ✅ Step 2: Request signature from user
+      toast.info("Please sign the message in your wallet...");
+      
+      let signature;
+      try {
+        signature = await signMessageAsync({ message });
+        console.log("✅ Signature received:", signature);
+      } catch (signError) {
+        console.log("❌ User rejected signature");
+        toast.error("Signature required to link wallet");
+        return;
+      }
+
+      // ✅ Step 3: Send to backend with signature
+      console.log("📤 Sending to backend...");
+      const response = await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/v1/user/wallet`,
+        { 
+          walletAddress: address,
+          signature: signature 
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }
+      );
+
+      console.log("✅ Backend response:", response.data);
+
+      // ✅ Refresh user data
+      await refreshUser();
+      toast.success("🎉 Wallet verified and linked!");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+    } catch (error) {
+      console.error("❌ Wallet sync error:", error);
+      
+      if (error.response?.status === 403) {
+        toast.error("Invalid signature - wallet verification failed");
+      } else if (error.response?.status === 409) {
+        toast.error("This wallet is already linked to another account");
+      } else {
+        toast.error("Failed to link wallet");
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const copyAddress = () => {
     if (address) {
@@ -61,30 +106,16 @@ export default function WalletConnect() {
 
   const getExplorerUrl = () => {
     if (!address || !chain) return '#';
-    const base = chain.id === 84532 ? 'https://sepolia.basescan.org' : 'https://basescan.org';
+    
+    let base;
+    if (chain.id === 80002) base = 'https://amoy.polygonscan.com';
+    else if (chain.id === 84532) base = 'https://sepolia.basescan.org';
+    else if (chain.id === 137) base = 'https://polygonscan.com';
+    else if (chain.id === 8453) base = 'https://basescan.org';
+    else base = 'https://basescan.org';
+    
     return `${base}/address/${address}`;
   };
-
-  const { token, refreshUser } = useAuth();
-
-  useEffect(() => {
-    if (isConnected && address && token) {
-      console.log("Wallet connected — syncing...");
-      axios.patch(
-        `${import.meta.env.VITE_API_URL}/api/v1/user/wallet`,
-        { walletAddress: address },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
-        }
-      )
-      .then(async () => {
-        await refreshUser();
-        console.log("User synced");
-      })
-      .catch(console.error);
-    }
-  }, [isConnected, address, token, refreshUser]);
 
   const handleDisconnect = async () => {
     try {
@@ -92,8 +123,10 @@ export default function WalletConnect() {
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("walletConnected");
       setShowDialog(false);
+      toast.success("Wallet disconnected");
     } catch (error) {
       console.error("Disconnect error:", error);
+      toast.error("Failed to disconnect");
     }
   };
 
@@ -105,6 +138,10 @@ export default function WalletConnect() {
       viewOnExplorer: 'Explorer',
       copyAddress: 'Copy',
       network: 'Network',
+      syncing: 'Verifying...',
+      address: 'Address',
+      verified: 'Verified',
+      notVerified: 'Not Verified',
     },
     zh: {
       connectWallet: '连接钱包',
@@ -113,10 +150,17 @@ export default function WalletConnect() {
       viewOnExplorer: '浏览器',
       copyAddress: '复制',
       network: '网络',
+      syncing: '验证中...',
+      address: '地址',
+      verified: '已验证',
+      notVerified: '未验证',
     }
   };
 
   const t = texts[language] || texts.en;
+
+  // ✅ Check if wallet is verified (linked to account)
+  const isWalletVerified = user?.walletAddress?.toLowerCase() === address?.toLowerCase();
 
   if (isConnected && address) {
     return (
@@ -125,71 +169,67 @@ export default function WalletConnect() {
           <Button 
             variant="outline" 
             size="sm"
-            className="border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 gap-2"
+            className={`${
+              isWalletVerified 
+                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" 
+                : "border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+            } gap-2`}
           >
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            {shortenAddress(address)}
+            <div className={`w-2 h-2 rounded-full ${
+              isSyncing ? "bg-blue-400 animate-pulse" :
+              isWalletVerified ? "bg-emerald-400" : "bg-amber-400"
+            }`} />
+            {isSyncing ? t.syncing : shortenAddress(address)}
+            {isWalletVerified && <ShieldCheck className="w-3 h-3" />}
           </Button>
         </DialogTrigger>
 
-        <DialogContent className="bg-slate-900 border-slate-800 max-w-sm max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-800 max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400" />
+              <div className={`w-2 h-2 rounded-full ${isWalletVerified ? 'bg-emerald-400' : 'bg-amber-400'}`} />
               {t.connected}
+              {isWalletVerified && (
+                <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded ml-auto">
+                  {t.verified}
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* ✅ VERIFICATION STATUS */}
+            {!isWalletVerified && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5" />
+                  <div>
+                    <p className="text-amber-400 text-sm font-medium">Verification Required</p>
+                    <p className="text-amber-300/70 text-xs mt-1">
+                      Sign a message to verify wallet ownership
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* NETWORK */}
             <div className="bg-slate-800/50 rounded-lg p-3">
               <p className="text-slate-400 text-xs mb-1">{t.network}</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-blue-400" />
                 <p className="text-white font-medium">{chain?.name || 'Unknown'}</p>
-              </div>
-            </div>
-
-            {/* HAT BALANCE - MAIN FEATURE */}
-            <div className="bg-gradient-to-r from-emerald-500/15 to-teal-500/15 
-                           border-2 border-emerald-500/40 rounded-xl p-4 shadow-lg">
-              <p className="text-emerald-300 text-xs mb-2 font-medium flex items-center gap-1">
-                🎩 HAT Tokens
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="w-6 h-6 rounded-full bg-emerald-400 border-2 border-emerald-500 animate-pulse" />
-                  {hatLoading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-slate-400/30 border-t-emerald-400 rounded-full animate-spin" />
-                      <span className="text-slate-400 font-medium">Loading...</span>
-                    </div>
-                  ) : hatBalance ? (
-                    <div>
-                      <div className="text-white font-black text-3xl leading-tight">
-                        {Math.floor(Number(hatBalance) / 1e18).toLocaleString()}
-                      </div>
-                      <div className="text-emerald-400 text-sm font-medium">HAT</div>
-                    </div>
-                  ) : (
-                    <div className="text-slate-400 text-lg font-medium">0 HAT</div>
-                  )}
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-9 w-9 p-0 text-emerald-400 hover:bg-emerald-500/20"
-                  onClick={() => refreshHat()}
-                  disabled={hatLoading}
-                >
-                  <RefreshCw className={`w-4 h-4 ${hatLoading ? 'animate-spin' : ''}`} />
-                </Button>
+                {(chain?.id === 80002 || chain?.id === 84532) && (
+                  <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
+                    Testnet
+                  </span>
+                )}
               </div>
             </div>
 
             {/* ADDRESS */}
             <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-xs mb-1">Address</p>
+              <p className="text-slate-400 text-xs mb-1">{t.address}</p>
               <p className="text-white font-mono text-sm break-all">{address}</p>
             </div>
 

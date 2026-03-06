@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '@/services/authService';
+import { forgotPassword } from '@/api/auth';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      const res = await authService.forgotPassword(email);
+      const res = await forgotPassword(email);
 
       setMessage(
         res?.message ||

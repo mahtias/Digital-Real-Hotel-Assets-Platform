@@ -86,7 +86,7 @@ router.post('/submit', auth_1.authenticate, upload.fields([
     { name: "selfieImage", maxCount: 1 },
     { name: "addressProof", maxCount: 1 }
 ]), [
-    (0, express_validator_1.body)('level').optional().isIn(['BASIC', 'INTERMEDIATE', 'ADVANCED']),
+    (0, express_validator_1.body)('level').optional().isIn(['BASIC', 'INTERMEDIATE', 'ADVANCED', 'FULL']),
     (0, express_validator_1.body)('fullName').notEmpty(),
     (0, express_validator_1.body)('dateOfBirth').notEmpty(),
     (0, express_validator_1.body)('nationality').notEmpty(),

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { authService } from '@/services/authService';
+import { resetPassword } from '@/api/auth';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      const res = await authService.resetPassword(token, password);
+      const res = await resetPassword(token, password);
 
       if (res.success) {
         setMessage('Password successfully reset! Redirecting...');

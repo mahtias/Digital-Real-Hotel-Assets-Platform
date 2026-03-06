@@ -1,149 +1,708 @@
+// backend/src/services/web3Service.ts
+
 import { ethers } from "ethers";
-import { createHash } from "crypto";
 import prisma from "../config/database";
 import kycRegistryAbi from "../../../out/KYCRegistry.sol/KYCRegistry.json";
-import hatTokenAbi from "../../../out/HATToken.sol/HATToken.json";
-// ✅ ADD Investment ABI (create this file or use minimal ABI)
-import investmentAbi from "../../../out/Investment.sol/Investment.json";
+import hotelAssetManagerAbi from "../../../out/HotelAssetManager.sol/HotelAssetManager.json";
+import hotelInvestmentAbi from "../../../out/HotelInvestment.sol/HotelInvestment.json";
+import hotelAssetTokenAbi from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
+
+// ============================================================
+//  CONSTANTS & CONFIG
+// ============================================================
+
+const KYC_CONFIG = {
+  LARGE_INVESTMENT_THRESHOLD: 1000, // $1000+ requires blockchain check
+  BLOCKCHAIN_CACHE_HOURS: 24,       // Cache blockchain verification for 24h
+  MAX_SYNC_ATTEMPTS: 3,             // Max retry attempts for blockchain sync
+  SYNC_RETRY_DELAY: 5000,           // 5 seconds between retries
+} as const;
+
+const GAS_LIMITS = {
+  KYC_REGISTER: 200000,
+  INVESTMENT: 500000,
+  TOKEN_TRANSFER: 100000,
+} as const;
+
+// ============================================================
+//  WEB3 SERVICE CLASS
+// ============================================================
 
 export class Web3Service {
   private provider: ethers.JsonRpcProvider;
   private signer: ethers.Wallet;
   private kycContract: ethers.Contract;
-  private hatContract: ethers.Contract;
-  private investmentContract?: ethers.Contract; // ✅ Optional
+  private hotelAssetManager: ethers.Contract;
+  private hotelInvestment: ethers.Contract;
+
+  // Cache for token contracts (avoid re-creating)
+  private tokenContractCache: Map<string, ethers.Contract> = new Map();
 
   constructor() {
-    // --------------------------
-    // Provider
-    // --------------------------
-    const rpc = process.env.BASE_SEPOLIA_RPC || process.env.RPC_URL!;
-    if (!rpc) throw new Error("Missing BASE_SEPOLIA_RPC or RPC_URL in .env");
-
-    console.log('🔗 Using RPC:', rpc);
-    this.provider = new ethers.JsonRpcProvider(rpc);
-
-    // --------------------------
-    // Signer
-    // --------------------------
-    const privateKey = process.env.PRIVATE_KEY;
-    if (!privateKey) {
-      throw new Error("Missing PRIVATE_KEY in .env");
-    }
-
-    this.signer = new ethers.Wallet(privateKey, this.provider);
-
-    // --------------------------
-    // Contract: KYC Registry
-    // --------------------------
-    const kycAddress = process.env.KYC_CONTRACT_ADDRESS;
-    if (!kycAddress) {
-      throw new Error("Missing KYC_CONTRACT_ADDRESS in .env");
-    }
-
-    this.kycContract = new ethers.Contract(
-      kycAddress,
-      kycRegistryAbi.abi,
-      this.signer
-    );
-    console.log('✅ KYC connected:', kycAddress);
-
-    // --------------------------
-    // Contract: HAT Token
-    // --------------------------
-    const hatAddress = process.env.HAT_CONTRACT_ADDRESS;
-    if (!hatAddress) {
-      throw new Error("Missing HAT_CONTRACT_ADDRESS in .env");
-    }
-
-    this.hatContract = new ethers.Contract(
-      hatAddress,
-      hatTokenAbi.abi,
-      this.signer
-    );
-    console.log(' HAT connected:', hatAddress);
-
-    // --------------------------
-    // Contract: Investment (Optional)
-    // --------------------------
-    const investmentAddress = process.env.INVESTMENT_CONTRACT_ADDRESS;
-    if (investmentAddress) {
-      this.investmentContract = new ethers.Contract(
-        investmentAddress,
-        investmentAbi.abi,
-        this.signer
-      );
-      console.log(' Investment connected:', investmentAddress);
-    } else {
-      console.warn(' No INVESTMENT_CONTRACT_ADDRESS → Direct HAT mint only');
-    }
+    this.provider = this.initializeProvider();
+    this.signer = this.initializeSigner();
+    this.kycContract = this.initializeKycContract();
+    this.hotelAssetManager = this.initializeAssetManager();
+    this.hotelInvestment = this.initializeInvestmentContract();
   }
 
-  //  KYC Functions (use kycContract)
-  async isKycVerified(address: string): Promise<boolean> {
+  // ============================================================
+  //  INITIALIZATION (Private Methods)
+  // ============================================================
+
+  private initializeProvider(): ethers.JsonRpcProvider {
+    const rpc = process.env.BASE_SEPOLIA_RPC || process.env.RPC_URL;
+    if (!rpc) throw new Error(" Missing BASE_SEPOLIA_RPC or RPC_URL in .env");
+    
+    console.log(' Using RPC:', rpc);
+    return new ethers.JsonRpcProvider(rpc);
+  }
+
+  private initializeSigner(): ethers.Wallet {
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) throw new Error(" Missing PRIVATE_KEY in .env");
+    
+    const signer = new ethers.Wallet(privateKey, this.provider);
+    console.log(' Signer address:', signer.address);
+    return signer;
+  }
+
+  private initializeKycContract(): ethers.Contract {
+    const address = process.env.KYC_CONTRACT_ADDRESS;
+    if (!address) throw new Error(" Missing KYC_CONTRACT_ADDRESS in .env");
+    
+    const contract = new ethers.Contract(address, kycRegistryAbi.abi, this.signer);
+    console.log(' KYC connected:', address);
+    return contract;
+  }
+
+  private initializeAssetManager(): ethers.Contract {
+    const address = process.env.HOTEL_ASSET_MANAGER_ADDRESS;
+    if (!address) throw new Error(" Missing HOTEL_ASSET_MANAGER_ADDRESS in .env");
+    
+    const contract = new ethers.Contract(address, hotelAssetManagerAbi.abi, this.signer);
+    console.log(' HotelAssetManager connected:', address);
+    return contract;
+  }
+
+  private initializeInvestmentContract(): ethers.Contract {
+    const address = process.env.INVESTMENT_CONTRACT_ADDRESS;
+    if (!address) throw new Error(" Missing INVESTMENT_CONTRACT_ADDRESS in .env");
+    
+    const contract = new ethers.Contract(address, hotelInvestmentAbi.abi, this.signer);
+    console.log(' HotelInvestment connected:', address);
+    return contract;
+  }
+
+  // ============================================================
+  //  HYBRID KYC FUNCTIONS
+  // ============================================================
+
+  /**
+   *  HYBRID: Check database first, verify blockchain for critical operations
+   * @param address - User wallet address
+   * @param forceBlockchainCheck - Force blockchain verification (for large investments)
+   * @returns true if KYC verified
+   */
+  async isKycVerified(
+    address: string,
+    forceBlockchainCheck: boolean = false
+  ): Promise<boolean> {
     try {
-      const verified = await this.kycContract.isKycVerified(address);
-      return verified;
-    } catch (error) {
-      console.error('KYC check failed:', error);
+      const normalizedAddress = address.toLowerCase();
+      console.log(` KYC Check for ${address}`);
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  FAST CHECK: Database (Always)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const user = await prisma.user.findUnique({
+        where: { walletAddress: normalizedAddress },
+        select: {
+          kycStatus: true,
+          kycBlockchainSynced: true,
+          kycLastVerified: true,
+          kycApprovedAt: true
+        }
+      });
+
+      if (user?.kycStatus !== 'APPROVED') {
+        console.log('    Database: NOT APPROVED');
+        return false;
+      }
+
+      console.log('    Database: APPROVED');
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  SMART CACHING: Check if recent verification exists
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (user.kycBlockchainSynced && user.kycLastVerified) {
+        const hoursSinceVerification = 
+          (Date.now() - user.kycLastVerified.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceVerification < KYC_CONFIG.BLOCKCHAIN_CACHE_HOURS && !forceBlockchainCheck) {
+          console.log(` Using cached verification (${hoursSinceVerification.toFixed(1)}h old)`);
+          return true;
+        }
+      }
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  BLOCKCHAIN CHECK: For critical operations or expired cache
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (forceBlockchainCheck || !user.kycBlockchainSynced) {
+        console.log('   Verifying on blockchain...');
+
+        try {
+          const onChainVerified = await this.kycContract.isKYCVerified(address);
+
+          // Update database with blockchain result
+          await prisma.user.update({
+            where: { walletAddress: normalizedAddress },
+            data: {
+              kycBlockchainSynced: onChainVerified,
+              kycLastVerified: new Date(),
+              kycSyncError: null
+            }
+          });
+
+          console.log(`   Blockchain: ${onChainVerified ? ' Verified' : ' Not Verified'}`);
+          return onChainVerified;
+
+        } catch (error: any) {
+          console.warn('    Blockchain check failed:', error.message);
+          
+          // Record error but don't fail the check
+          await prisma.user.update({
+            where: { walletAddress: normalizedAddress },
+            data: { kycSyncError: error.message }
+          }).catch(() => {});
+
+          // Fallback to database status if blockchain unavailable
+          console.log('    Using database fallback');
+          return true;
+        }
+      }
+
+      return true; // Database says approved and cache is valid
+
+    } catch (error: any) {
+      console.error(' KYC check failed:', error.message);
       return false;
     }
   }
 
-  //  FIXED mintInvestmentTokens → Smart fallback!
- async mintInvestmentTokens(hotelId: string, userAddress: string, tokenAmount: number): Promise<string> {
-  console.log(' MINT DEBUG:', { hotelId, userAddress, tokenAmount });
+  /**
+   *  Register user KYC on blockchain
+   * @param address - User wallet address
+   * @param hash - Document hash (IPFS CID or similar)
+   * @returns Transaction hash
+   */
+  async registerKyc(address: string, hash: string): Promise<string> {
+    try {
+      console.log(` Registering KYC for ${address}...`);
 
+      const tx = await this.kycContract.registerUser(address, hash, {
+        gasLimit: GAS_LIMITS.KYC_REGISTER
+      });
+
+      console.log('   Tx sent:', tx.hash);
+      const receipt = await tx.wait();
+
+      console.log('  KYC registered:', receipt.hash);
+
+      // Update database
+      await prisma.user.update({
+        where: { walletAddress: address.toLowerCase() },
+        data: {
+          kycBlockchainTxHash: receipt.hash,
+          kycBlockchainSynced: true,
+          kycLastVerified: new Date(),
+          kycSyncAttempts: 0,
+          kycSyncError: null
+        }
+      });
+
+      return receipt.hash;
+
+    } catch (error: any) {
+      console.error(' KYC registration failed:', error.message);
+
+      // Update attempt counter
+      await prisma.user.update({
+        where: { walletAddress: address.toLowerCase() },
+        data: {
+          kycSyncAttempts: { increment: 1 },
+          kycSyncError: error.message
+        }
+      }).catch(() => {});
+
+      throw error;
+    }
+  }
+
+ private async registerKycWithRetry(
+  userAddress: string,
+  documentHash: string,
+  maxRetries: number = 3
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(` Attempt ${attempt}/${maxRetries}...`);
+
+      //  Call with only 2 parameters
+      const txHash = await this.registerKyc(userAddress, documentHash);
+
+      console.log(`   Success on attempt ${attempt}`);
+      return txHash;
+
+    } catch (error: any) {
+      lastError = error;
+      console.error(` Attempt ${attempt} failed:`, error.message);
+
+      // Don't retry on certain errors
+      if (
+        error.message.includes('already registered') ||
+        error.message.includes('invalid address') ||
+        error.message.includes('invalid document hash')
+      ) {
+        console.log(`    Non-retryable error, stopping retries`);
+        throw error;
+      }
+
+      // Wait before retrying (exponential backoff)
+      if (attempt < maxRetries) {
+        const delayMs = KYC_CONFIG.SYNC_RETRY_DELAY * attempt;
+        console.log(`  Waiting ${delayMs}ms before retry...`);
+        await this.delay(delayMs);
+      }
+    }
+  }
+
+  // All retries failed
+  throw new Error(
+    `KYC registration failed after ${maxRetries} attempts: ${lastError?.message}`
+  )
+}
+  /**
+   *  Sync approved KYCs to blockchain (background job)
+   */
+  async syncAllPendingKycs(): Promise<{
+  synced: number;
+  failed: number;
+}> {
   try {
-    // 1. Network check
-    const network = await this.provider.getNetwork();
-    console.log(' Network:', network.chainId.toString());
+    console.log('\n Starting bulk KYC sync to blockchain...');
 
-    // 2.  FIXED: hotelId is already STRING (ObjectId)!
-    const hotel = await prisma.hotelAsset.findUnique({ 
-      where: { id: hotelId }  //  No parseInt!
+    // Find all approved users not yet synced
+    const pendingUsers = await prisma.user.findMany({
+      where: {
+        kycStatus: 'APPROVED',
+        kycBlockchainSynced: false,
+        walletAddress: { not: null }
+      },
+      select: {
+        id: true,
+        walletAddress: true,
+        kycDocumentHash: true,
+        email: true
+      }
     });
-    if (!hotel) throw new Error(`Hotel ${hotelId} not found`);
-    
-    const tokenId = hotel.tokenId || BigInt(1);
-    console.log(` Minting tokenId=${tokenId} → ${userAddress}`);
 
-    let tx;
+    if (pendingUsers.length === 0) {
+      console.log(' No pending KYC syncs needed');
+      return { synced: 0, failed: 0 };
+    }
 
-    // 3. Investment contract (hotelId as string → BigInt for contract)
-    if (this.investmentContract) {
+    console.log(` Found ${pendingUsers.length} users to sync`);
+
+    let synced = 0;
+    let failed = 0;
+
+    // Process each user
+    for (const user of pendingUsers) {
       try {
-        console.log('💼 Using Investment contract → invest()');
-        const usdcAmount = ethers.parseUnits((tokenAmount * Number(hotel.tokenPrice)).toString(), 6);
-        tx = await this.investmentContract.invest(
-          BigInt(hotel.tokenId!), // ✅ tokenId (number) → BigInt
-          usdcAmount
+        if (!user.walletAddress) {
+          console.log(` Skipping ${user.email}: No wallet address`);
+          failed++;
+          continue;
+        }
+
+        const hash = user.kycDocumentHash || ethers.keccak256(
+          ethers.toUtf8Bytes(`kyc-${user.id}-${Date.now()}`)
         );
-      } catch (invError) {
-        console.log(' Investment failed → Direct HAT mint');
+
+        console.log(`\n Syncing KYC for: ${user.email}`);
+        console.log(`   Wallet: ${user.walletAddress}`);
+
+        const txHash = await this.registerKycWithRetry(
+          user.walletAddress,
+          hash
+        );
+
+        // Update database
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            kycBlockchainSynced: true,
+            kycBlockchainTxHash: txHash,
+            kycLastVerified: new Date(),
+            kycDocumentHash: hash,
+            updatedAt: new Date()
+          }
+        });
+
+        synced++;
+        console.log(`  Synced successfully (tx: ${txHash.slice(0, 10)}...)`);
+
+        // Add delay to avoid rate limiting
+        await this.delay(2000);
+
+      } catch (error: any) {
+        failed++;
+        console.error(`  Failed to sync ${user.email}:`, error.message);
+        
+        // Continue with next user instead of throwing
+        continue;
       }
     }
 
-    // 4. HAT fallback
-    if (!tx) {
-      console.log(' Direct HAT mint');
-      try {
-        tx = await this.hatContract.mintToInvestor(tokenId, userAddress, tokenAmount);
-      } catch {
-        tx = await this.hatContract.mint(userAddress, tokenId, tokenAmount, "0x");
-      }
-    }
+    console.log('\n Bulk sync completed:');
+    console.log(`   ✓ Success: ${synced}`);
+    console.log(`   ✗ Failed: ${failed}`);
 
-    const receipt = await tx.wait();
-    console.log(' MINT SUCCESS:', receipt.hash);
-    return receipt.hash;
+    return { synced, failed };
 
-  } catch (err: any) {
-    console.error(' MINT FAILED:', err.message);
-    throw new Error(`Mint failed: ${err.message}`);
+  } catch (error: any) {
+    console.error(' Bulk KYC sync failed:', error.message);
+    throw error;
   }
 }
 
+ /**
+   * Delay execution (for rate limiting)
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  // ============================================================
+  //  HOTEL ASSET FUNCTIONS
+  // ============================================================
+
+  /**
+   * Get hotel's ERC-20 token address from blockchain
+   */
+  async getHotelTokenAddress(hotelId: string): Promise<string> {
+    try {
+      const hotel = await prisma.hotelAsset.findUnique({
+        where: { id: hotelId },
+        select: { tokenId: true, name: true }
+      });
+
+      if (!hotel?.tokenId) {
+        throw new Error(`Hotel ${hotelId} not found or not tokenized`);
+      }
+
+      // Get hotel data from blockchain
+      const hotelData = await this.hotelAssetManager.getHotel(hotel.tokenId);
+      const tokenAddress = hotelData.assetToken;
+
+      if (tokenAddress === ethers.ZeroAddress) {
+        throw new Error(`Hotel ${hotel.name} has no asset token deployed`);
+      }
+
+      console.log(` ${hotel.name} token address:`, tokenAddress);
+      return tokenAddress;
+
+    } catch (error: any) {
+      console.error(' Get token address failed:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get hotel token contract instance (cached)
+   */
+  private async getHotelTokenContract(hotelId: string): Promise<ethers.Contract> {
+    // Check cache first
+    if (this.tokenContractCache.has(hotelId)) {
+      return this.tokenContractCache.get(hotelId)!;
+    }
+
+    // Create new contract instance
+    const tokenAddress = await this.getHotelTokenAddress(hotelId);
+    const contract = new ethers.Contract(
+      tokenAddress,
+      hotelAssetTokenAbi.abi,
+      this.signer
+    );
+
+    // Cache it
+    this.tokenContractCache.set(hotelId, contract);
+    return contract;
+  }
+
+  // ============================================================
+  //  INVESTMENT FUNCTIONS
+  // ============================================================
+
+  /**
+   *  Process investment with tiered KYC verification
+   * @param hotelId - MongoDB ObjectId string
+   * @param userAddress - Investor's wallet address
+   * @param usdcAmount - Amount in USDC (e.g., "100" for $100)
+   * @returns Transaction hash
+   */
+  async processInvestment(
+    hotelId: string,
+    userAddress: string,
+    usdcAmount: string
+  ): Promise<string> {
+    try {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('💰 PROCESSING INVESTMENT');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // 1️⃣ Get Hotel Data
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const hotel = await prisma.hotelAsset.findUnique({
+        where: { id: hotelId },
+        select: {
+          id: true,
+          tokenId: true,
+          name: true,
+          tokenPrice: true
+        }
+      });
+
+      if (!hotel?.tokenId) {
+        throw new Error(`Hotel ${hotelId} not found`);
+      }
+
+      const amountUSD = parseFloat(usdcAmount);
+      console.log(` Hotel: ${hotel.name}`);
+      console.log(` Investment: $${amountUSD} USDC`);
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  TIERED KYC CHECK
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const requiresBlockchainCheck = amountUSD >= KYC_CONFIG.LARGE_INVESTMENT_THRESHOLD;
+      
+      if (requiresBlockchainCheck) {
+        console.log(` Large investment ($${amountUSD}) - blockchain check required`);
+      }
+
+      const user = await prisma.user.findFirst({
+        where: { walletAddress: userAddress },
+        select: { id: true, kycStatus: true }
+      });
+            
+            if (!user) {
+        throw new Error('User not found');
+      }
+      console.log(`🔍 KYC Check for ${userAddress}`);
+      console.log(`   User ID: ${user.id}`);
+      console.log(`   Database KYC: ${user.kycStatus}`);
+
+            // Check database KYC status
+      if (user.kycStatus !== 'APPROVED') {
+        throw new Error('User must complete KYC verification first');
+      }
+
+      // For large investments, also check blockchain
+      if (requiresBlockchainCheck) {
+        const blockchainKYC = await this.isKycVerified(userAddress, true);
+        console.log(`   Blockchain KYC: ${blockchainKYC ? 'VERIFIED' : 'NOT VERIFIED'}`);
+        
+        if (!blockchainKYC) {
+          throw new Error('Large investment requires blockchain KYC verification');
+        }
+      }
+
+      console.log('✅ KYC verification passed');
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  Convert USDC Amount (6 decimals)
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const usdcAmountWei = ethers.parseUnits(usdcAmount, 6);
+      console.log(` USDC (wei): ${usdcAmountWei.toString()}`);
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  Calculate Expected Tokens
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const tokenAmount = amountUSD / Number(hotel.tokenPrice);
+      console.log(` Expected tokens: ${tokenAmount.toFixed(2)}`);
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      //  Execute Investment Transaction
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      console.log(' Calling HotelInvestment.invest()...');
+
+      const tx = await this.hotelInvestment.invest(
+        hotel.tokenId,
+        usdcAmountWei,
+        { gasLimit: GAS_LIMITS.INVESTMENT }
+      );
+
+      console.log('   Tx sent:', tx.hash);
+      console.log('   Waiting for confirmation...');
+
+      const receipt = await tx.wait();
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(' INVESTMENT SUCCESS!');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(' Tx Hash:', receipt.hash);
+      console.log(' Block:', receipt.blockNumber);
+      console.log(' Gas Used:', receipt.gasUsed.toString());
+      console.log(' Investor:', userAddress);
+      console.log(' Hotel:', hotel.name);
+      console.log(' USDC Invested:', usdcAmount);
+      console.log(' Tokens Minted:', tokenAmount.toFixed(2));
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      return receipt.hash;
+
+    } catch (error: any) {
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error(' INVESTMENT FAILED!');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error(' Error:', error.message);
+      console.error(' Code:', error.code);
+
+      // Enhanced error messages
+      if (error.message.includes('KYCRequired')) {
+        throw new Error('User must complete KYC verification first');
+      }
+      if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient USDC balance or gas funds');
+      }
+      if (error.message.includes('InvestmentClosed')) {
+        throw new Error('Investment period has ended for this hotel');
+      }
+
+      throw new Error(`Investment failed: ${error.message}`);
+    }
+  }
+
+  // ============================================================
+  //  BALANCE FUNCTIONS
+  // ============================================================
+
+  /**
+   * Get user's token balance for a specific hotel (ERC-20)
+   */
+  async getHotelTokenBalance(userAddress: string, hotelId: string): Promise<string> {
+    try {
+      const hotel = await prisma.hotelAsset.findUnique({
+        where: { id: hotelId },
+        select: { name: true }
+      });
+
+      // Get the hotel's ERC-20 token contract (cached)
+      const tokenContract = await this.getHotelTokenContract(hotelId);
+
+      // ERC-20 balanceOf
+      const balanceWei = await tokenContract.balanceOf(userAddress);
+
+      // Convert from wei (18 decimals)
+      const balance = ethers.formatUnits(balanceWei, 18);
+
+      console.log(` Balance for ${userAddress}:`);
+      console.log(`  Hotel: ${hotel?.name}`);
+      console.log(`  Balance: ${balance} tokens`);
+
+      return balance;
+
+    } catch (error: any) {
+      console.error(' Balance check failed:', error.message);
+      return "0";
+    }
+  }
+
+  /**
+   * Get user's balances across all hotels (optimized)
+   */
+  async getAllHotelTokenBalances(userAddress: string): Promise<Record<string, string>> {
+    try {
+      // Get all tokenized hotels
+      const hotels = await prisma.hotelAsset.findMany({
+        where: { tokenId: { gt: 0 } },
+        select: {
+          id: true,
+          name: true,
+          tokenId: true
+        }
+      });
+
+      console.log(` Checking balances for ${hotels.length} tokenized hotels`);
+
+      const balances: Record<string, string> = {};
+
+      // Process in parallel for speed
+      const results = await Promise.allSettled(
+        hotels.map(hotel => 
+          this.getHotelTokenBalance(userAddress, hotel.id)
+            .then(balance => ({ name: hotel.name, balance }))
+        )
+      );
+
+      // Collect successful results
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          const { name, balance } = result.value;
+          if (parseFloat(balance) > 0) {
+            balances[name] = balance;
+            console.log(`  ${name}: ${balance}`);
+          }
+        } else {
+          console.log(` ${hotels[index].name}: Could not fetch balance`);
+        }
+      });
+
+      console.log(` Found ${Object.keys(balances).length} hotels with positive balances`);
+
+      return balances;
+
+    } catch (error: any) {
+      console.error(' Get all balances failed:', error.message);
+      return {};
+    }
+  }
+
+  // ============================================================
+  // 🛠️ UTILITY FUNCTIONS
+  // ============================================================
+
+  async getSignerAddress(): Promise<string> {
+    return this.signer.address;
+  }
+
+  async getSignerBalance(): Promise<string> {
+    const balance = await this.provider.getBalance(this.signer.address);
+    return ethers.formatEther(balance);
+  }
+
+  async getNetworkInfo() {
+    const network = await this.provider.getNetwork();
+    return {
+      chainId: network.chainId.toString(),
+      name: network.name
+    };
+  }
+
+  /**
+   * Clear token contract cache (useful for testing)
+   */
+  clearTokenCache(): void {
+    this.tokenContractCache.clear();
+    console.log(' Token contract cache cleared');
+  }
 }
+
+// ============================================================
+//  EXPORT SINGLETON
+// ============================================================
 
 export const web3Service = new Web3Service();

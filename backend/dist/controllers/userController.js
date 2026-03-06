@@ -3,44 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reactivateUser = exports.getUserStatistics = exports.deactivateUser = exports.updateUserRole = exports.getAllUsers = exports.getUserTransactions = exports.updateWalletAddress = exports.confirmAllInvestments = exports.getUserPortfolio = exports.updateUserProfile = exports.getUserTokens = exports.getUserProfile = void 0;
+exports.getUserProfile = exports.reactivateUser = exports.getUserStatistics = exports.deactivateUser = exports.updateUserRole = exports.getAllUsers = exports.getUserTransactions = exports.updateWalletAddress = exports.confirmAllInvestments = exports.getUserPortfolio = exports.updateUserProfile = exports.getUserTokens = void 0;
 const database_1 = __importDefault(require("../config/database"));
-const getUserProfile = async (req, res) => {
-    try {
-        const userId = req.user?.userId;
-        const user = await database_1.default.user.findUnique({
-            where: { id: userId },
-            select: {
-                id: true,
-                email: true,
-                role: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                kycStatus: true,
-                walletAddress: true,
-                createdAt: true,
-                updatedAt: true
-            }
-        });
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-        res.json({
-            success: true,
-            data: user
-        });
-    }
-    catch (error) {
-        console.error('Profile error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch user profile',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-};
-exports.getUserProfile = getUserProfile;
+const client_1 = require("@prisma/client");
+const kyc_1 = __importDefault(require("../blockchain/kyc"));
 const getUserTokens = async (req, res) => {
     try {
         const userId = req.user?.userId;
@@ -129,13 +95,29 @@ const updateUserProfile = async (req, res) => {
 exports.updateUserProfile = updateUserProfile;
 const getUserPortfolio = async (req, res) => {
     try {
+        console.log("🔥 PORTFOLIO DEBUG - START:", {
+            timestamp: new Date().toISOString(),
+            userId: req.user?.userId,
+            userEmail: req.user?.email,
+            authHeader: req.headers.authorization?.slice(0, 50),
+            allInvestmentsCount: await database_1.default.investment.count(),
+            studioInvestments: await database_1.default.investment.count({
+                where: { userId: { contains: 'studio' } }
+            }),
+            pendingInvestments: await database_1.default.investment.count({
+                where: { status: { in: ['PENDING', 'CONFIRMED'] } }
+            })
+        });
         const userId = req.user?.userId;
         if (!userId) {
+            console.log("❌ NO USER ID - AUTHENTICATION FAILED!");
+            console.log("FULL REQ.USER:", JSON.stringify(req.user));
             return res.status(401).json({
                 success: false,
-                message: "User not authenticated"
+                message: "User not authenticated - check token"
             });
         }
+        console.log("✅ USER FOUND, FETCHING INVESTMENTS FOR:", userId);
         const investments = await database_1.default.investment.findMany({
             where: {
                 userId,
@@ -159,10 +141,16 @@ const getUserPortfolio = async (req, res) => {
             },
             orderBy: { createdAt: 'desc' }
         });
+        console.log("📊 FOUND INVESTMENTS:", investments.length, "for user:", userId);
         const totalInvestment = investments.reduce((sum, inv) => sum + parseFloat(inv.investedAmount.toString()), 0);
         const totalTokens = investments.reduce((sum, inv) => sum + Number(inv.tokenAmount), 0);
         const totalProperties = investments.length;
         const currentValue = totalInvestment * 1.05;
+        console.log("💰 PORTFOLIO SUMMARY:", {
+            totalInvestment: Math.round(totalInvestment),
+            totalProperties,
+            totalTokens
+        });
         res.json({
             success: true,
             data: {
@@ -200,7 +188,7 @@ const getUserPortfolio = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Portfolio error:', error);
+        console.error(' PORTFOLIO ERROR:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch portfolio',
@@ -243,34 +231,80 @@ const updateWalletAddress = async (req, res) => {
     try {
         const { walletAddress } = req.body;
         const userId = req.user?.userId;
-        if (!walletAddress) {
-            return res.status(400).json({ error: "Wallet address is required" });
-        }
-        if (!userId) {
-            return res.status(401).json({ error: "Unauthorized: user not found" });
-        }
-        const existingUser = await database_1.default.user.findUnique({
-            where: { walletAddress }
-        });
-        if (existingUser && existingUser.id !== userId) {
+        console.log(' Updating wallet for user:', userId);
+        console.log(' New wallet address:', walletAddress);
+        if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
             return res.status(400).json({
-                error: "Wallet address already in use by another user"
+                success: false,
+                message: 'Invalid Ethereum address format'
+            });
+        }
+        const existingWallet = await database_1.default.user.findFirst({
+            where: {
+                walletAddress,
+                id: { not: userId }
+            }
+        });
+        if (existingWallet) {
+            return res.status(400).json({
+                success: false,
+                message: 'Wallet address already registered to another account'
             });
         }
         const updatedUser = await database_1.default.user.update({
             where: { id: userId },
-            data: { walletAddress }
+            data: { walletAddress },
+            include: {
+                kyc: true
+            }
         });
+        console.log(' Wallet updated in database');
+        if (updatedUser.kyc && updatedUser.kyc.status === client_1.KycStatus.APPROVED) {
+            try {
+                console.log(' Syncing KYC approval to blockchain...');
+                const txHash = await kyc_1.default.verifyUser(walletAddress);
+                if (txHash && txHash !== 'ALREADY_VERIFIED') {
+                    console.log(' KYC synced to blockchain:', txHash);
+                    await database_1.default.kyc.update({
+                        where: { id: updatedUser.kyc.id },
+                        data: { blockchainTx: txHash }
+                    });
+                }
+                else {
+                    console.log('  User already verified on blockchain');
+                }
+            }
+            catch (error) {
+                console.error(' Blockchain sync failed:', error.message);
+            }
+        }
+        let blockchainVerified = false;
+        try {
+            blockchainVerified = await kyc_1.default.isVerified(walletAddress);
+        }
+        catch (error) {
+            console.error(' Blockchain verification check failed:', error);
+        }
         return res.json({
             success: true,
-            message: "Wallet address saved successfully",
-            user: updatedUser
+            data: {
+                id: updatedUser.id,
+                email: updatedUser.email,
+                walletAddress: updatedUser.walletAddress,
+                kycStatus: updatedUser.kycStatus,
+                blockchain: {
+                    verified: blockchainVerified,
+                    txHash: updatedUser.kyc?.blockchainTx || null
+                }
+            },
+            message: 'Wallet address updated successfully'
         });
     }
-    catch (err) {
+    catch (error) {
+        console.error(' Update wallet error:', error);
         return res.status(500).json({
-            error: "Error updating wallet address",
-            details: err?.message
+            success: false,
+            message: error.message
         });
     }
 };
@@ -537,4 +571,58 @@ const reactivateUser = async (req, res) => {
     }
 };
 exports.reactivateUser = reactivateUser;
+const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const user = await database_1.default.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                lastName: true,
+                role: true,
+                walletAddress: true,
+                kycStatus: true,
+                kycApprovedAt: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        let blockchainVerified = false;
+        let blockchainError = null;
+        if (user.walletAddress && user.kycStatus === 'APPROVED') {
+            try {
+                blockchainVerified = await kyc_1.default.isVerified(user.walletAddress);
+            }
+            catch (error) {
+                console.error('Blockchain check error:', error);
+                blockchainError = error.message;
+            }
+        }
+        return res.json({
+            success: true,
+            data: {
+                ...user,
+                blockchain: {
+                    verified: blockchainVerified,
+                    error: blockchainError
+                }
+            }
+        });
+    }
+    catch (error) {
+        console.error('Get profile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+exports.getUserProfile = getUserProfile;
 //# sourceMappingURL=userController.js.map

@@ -12,8 +12,9 @@ const morgan_1 = __importDefault(require("morgan"));
 const routes_1 = __importDefault(require("./routes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const path_1 = __importDefault(require("path"));
+const kycSyncJob_1 = require("./jobs/kycSyncJob");
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
     process.env.FRONTEND_URL,
     "https://digirealassets.io",
@@ -39,8 +40,61 @@ app.use((req, res) => {
         message: 'Route not found'
     });
 });
+if (process.env.NODE_ENV === 'production') {
+    console.log('\n Starting PRODUCTION cron jobs...');
+    (0, kycSyncJob_1.startKycSyncJob)();
+    console.log('✅ KYC sync job: Running every hour\n');
+}
+else if (process.env.ENABLE_TEST_CRON === 'true') {
+    console.log('\n🧪 Starting TEST cron jobs...');
+    (0, kycSyncJob_1.startKycSyncJobTest)();
+    console.log(' KYC sync job: Running every minute (TEST MODE)\n');
+}
+else {
+    console.log('\n⏸  Cron jobs disabled in development');
+    console.log('💡 To enable test cron (runs every minute):');
+    console.log('   Add ENABLE_TEST_CRON=true to your .env file\n');
+    console.log('💡 To manually trigger KYC sync:');
+    console.log('   POST http://localhost:5000/api/v1/admin/kyc/sync\n');
+}
 app.listen(PORT, () => {
-    console.log(` Server running on port ${PORT}`);
+    console.log('\n' + '='.repeat(60));
+    console.log(' Server Started Successfully!');
+    console.log('='.repeat(60));
+    console.log(` Port:        ${PORT}`);
     console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 URL:         http://localhost:${PORT}`);
+    console.log(`📡 API:         http://localhost:${PORT}/api/v1`);
+    console.log('='.repeat(60));
+    if (allowedOrigins.length > 0) {
+        console.log('\n CORS Allowed Origins:');
+        allowedOrigins.forEach(origin => {
+            console.log(`   ✓ ${origin}`);
+        });
+    }
+    console.log('\n⛓️  Blockchain Configuration:');
+    console.log(`   RPC URL:    ${process.env.RPC_URL || 'Not configured'}`);
+    console.log(`   Network:    ${process.env.BLOCCKCHAIN_NETWORK || 'Not specified'}`);
+    console.log(`   Admin Key:  ${process.env.PRIVATE_KEY ? '✓ Configured' : '✗ Missing'}`);
+    console.log('\n' + '='.repeat(60) + '\n');
 });
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+function gracefulShutdown() {
+    console.log('\n\n  Shutdown signal received');
+    console.log(' Closing server gracefully...');
+    process.exit(0);
+}
+process.on('uncaughtException', (error) => {
+    console.error('\n UNCAUGHT EXCEPTION:');
+    console.error(error);
+    console.log(' Shutting down...');
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('\n UNHANDLED REJECTION:');
+    console.error('Promise:', promise);
+    console.error('Reason:', reason);
+});
+exports.default = app;
 //# sourceMappingURL=server.js.map

@@ -131,45 +131,86 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // -----------------------------
+  // 🔥 UPDATE TOKEN (NEW)
+  // -----------------------------
+  const updateToken = useCallback((newToken) => {
+    console.log("🔑 Updating auth token in context...");
+    localStorage.setItem("authToken", newToken);
+    setToken(newToken);
+    
+    // Decode and log new token
+    try {
+      const payload = JSON.parse(atob(newToken.split('.')[1]));
+      console.log("✅ New token payload:", payload);
+    } catch (e) {
+      console.error("Failed to decode token:", e);
+    }
+  }, []);
+
+  // -----------------------------
+  // 🔥 REFRESH USER (UPDATED)
+  // -----------------------------
+  const refreshUser = useCallback(async () => {
+    // 🔥 Get the latest token from localStorage
+    const currentToken = localStorage.getItem("authToken");
+    
+    if (!currentToken) {
+      console.log("❌ No token found in refreshUser");
+      return;
+    }
+
+    try {
+      console.log("🔄 Refreshing user data...");
+      
+      const response = await fetch(`${API}/api/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const userData = data.user || data;
+
+        console.log("✅ User data refreshed:", userData);
+        
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+
+        // 🔥 Update token state if it changed
+        if (currentToken !== token) {
+          setToken(currentToken);
+        }
+
+        return userData;
+      }
+    } catch (err) {
+      console.error("❌ Failed to refresh user:", err);
+    }
+  }, []); // 🔥 Remove token dependency to avoid stale closures
+
+  // -----------------------------
   // AUTH FETCH
   // -----------------------------
  const authFetch = useCallback(
-  async (url: string, options: RequestInit = {}) => {
-    const t = token;
+  async (url, options) => {
+    const currentToken = localStorage.getItem("authToken");
+    
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${currentToken}`,
+    };
+
+    // Merge with existing headers if provided
+    if (options && options.headers) {
+      Object.assign(headers, options.headers);
+    }
 
     return fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${t}`,
-        ...(options.headers ? (options.headers as any) : {}),  
-      },
+      ...(options || {}),
+      headers,
     });
   },
-  [token]
+  []
 );
-
-const refreshUser = useCallback(async () => {
-  if (!token) return;
-
-  try {
-    const response = await fetch(`${API}/api/v1/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const userData = data.user || data;
-
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
-
-      return userData;
-    }
-  } catch (err) {
-    console.error("Failed to refresh user:", err);
-  }
-}, [token]);
 
   // -----------------------------
   // STABLE VALUE (PREVENT RE-RENDERS)
@@ -184,9 +225,21 @@ const refreshUser = useCallback(async () => {
       register,
       logout,
       authFetch,
-       refreshUser,
+      refreshUser,
+      updateToken, // 🔥 Export new function
     }),
-    [isAuthenticated, user, token, loading, login, register, logout, authFetch, refreshUser,]
+    [
+      isAuthenticated,
+      user,
+      token,
+      loading,
+      login,
+      register,
+      logout,
+      authFetch,
+      refreshUser,
+      updateToken,
+    ]
   );
 
   return (

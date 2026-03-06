@@ -37,7 +37,7 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
     error InvalidResponse();
     error EmptyApiUrl();
 
-    constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) {}
+    constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) { }
 
     /**
      * @notice Request hotel data from external API
@@ -71,7 +71,10 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
      * @notice Chainlink Functions callback
      * @dev This function is called by the Chainlink DON
      */
-    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err)
+        internal
+        override
+    {
         uint256 hotelId = requestIdToHotelId[requestId];
 
         if (err.length > 0) {
@@ -82,8 +85,13 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
         if (response.length == 0) revert InvalidResponse();
 
         // Decode the response
-        (string memory name, string memory location, string memory imageUrl, uint256 rooms, uint256 rating) =
-            abi.decode(response, (string, string, string, uint256, uint256));
+        (
+            string memory name,
+            string memory location,
+            string memory imageUrl,
+            uint256 rooms,
+            uint256 rating
+        ) = abi.decode(response, (string, string, string, uint256, uint256));
 
         // Validate data
         require(bytes(name).length > 0, "Invalid hotel name");
@@ -123,7 +131,9 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
         )
     {
         HotelData memory hotel = hotels[hotelId];
-        return (hotel.name, hotel.location, hotel.imageUrl, hotel.rooms, hotel.rating, hotel.lastUpdated);
+        return (
+            hotel.name, hotel.location, hotel.imageUrl, hotel.rooms, hotel.rating, hotel.lastUpdated
+        );
     }
 
     /**

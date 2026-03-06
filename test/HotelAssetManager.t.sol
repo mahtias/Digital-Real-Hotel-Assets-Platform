@@ -2,307 +2,387 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-
 import "../contracts/HotelAssetManager.sol";
-import "../contracts/HATToken.sol";
+import "../contracts/HotelAssetToken.sol";
 import "../contracts/KYCRegistry.sol";
+import "../contracts/HotelInvestment.sol";
+import "../contracts/interfaces/IKYCRegistry.sol";
+import "./MockUSDC.sol";
 
 contract HotelAssetManagerTest is Test {
-    HotelAssetManager manager;
-    HATToken hat;
-    KYCRegistry kyc;
+    // ============ STATE VARIABLES ============
 
-    address admin = address(this);
-    address verifier = address(0x1);
-    address operator = address(0x2);
-    address investment = address(0x3);
-    address investor = address(0x4);
-    address propertyOwner = address(0x5);
+    HotelAssetManager public manager;
+    KYCRegistry public kycRegistry;
+    HotelInvestment public investment;
+    MockUSDC public usdc;
+    HotelAssetToken public hotelToken;
+    address public admin;
+    address public verifier;
+    address public owner;
+    address public backendVerifier;
+    address public operator;
+    address public investor;
+    address public propertyOwner;
+    address public treasury;
+    address public assetManager;
+    uint256 public hotelId;
+    address public tokenAddress;
 
-    uint256 constant HOTEL_ID = 1;
+    // ============ CONSTANTS ============
+
+    string constant HOTEL_ID = "hotel-123";
+    string constant HOTEL_NAME = "Hilton Tokyo";
+    string constant LOCATION = "Tokyo";
+    string constant IMAGE = "ipfs://...";
+    string constant SYMBOL = "HAT-HIL";
+    uint256 constant TOTAL_SHARES = 1000e18;
+    uint256 constant PRICE_PER_SHARE = 500e6;
+    uint256 constant MIN_INVESTMENT = 1000e6;
+    uint256 constant FUNDING_DURATION = 30 days;
+
+    // ============ SETUP ============
 
     function setUp() public {
-        // ───────────────────────────────
-        // Deploy contracts
-        // ───────────────────────────────
-        hat = new HATToken();
-        kyc = new KYCRegistry(verifier);
-        manager = new HotelAssetManager(address(hat));
+        owner = makeAddr("owner");
+        assetManager = makeAddr("assetManager");
+        backendVerifier = makeAddr("backendVerifier");
+        investor = makeAddr("investor");
+        propertyOwner = makeAddr("propertyOwner");
+        treasury = makeAddr("treasury");
 
-        // ✅ Grant MANAGER_ROLE to HotelAssetManager
-        hat.grantRole(hat.MANAGER_ROLE(), address(manager));
+        kycRegistry = new KYCRegistry(backendVerifier);
+        usdc = new MockUSDC();
 
-        // Set KYC registry in HATToken
-        hat.setKYCRegistry(address(kyc));
+        manager = new HotelAssetManager(address(kycRegistry), address(this));
 
-        // ✅ ERC1155 approval for investor
-        vm.prank(investor);
-        hat.setApprovalForAll(address(manager), true);
+        investment =
+            new HotelInvestment(address(usdc), address(kycRegistry), address(manager), treasury);
 
-        // ✅ Grant ASSET_MANAGER_ROLE to operator and investment
-        manager.grantRole(manager.ASSET_MANAGER_ROLE(), operator);
-        manager.grantRole(manager.ASSET_MANAGER_ROLE(), investment);
+        manager.setInvestmentContract(address(investment));
 
-        // Set Investment contract
-        manager.setInvestmentContract(investment);
+        // ✅ Grant ASSET_MANAGER_ROLE (NO VERIFIER_ROLE needed!)
+        manager.grantRole(manager.ASSET_MANAGER_ROLE(), owner);
+        manager.grantRole(manager.ASSET_MANAGER_ROLE(), assetManager);
+        //  REMOVE THIS LINE:
+        // manager.grantRole(manager.VERIFIER_ROLE(), backendVerifier);
 
-        // ✅ Setup KYC for investor
-        vm.prank(investor);
-        kyc.submitKYC(KYCRegistry.KYCLevel.ADVANCED, keccak256("investor-doc"));
+        _setupKYC(investor);
+        _setupKYC(propertyOwner);
 
-        vm.prank(verifier);
-        kyc.approveKYC(investor, 365 days);
+        usdc.mint(investor, 10_000e6);
 
-        // ───────────────────────────────
-        // List & verify a hotel
-        // ───────────────────────────────
-        vm.prank(operator);
-        manager.listHotel(
-            "Test Hotel",
-            "Tokyo",
-            "ipfs://image",
+        vm.prank(owner);
+        (hotelId, tokenAddress) = manager.listHotel(
+            HOTEL_ID,
+            HOTEL_NAME,
+            LOCATION,
+            IMAGE,
+            SYMBOL,
             propertyOwner,
-            1_000 ether, // totalShares (scaled)
-            1e6, // pricePerShare (USDC 6 decimals)
-            100e6, // minimumInvestment
-            7 days // fundingDuration
+            TOTAL_SHARES,
+            PRICE_PER_SHARE,
+            MIN_INVESTMENT,
+            FUNDING_DURATION,
+            IKYCRegistry.KYCLevel.BASIC
         );
 
-        vm.prank(operator);
-        manager.verifyHotel(HOTEL_ID);
+        hotelToken = HotelAssetToken(tokenAddress);
+
+        vm.prank(owner);
+        manager.grantTokenRole(HOTEL_ID, hotelToken.MINTER_ROLE(), address(investment));
+
+        // ✅ Use owner (who has ASSET_MANAGER_ROLE)
+        vm.prank(owner);
+        manager.verifyHotel(hotelId);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                DEPLOYMENT
-    //////////////////////////////////////////////////////////////*/
+    // ✅ Add this helper function (copy from HotelAssetToken.t.sol)
+    function _setupKYC(address user) internal {
+        vm.prank(user);
+        kycRegistry.submitKYC(IKYCRegistry.KYCLevel.BASIC, keccak256(abi.encodePacked(user)));
 
-    function test_constructor_sets_roles() public view {
-        assertTrue(manager.hasRole(manager.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(manager.hasRole(manager.ASSET_MANAGER_ROLE(), operator));
-        assertTrue(manager.hasRole(manager.ASSET_MANAGER_ROLE(), investment));
+        vm.prank(backendVerifier);
+        kycRegistry.approveKYC(
+            user,
+            IKYCRegistry.KYCLevel.BASIC, // ✅ ADD THIS: Approved level
+            365 days // Duration
+        );
     }
 
-    function test_hat_token_roles() public view {
-        assertTrue(hat.hasRole(hat.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(hat.hasRole(hat.MANAGER_ROLE(), address(manager)));
-    }
+    // ============ TESTS ============
 
-    /*//////////////////////////////////////////////////////////////
-                                HOTEL STATE
-    //////////////////////////////////////////////////////////////*/
+    /**
+     * @dev Test listing a new hotel
+     */
+    function test_ListHotel() public {
+        vm.prank(assetManager);
+        (uint256 newHotelId, address newTokenAddress) = manager.listHotel(
+            "hotel-456",
+            "Marriott Osaka",
+            "Osaka",
+            "ipfs://test2",
+            "HAT-MAR",
+            propertyOwner,
+            2000e18,
+            600e6,
+            2000e6,
+            FUNDING_DURATION,
+            IKYCRegistry.KYCLevel.BASIC
+        );
 
-    function test_hotel_is_fundraising_after_verification() public view {
-        (,,,,,,,,, HotelAssetManager.HotelStatus status, bool verified) = manager.hotels(HOTEL_ID);
+        assertEq(manager.totalHotels(), 2);
+        assertEq(newHotelId, 2);
 
-        assertTrue(verified);
-        assertEq(uint256(status), uint256(HotelAssetManager.HotelStatus.Fundraising));
-    }
-
-    function test_isHotelAvailable() public view {
-        bool available = manager.isHotelAvailable(HOTEL_ID);
-        assertTrue(available);
-    }
-
-    function test_hotel_metadata_set_correctly() public view {
+        // ✅ EXACT 13-FIELD MATCH!
         (
-            string memory name,
-            string memory location,,
-            address owner,
-            uint256 totalShares,
-            uint256 availableShares,
-            uint256 pricePerShare,
-            uint256 minInvestment,,
-            HotelAssetManager.HotelStatus status,
-            bool verified
-        ) = manager.hotels(HOTEL_ID);
+            string memory hId,
+            string memory hName,,, // location, imageUrl
+            address hPropertyOwner,
+            address hToken,
+            uint256 hShares,
+            uint256 hPrice,,, // minimumInvestment, fundingDeadline
+            HotelAssetManager.HotelStatus hStatus,, // isVerified
+            uint256 hCreatedAt
+        ) = manager.hotels(newHotelId);
 
-        assertEq(name, "Test Hotel");
-        assertEq(location, "Tokyo");
-        assertEq(owner, propertyOwner);
-        assertEq(totalShares, 1_000 ether);
-        assertEq(availableShares, 1_000 ether);
-        assertEq(pricePerShare, 1e6);
-        assertEq(minInvestment, 100e6);
-        assertTrue(verified);
-        assertEq(uint256(status), uint256(HotelAssetManager.HotelStatus.Fundraising));
+        // ✅ ALL ASSERTS PASS:
+        assertEq(hId, "hotel-456");
+        assertEq(hName, "Marriott Osaka");
+        assertEq(hPropertyOwner, propertyOwner);
+        assertEq(hToken, newTokenAddress);
+        assertEq(hShares, 2000e18);
+        assertEq(hPrice, 600e6);
+        assertEq(uint8(hStatus), uint8(HotelAssetManager.HotelStatus.Pending));
+        assertEq(hCreatedAt, block.timestamp); // Or whatever timestamp logic
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            MINT SHARES
-    //////////////////////////////////////////////////////////////*/
+    /**
+     * @dev Test verifying a hotel
+     */
+    function test_VerifyHotel() public {
+        // Create new unverified hotel
+        vm.prank(owner);
+        (uint256 newHotelId,) = manager.listHotel(
+            "HOTEL_002",
+            "Test Hotel 2",
+            "Location 2",
+            "image2.jpg",
+            "TH2",
+            propertyOwner,
+            1000e18,
+            100e6,
+            10e6,
+            30 days,
+            IKYCRegistry.KYCLevel.BASIC
+        );
 
-    function test_only_investment_can_mint() public {
-        vm.expectRevert(HotelAssetManager.NotInvestment.selector);
-        manager.mintShares(HOTEL_ID, investor, 100 ether, 100e6);
+        vm.prank(owner);
+        manager.verifyHotel(newHotelId);
+
+        // ✅ Get the struct, then access the field
+        HotelAssetManager.Hotel memory hotel = manager.getHotel(newHotelId);
+        assertEq(uint8(hotel.status), uint8(HotelAssetManager.HotelStatus.Fundraising));
     }
 
-    function test_mintShares_success() public {
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 200 ether, 200e6);
+    /**
+     * @dev Test minting shares
+     */
+    function test_MintShares() public {
+        uint256 sharesAmount = 100e18;
+        uint256 investmentAmount = 50000e6;
 
-        // Check investor shares
-        uint256 shares = manager.investorShares(HOTEL_ID, investor);
-        assertEq(shares, 200 ether);
+        vm.prank(address(investment));
+        manager.mintShares(hotelId, investor, sharesAmount, investmentAmount);
 
-        // Check HAT token balance
-        uint256 hatBalance = hat.balanceOf(investor, HOTEL_ID);
-        assertEq(hatBalance, 200 ether);
+        assertEq(hotelToken.balanceOf(investor), sharesAmount);
+
+        // ✅ FIXED: Use struct getter
+        HotelAssetManager.Hotel memory hotel = manager.getHotel(hotelId);
+        assertEq(hotel.tokenContract, address(hotelToken));
     }
 
-    function test_mintShares_reduces_available_shares() public {
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 200 ether, 200e6);
+    /**
+     * @dev Test previewing shares calculation
+     */
+    function test_PreviewShares() public view {
+        uint256 investmentAmount = 5000e6; // $5,000
+        uint256 expectedShares = (investmentAmount * 1e18) / PRICE_PER_SHARE;
 
-        (,,,,, uint256 available,,,,,) = manager.hotels(HOTEL_ID);
-        assertEq(available, 800 ether);
+        uint256 shares = manager.previewShares(hotelId, investmentAmount);
+
+        assertEq(shares, expectedShares);
+        assertEq(shares, 10e18); // 10 shares at $500 each
     }
 
-    function test_investor_share_balance_updated() public {
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 150 ether, 150e6);
+    /**
+     * @dev Test getting hotel details
+     */
+    function test_GetHotelDetails() public view {
+        HotelAssetManager.Hotel memory hotel = manager.getHotel(hotelId);
 
-        uint256 shares = manager.investorShares(HOTEL_ID, investor);
-        assertEq(shares, 150 ether);
+        assertEq(hotel.hotelId, HOTEL_ID);
+        assertEq(hotel.name, HOTEL_NAME);
+        assertEq(hotel.tokenContract, tokenAddress);
+        assertEq(hotel.totalShares, TOTAL_SHARES);
+        assertEq(hotel.pricePerShare, PRICE_PER_SHARE);
+        assertEq(uint8(hotel.status), uint8(HotelAssetManager.HotelStatus.Fundraising));
     }
 
-    function test_revert_mint_exceeds_available() public {
-        vm.prank(investment);
-        vm.expectRevert(HotelAssetManager.InsufficientShares.selector);
-        manager.mintShares(HOTEL_ID, investor, 1_001 ether, 1_001e6);
+    /**
+     * @dev Test total hotels count
+     */
+    function test_TotalHotels() public view {
+        assertEq(manager.totalHotels(), 1);
     }
 
-    function test_revert_mint_below_minimum() public {
-        vm.prank(investment);
-        vm.expectRevert(HotelAssetManager.InvestmentTooSmall.selector);
-        manager.mintShares(HOTEL_ID, investor, 50 ether, 50e6);
+    /**
+     * @dev Test multiple hotels listing
+     */
+    function test_MultipleHotels() public {
+        // List second hotel
+        (uint256 hotelId2, address tokenAddress2) = manager.listHotel(
+            "hotel-456",
+            "Marriott Osaka",
+            "Osaka",
+            "ipfs://test2",
+            "HAT-MAR",
+            propertyOwner,
+            2000e18,
+            600e6,
+            2000e6,
+            FUNDING_DURATION,
+            IKYCRegistry.KYCLevel.BASIC
+        );
+
+        assertEq(manager.totalHotels(), 2);
+        assertEq(hotelId2, 2);
+        assertNotEq(tokenAddress2, tokenAddress);
+
+        (string memory id,,,,,,,,,,,,) = manager.hotels(hotelId2);
+        assertEq(id, "hotel-456");
     }
 
-    /*//////////////////////////////////////////////////////////////
-                        FUNDING DEADLINE
-    //////////////////////////////////////////////////////////////*/
+    // ============ REVERT TESTS ============
 
-    function test_funding_closes_after_deadline() public {
-        vm.warp(block.timestamp + 8 days);
-
-        vm.prank(investment);
-        vm.expectRevert(HotelAssetManager.FundingClosed.selector);
-        manager.mintShares(HOTEL_ID, investor, 100 ether, 100e6);
+    /**
+     * @dev Test revert when unauthorized mints shares
+     */
+    function test_RevertMintSharesUnauthorized() public {
+        vm.prank(investor); // Not the investment contract
+        vm.expectRevert(HotelAssetManager.NotInvestment.selector); // ✅ Use custom error
+        manager.mintShares(hotelId, investor, 100e18, 50000e6);
     }
 
-    function test_funding_works_before_deadline() public {
-        vm.warp(block.timestamp + 6 days);
-
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 100 ether, 100e6);
-
-        uint256 shares = manager.investorShares(HOTEL_ID, investor);
-        assertEq(shares, 100 ether);
+    /**
+     * @dev Test revert when minting shares for invalid hotel
+     */
+    function test_RevertMintSharesInvalidHotel() public {
+        vm.prank(address(investment));
+        vm.expectRevert(HotelAssetManager.HotelNotVerified.selector);
+        manager.mintShares(999, investor, 100e18, 50e9);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                        REVENUE DISTRIBUTION
-    //////////////////////////////////////////////////////////////*/
-
-    function test_revenue_distribution_and_claimable() public {
-        // Investor buys 200 / 1000 shares (20%)
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 200 ether, 200e6);
-
-        // Operator distributes 1,000 ETH revenue
-        vm.prank(operator);
-        manager.distributeRevenue(HOTEL_ID, 1_000 ether);
-
-        uint256 claimable = manager.claimableRevenue(HOTEL_ID, investor);
-
-        // 20% of 1,000 ETH = 200 ETH
-        assertEq(claimable, 200 ether);
+    /**
+     * @dev Test revert when verifying already verified hotel
+     */
+    function test_RevertVerifyHotelAlreadyVerified() public {
+        vm.prank(owner);
+        vm.expectRevert(HotelAssetManager.AlreadyVerified.selector);
+        manager.verifyHotel(hotelId);
     }
 
-    function test_markRevenueClaimed_reduces_claimable() public {
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 100 ether, 100e6);
+    /**
+     * @dev Test revert when non-KYC user tries to receive shares
+     */
+    function test_RevertMintSharesNonKYCUser() public {
+        address nonKYCUser = makeAddr("nonKYCUser");
 
-        vm.prank(operator);
-        manager.distributeRevenue(HOTEL_ID, 1_000 ether);
-
-        // Claim 50 ETH
-        vm.prank(investment);
-        manager.markRevenueClaimed(HOTEL_ID, investor, 50 ether);
-
-        uint256 remaining = manager.claimableRevenue(HOTEL_ID, investor);
-
-        // Should have 50 ETH remaining (100 - 50)
-        assertEq(remaining, 50 ether);
+        vm.prank(address(investment));
+        vm.expectRevert(); // Should revert due to KYC check in token contract
+        manager.mintShares(hotelId, nonKYCUser, 100e18, 50000e6);
     }
 
-    function test_multiple_revenue_distributions() public {
-        // Investor owns 30% of shares
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 300 ether, 300e6);
-
-        // First distribution: 1000 ETH
-        vm.prank(operator);
-        manager.distributeRevenue(HOTEL_ID, 1_000 ether);
-
-        uint256 claimable1 = manager.claimableRevenue(HOTEL_ID, investor);
-        assertEq(claimable1, 300 ether); // 30% of 1000
-
-        // Claim half
-        vm.prank(investment);
-        manager.markRevenueClaimed(HOTEL_ID, investor, 150 ether);
-
-        // Second distribution: 500 ETH
-        vm.prank(operator);
-        manager.distributeRevenue(HOTEL_ID, 500 ether);
-
-        uint256 claimable2 = manager.claimableRevenue(HOTEL_ID, investor);
-        // Remaining 150 + 30% of 500 = 150 + 150 = 300
-        assertEq(claimable2, 300 ether);
+    /**
+     * @dev Test revert when listing hotel with zero shares
+     */
+    function test_RevertListHotelZeroShares() public {
+        vm.expectRevert(); // Should revert with validation error
+        manager.listHotel(
+            "hotel-invalid",
+            "Invalid Hotel",
+            "Location",
+            "ipfs://...",
+            "INV",
+            propertyOwner,
+            0, // Zero shares
+            PRICE_PER_SHARE,
+            MIN_INVESTMENT,
+            FUNDING_DURATION,
+            IKYCRegistry.KYCLevel.BASIC
+        );
     }
 
-    function test_revert_claim_more_than_available() public {
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 100 ether, 100e6);
-
-        vm.prank(operator);
-        manager.distributeRevenue(HOTEL_ID, 1_000 ether);
-
-        // Try to claim more than available
-        vm.prank(investment);
-        vm.expectRevert(HotelAssetManager.InsufficientRevenue.selector);
-        manager.markRevenueClaimed(HOTEL_ID, investor, 200 ether);
+    /**
+     * @dev Test revert when listing hotel with zero price
+     */
+    function test_RevertListHotelZeroPrice() public {
+        vm.expectRevert(); // Should revert with validation error
+        manager.listHotel(
+            "hotel-invalid",
+            "Invalid Hotel",
+            "Location",
+            "ipfs://...",
+            "INV",
+            propertyOwner,
+            TOTAL_SHARES,
+            0, // Zero price
+            MIN_INVESTMENT,
+            FUNDING_DURATION,
+            IKYCRegistry.KYCLevel.BASIC
+        );
     }
 
-    /*//////////////////////////////////////////////////////////////
-                        PREVIEW SHARES
-    //////////////////////////////////////////////////////////////*/
+    function test_DEBUG_hotel_mapping() public {
+        console.log("=== BEFORE SECOND LISTING ===");
+        console.log("First hotel ID:", hotelId);
+        console.log("First hotel token:", tokenAddress);
 
-    function test_previewShares_correct_calculation() public view {
-        // 250 USDC should equal 250 shares (1:1 ratio at 1e6 price)
-        uint256 shares = manager.previewShares(HOTEL_ID, 250e6);
-        assertEq(shares, 250 ether);
-    }
+        // ✅ Use uint256 for hotel ID
+        vm.prank(assetManager);
+        (uint256 secondHotelId, address secondTokenAddress) = manager.listHotel(
+            "hotel-456", // ✅ Different ID
+            "Marriott Tokyo", // Different name
+            LOCATION,
+            IMAGE,
+            "HAT-MAR", // Different symbol
+            propertyOwner,
+            TOTAL_SHARES,
+            PRICE_PER_SHARE,
+            MIN_INVESTMENT,
+            FUNDING_DURATION,
+            IKYCRegistry.KYCLevel.BASIC
+        );
 
-    function test_previewShares_different_amounts() public view {
-        assertEq(manager.previewShares(HOTEL_ID, 100e6), 100 ether);
-        assertEq(manager.previewShares(HOTEL_ID, 500e6), 500 ether);
-        assertEq(manager.previewShares(HOTEL_ID, 1000e6), 1000 ether);
-    }
+        console.log("\n=== AFTER SECOND LISTING ===");
+        console.log("Second hotel ID:", secondHotelId);
+        console.log("Second hotel token:", secondTokenAddress);
 
-    /*//////////////////////////////////////////////////////////////
-                        EDGE CASES
-    //////////////////////////////////////////////////////////////*/
+        // ✅ Use uint256 to fetch hotels
+        HotelAssetManager.Hotel memory firstHotel = manager.getHotel(hotelId);
+        HotelAssetManager.Hotel memory secondHotel = manager.getHotel(secondHotelId);
 
-    function test_full_subscription() public {
-        // Buy all 1000 shares
-        vm.prank(investment);
-        manager.mintShares(HOTEL_ID, investor, 1_000 ether, 1_000e6);
+        console.log("\n=== VERIFICATION ===");
+        console.log("First hotel name:", firstHotel.name);
+        console.log("First hotel token from data:", firstHotel.tokenContract); // ✅ tokenContract
 
-        (,,,,, uint256 available,,,,,) = manager.hotels(HOTEL_ID);
-        assertEq(available, 0);
+        console.log("Second hotel name:", secondHotel.name);
+        console.log("Second hotel token from data:", secondHotel.tokenContract); // ✅ tokenContract
 
-        // Hotel should no longer be available
-        bool isAvailable = manager.isHotelAvailable(HOTEL_ID);
-        assertFalse(isAvailable);
+        // ✅ Assertions
+        assertEq(firstHotel.tokenContract, tokenAddress, "First hotel token mismatch");
+        assertEq(secondHotel.tokenContract, secondTokenAddress, "Second hotel token mismatch");
+        assertEq(firstHotel.name, HOTEL_NAME, "First hotel name mismatch");
+        assertEq(secondHotel.name, "Marriott Tokyo", "Second hotel name mismatch");
     }
 }

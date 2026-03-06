@@ -52,7 +52,7 @@ useEffect(() => {
 const { data: hotels = [] } = useQuery({
   queryKey: ["booking-hotels"],
   queryFn: async () => {
-    const res = await fetch(`${API_URL}/api/v1/hotel`);
+    const res = await fetch(`${API_URL}/api/v1/hotels`);
     if (!res.ok) throw new Error("Failed to fetch hotels");
 
     const data = await res.json();

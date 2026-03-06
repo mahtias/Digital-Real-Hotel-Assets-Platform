@@ -8,6 +8,7 @@ const jwt_1 = require("../utils/jwt");
 const database_1 = __importDefault(require("../config/database"));
 const authenticate = async (req, res, next) => {
     try {
+        console.log(" AUTH DEBUG:", req.path);
         let token = undefined;
         if (req.cookies?.token) {
             token = req.cookies.token;

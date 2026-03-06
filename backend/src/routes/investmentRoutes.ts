@@ -1,28 +1,33 @@
+// src/routes/investmentRoutes.ts
+
 import { Router } from "express";
 import {
-  getUserInvestments,
   createInvestment,
+  getUserInvestments,
   getInvestmentById,
-  updateInvestment,
+  getInvestmentStats,
+  getInvestmentsByStatus,
+  updateInvestment,      
   deleteInvestment,
+  confirmInvestment,     
 } from "../controllers/investmentController";
 import { authenticate } from "../middleware/auth";
 
 const router = Router();
 
-// GET /api/investments → all investments of logged user
-router.get("/", authenticate, getUserInvestments);
+//  All routes require authentication
+router.use(authenticate);
 
-// POST /api/investments → create new investment
-router.post("/", authenticate, createInvestment);
+// Investment CRUD
+router.post("/confirm", confirmInvestment);
+router.post("/", createInvestment);                    
+router.get("/", getUserInvestments);                   
+router.get("/stats", getInvestmentStats);              
+router.get("/status", getInvestmentsByStatus);        
+router.get("/:id", getInvestmentById);                 
 
-// GET /api/investments/:id
-router.get("/:id", authenticate, getInvestmentById);
-
-// PUT /api/investments/:id
-router.put("/:id", authenticate, updateInvestment);
-
-// DELETE /api/investments/:id
-router.delete("/:id", authenticate, deleteInvestment);
+// Optional: Update/Delete (if you have these)
+ router.put("/:id", updateInvestment);               
+ router.delete("/:id", deleteInvestment);            
 
 export default router;

@@ -22,7 +22,7 @@ export default function Marketplace() {
   queryKey: ['hotels', sortBy],
 
   queryFn: async () => {
-  const res = await fetch(`${API_URL}/api/v1/hotel-assets`);
+  const res = await fetch(`${API_URL}/api/v1/hotels`);
   if (!res.ok) throw new Error("Failed to fetch hotels");
   return res.json();
 }
@@ -38,6 +38,7 @@ export default function Marketplace() {
 
   const statusCounts = {
     all: hotels.length,
+     FUNDRAISING: hotels.filter(h => h.status === 'FUNDRAISING').length,
     ACTIVE: hotels.filter(h => h.status === 'ACTIVE').length,
     UPCOMING: hotels.filter(h => h.status === 'UPCOMING').length,
     SOLD_OUT: hotels.filter(h => h.status === 'SOLD_OUT').length,

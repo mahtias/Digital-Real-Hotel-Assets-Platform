@@ -2,12 +2,21 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
 import prisma from '../config/database';
 
+
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+    role: string;
+  };
+}
+
 export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log(" AUTH DEBUG:", req.path);
     let token: string | undefined = undefined;
 
     // 1. CHECK COOKIE TOKEN FIRST

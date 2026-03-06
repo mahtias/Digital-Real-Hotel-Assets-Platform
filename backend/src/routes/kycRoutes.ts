@@ -63,7 +63,7 @@ router.post(
     { name: "addressProof", maxCount: 1 }
   ]),
   [
-    body('level').optional().isIn(['BASIC', 'INTERMEDIATE', 'ADVANCED']),
+    body('level').optional().isIn(['BASIC', 'INTERMEDIATE', 'ADVANCED','FULL']),
     body('fullName').notEmpty(),
     body('dateOfBirth').notEmpty(),
     body('nationality').notEmpty(),
@@ -195,5 +195,16 @@ router.post(
     }
   }
 );
+
+// router.post(
+//   '/admin/sync',
+//   authenticate,
+//   kycController.syncAllPendingKYCs
+// );
+// router.get(
+//   '/admin/sync/stats',
+//   authenticate,
+//   kycController.getBlockchainSyncStats
+// );
 
 export default router;

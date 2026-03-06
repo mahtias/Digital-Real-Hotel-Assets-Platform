@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "../contracts/Investment.sol";
+import "../contracts/HotelInvestment.sol";
 
 contract DeployInvestment is Script {
     //  FIXED: Added treasury parameter back
@@ -14,14 +14,14 @@ contract DeployInvestment is Script {
         address treasury // ← Added back
     )
         external
-        returns (Investment investment)
+        returns (HotelInvestment investment)
     {
         uint256 key = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(key);
 
         //  FIXED: Pass all 4 parameters
-        investment = new Investment(usdc, kycRegistry, assetManager, treasury);
+        investment = new HotelInvestment(usdc, kycRegistry, assetManager, treasury);
 
         vm.stopBroadcast();
 

@@ -1,45 +1,50 @@
 // frontend/src/api/investments.ts
-import api from './axiosConfig';
+import api from '../services/api';
 
-// ✅ TOKENS API
-export const getUserTokens = async (token: string) => {
-  return api.get('/user/tokens', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+// ✅ GET USER TOKENS
+export const getUserTokens = async () => {
+  return api.get('/user/tokens');
 };
 
-// ✅ PORTFOLIO
-export const getUserPortfolio = async (token: string) => {
-  return api.get('/user/portfolio', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+// ✅ GET USER PORTFOLIO
+export const getUserPortfolio = async () => {
+  return api.get('/user/portfolio');
 };
 
-// ✅ INVESTMENTS LIST
-export const getUserInvestments = async (token: string) => {
-  return api.get('/investments', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+// ✅ GET USER INVESTMENTS
+export const getUserInvestments = async () => {
+  return api.get('/investments');
 };
 
-// ✅ CONFIRM ALL
-export const confirmAllInvestments = async (token: string) => {
-  return api.patch('/user/investments/confirm-all', {}, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+// ✅ CONFIRM ALL INVESTMENTS
+export const confirmAllInvestments = async () => {
+  return api.patch('/user/investments/confirm-all', {});
 };
 
-//  NEW: CREATE INVESTMENT (FIXES tokenAmount=0)
-export const createInvestment = async (data: { 
-  hotelId: string; 
-  amount: string; 
-  tokenPrice: number 
+// ✅ CREATE INVESTMENT
+export const createInvestment = async (data: {
+  hotelId: string;
+  amount: string;
+  tokenPrice: number;
 }) => {
   const tokenAmount = Math.floor(Number(data.amount) / data.tokenPrice);
-  
+
   return api.post('/investments', {
     hotelId: data.hotelId,
     amount: data.amount,
-    tokenAmount: tokenAmount  // 🔥 SEND IT!
+    tokenAmount: tokenAmount,
   });
+};
+
+// ✅ GET SINGLE INVESTMENT
+export const getInvestment = async (id: string) => {
+  return api.get(`/investments/${id}`);
+};
+
+// ✅ UPDATE INVESTMENT STATUS
+export const updateInvestmentStatus = async (
+  id: string,
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+) => {
+  return api.patch(`/investments/${id}/status`, { status });
 };

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { X, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import './AuthModal.css';
-import {resendVerificationEmail} from '../services/authService';
+import { resendVerificationEmail } from '@/api/auth';
 import { useLanguage } from '@/components/common/LanguageContext';
 
 const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
@@ -23,7 +23,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
     rememberMe: false,
   });
 
-  
+
   const [registerData, setRegisterData] = useState({
     firstName: '',
     lastName: '',
@@ -58,63 +58,63 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
 
   const validateLogin = () => {
     const newErrors = {};
-    
+
     if (!loginData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(loginData.email)) {
       newErrors.email = 'Please enter a valid email';
     }
-    
+
     if (!loginData.password) {
       newErrors.password = 'Password is required';
     } else if (loginData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateRegister = () => {
     const newErrors = {};
-    
+
     if (!registerData.firstName.trim()) {
       newErrors.firstName = 'First name is required';
     }
-    
+
     if (!registerData.lastName.trim()) {
       newErrors.lastName = 'Last name is required';
     }
-    
+
     if (!registerData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(registerData.email)) {
       newErrors.email = 'Please enter a valid email';
     }
-    
+
     if (!registerData.password) {
       newErrors.password = 'Password is required';
     } else if (registerData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
-    
+
     if (!registerData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (registerData.password !== registerData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     if (!registerData.agreeToTerms) {
       newErrors.agreeToTerms = 'You must agree to the terms and conditions';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateLogin()) return;
 
     setLoading(true);
@@ -191,25 +191,23 @@ const handleResendEmail = async () => {
   return (
     <div className="auth-modal-overlay" onClick={handleOverlayClick}>
       <div className="auth-modal">
-        <button 
-          className="auth-modal-close" 
+        <button
+          className="auth-modal-close"
           onClick={() => {
             resetForms();
             onClose();
           }}
           aria-label="Close"
         >
-          <X 
-
-          size={24} />
+          <X size={24} />
         </button>
 
         <div className="auth-modal-header">
           <h2>{activeTab === 'login'
-             ? t("authLogin.welcomeBack") 
+             ? t("authLogin.welcomeBack")
              : t("authRegister.createAccount")}</h2>
           <p>
-            {activeTab === 'login' 
+            {activeTab === 'login'
               ? t("authLogin.loginToAccess")
               : t("authRegister.joinInvestment")}
           </p>
@@ -236,13 +234,9 @@ const handleResendEmail = async () => {
           </button>
         </div>
 
-        {errors.
-
-        submit && (
+        {errors.submit && (
           <div className="auth-alert auth-alert-error">
-            {errors.
-
-            submit}
+            {errors.submit}
           </div>
         )}
 
@@ -252,7 +246,7 @@ const handleResendEmail = async () => {
     <h2 className="auth-verify-title">Check your email</h2>
 
     <p className="auth-verify-description">
-      We’ve sent you a verification link. Please verify your email before logging in.
+      We've sent you a verification link. Please verify your email before logging in.
     </p>
 
     {successMessage && (
@@ -361,10 +355,10 @@ const handleResendEmail = async () => {
     {loading ? (
       <>
         <span className="spinner"></span>
-        {t("authLogin.loginBtn")} 
+        {t("authLogin.loginBtn")}
       </>
     ) : (
-      t("authLogin.loginBtn") 
+      t("authLogin.loginBtn")
     )}
   </button>
 
@@ -557,7 +551,7 @@ const handleResendEmail = async () => {
             setErrors({ ...errors, agreeToTerms: "" });
         }}
       />
-      <span> 
+      <span>
         {t("authRegister.agreeTerms")}{" "}
         <button type="button" className="auth-link">
           {t("authRegister.termsConditions")}
@@ -598,10 +592,11 @@ const handleResendEmail = async () => {
 </form>
 
         )}
-    
+
       </div>
     </div>
   );
 };
 
 export default AuthModal;
+

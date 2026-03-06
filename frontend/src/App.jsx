@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import VisualEditAgent from '@/lib/VisualEditAgent'
-
 import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
@@ -15,6 +14,7 @@ import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
 import Login from '@/pages/auth/Login';
+import HotelDetail from '@/pages/HotelDetail';
 import KYCForm from '@/components/KYC/KYCForm';
 import KYCStatus from '@/components/KYC/KYCStatus';
 import AdminKYCReview from '@/components/Admin/KYCReview';
@@ -90,6 +90,7 @@ function App() {
 
                     {/* Auth Pages */}
                     <Route path="/login" element={<Login />} />
+                     <Route path="/hotel-detail/:id" element={<HotelDetail />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/verify-email-sent" element={<VerifyEmailSent />} />

@@ -1,11 +1,10 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAccount, useReadContract } from 'wagmi';
-
+import { useAccount, useReadContracts } from 'wagmi';
 import { ArrowRight, Sparkles, Shield, Globe, TrendingUp, Building2, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -15,26 +14,18 @@ import PortfolioSummary from "@/components/dashboard/PortfolioSummary";
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuth } from "@/context/AuthContext";
 
-// 🔥 YOUR ABIS & CONTRACTS
-import { HAT_ABI } from '@/contracts/abis';
-import { HAT_TOKEN_ADDRESS } from '@/config/chains';
+// 🔥 HOTEL TOKEN ABI
+import { HOTEL_TOKEN_ABI } from '@/contracts/abis';
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function Home() {
   const [user, setUser] = useState(null);
   const { t } = useLanguage();
   const { authFetch } = useAuth();
 
-  // 🔥 WALLET CONNECTION & HAT BALANCE
+  // 🔥 WALLET CONNECTION
   const { address, isConnected } = useAccount();
-  const { data: hatBalance } = useReadContract({
-    address: HAT_TOKEN_ADDRESS,
-    abi: HAT_ABI,
-    functionName: 'balanceOf',
-    args: [address],
-    watch: true,
-  });
 
   // 🔥 Load user data
   useEffect(() => {
@@ -44,17 +35,17 @@ export default function Home() {
       .catch(() => setUser(null));
   }, [authFetch]);
 
-  // 🔥 HOTELS
+  // 🔥 HOTELS WITH TOKEN ADDRESSES
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/v1/hotel-assets`);
+      const res = await fetch(`${API_URL}/api/v1/hotels`);
       if (!res.ok) throw new Error("Failed to fetch hotels");
       return res.json();
     },
   });
 
-  // 🔥 INVESTMENTS (FIXED authFetch)
+  // 🔥 INVESTMENTS
   const { data: investments = [] } = useQuery({
     queryKey: ["user-investments"],
     queryFn: async () => {
@@ -67,55 +58,121 @@ export default function Home() {
     enabled: !!user,
   });
 
+  // 🔥 BUILD CONTRACTS ARRAY FOR BATCH READ
+  const contracts = useMemo(() => {
+    if (!address || hotels.length === 0) return [];
+    
+    return hotels.flatMap(hotel => [
+      {
+        address: hotel.tokenContractAddress,
+        abi: HOTEL_TOKEN_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      },
+      {
+        address: hotel.tokenContractAddress,
+        abi: HOTEL_TOKEN_ABI,
+        functionName: 'symbol',
+      }
+    ]);
+  }, [hotels, address]);
+
+  // 🔥 READ ALL HOTEL TOKEN BALANCES AT ONCE
+  const { data: contractResults } = useReadContracts({
+    contracts,
+    watch: true,
+  });
+
+  // 🔥 PARSE RESULTS INTO HOTEL TOKEN BALANCES
+  const hotelTokenBalances = useMemo(() => {
+    if (!contractResults || contractResults.length === 0) return [];
+
+    return hotels.map((hotel, idx) => {
+      const balanceResult = contractResults[idx * 2];
+      const symbolResult = contractResults[idx * 2 + 1];
+
+      const balance = balanceResult?.result ? Number(balanceResult.result) / 1e18 : 0;
+      const symbol = symbolResult?.result || hotel.tokenSymbol || 'HOTEL';
+      const value = balance * (hotel.tokenPrice || 20);
+
+      return {
+        hotelId: hotel.id,
+        name: hotel.name,
+        symbol,
+        balance,
+        value,
+        tokenAddress: hotel.tokenContractAddress
+      };
+    });
+  }, [contractResults, hotels]);
+
   // 🔥 CALCULATIONS
   const totalValue = investments.reduce((acc, inv) => acc + (inv.invested_amount || 0), 0);
-  const totalRewards = investments.reduce((acc, inv) => acc + (inv.earned_rewards || 0), 0);
-  const walletHatValue = (hatBalance ? Number(hatBalance) / 1e18 : 0) * 20; // $20/HAT
+  const totalRewards = investments.reduce((acc, inv) => acc + (inv.rewards_earned || 0), 0);
+  
+  const totalTokenBalance = hotelTokenBalances.reduce((acc, token) => acc + token.balance, 0);
+  const walletHatValue = hotelTokenBalances.reduce((acc, token) => acc + token.value, 0);
 
-  // 🔥 FEATURES (FIXED)
+  // 🔥 FEATURES
   const features = [
-    { icon: Sparkles, title: t('home.features.lowEntry.title'), desc: t('home.features.lowEntry.desc') },
-    { icon: TrendingUp, title: t('home.features.stableYield.title'), desc: t('home.features.stableYield.desc') },
-    { icon: Shield, title: t('home.features.hkCompliant.title'), desc: t('home.features.hkCompliant.desc') },
-    { icon: Globe, title: t('home.features.globalLiquidity.title'), desc: t('home.features.globalLiquidity.desc') },
+    {
+      icon: Shield,
+      title: t('home.features.lowEntry.title'),
+      desc: t('home.features.lowEntry.desc')
+    },
+    {
+      icon: TrendingUp,
+      title: t('home.features.stableYield.title'),
+      desc: t('home.features.stableYield.desc')
+    },
+    {
+      icon: Globe,
+      title: t('home.features.hkCompliant.title'),
+      desc: t('home.features.hkCompliant.desc')
+    },
+    {
+      icon: Sparkles,
+      title: t('home.features.globalLiquidity.title'),
+      desc: t('home.features.globalLiquidity.desc')
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       {/* Hero Section */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1920')] bg-cover bg-center opacity-10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950" />
-
-        <div className="relative max-w-7xl mx-auto px-4 pt-16 pb-24">
-          <div className="text-center max-w-3xl mx-auto mb-12">
-            <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-6">
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-emerald-500/10 opacity-20" />
+        
+        <div className="max-w-7xl mx-auto px-4 py-20 relative">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-amber-500/10 text-amber-400 border-amber-500/20">
+              <Sparkles className="w-3 h-3 mr-1" />
               {t('home.badge')}
             </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
               {t('home.title1')}
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">
-                {t('home.title2')}
-              </span>
             </h1>
-            <p className="text-lg text-slate-400 mb-8">
+            <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">
               {t('home.subtitle')}
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">
+              {t('home.title2')}
+            </p>
+            <div className="flex gap-4 justify-center">
               <Link to={createPageUrl('Marketplace')}>
-                <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold px-8">
-                  {t('home.exploreBtn')} <ArrowRight className="ml-2 w-5 h-5" />
+                <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-white">
+                  {t('home.exploreHotels')}
+                  <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
               </Link>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-slate-700 text-white hover:bg-slate-800"
                 asChild
               >
-                <a 
-                  href="http://xhslink.com/o/9RiPnlyZbnP" 
+                <a
+                  href="https://docs.hotelastoken.com"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -125,12 +182,13 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 🔥 STATS WITH WALLET HAT */}
+          {/* 🔥 STATS WITH WALLET TOKENS */}
           <StatsOverview 
             totalValue={totalValue}
             totalRewards={totalRewards}
-            hatBalance={hatBalance ? Number(hatBalance) / 1e18 : 0}
-            walletHatValue={walletHatValue}
+            tokenBalance={totalTokenBalance}
+            walletValue={walletHatValue}
+            hotelTokenBalances={hotelTokenBalances}
           />
         </div>
       </div>
@@ -181,14 +239,15 @@ export default function Home() {
             )}
           </div>
 
-          {/* 🔥 PORTFOLIO SUMMARY WITH HAT */}
+          {/*  PORTFOLIO SUMMARY WITH HOTEL TOKENS */}
           <div>
             <PortfolioSummary 
               investments={investments}
               totalValue={totalValue}
               totalRewards={totalRewards}
-              hatBalance={hatBalance ? Number(hatBalance) / 1e18 : 0}
+              tokenBalance={totalTokenBalance}
               hatPrice={20}
+              hotelTokenBalances={hotelTokenBalances}
             />
 
             {/* Quick Actions */}

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import {KYCRegistry} from "../contracts/KYCRegistry.sol";
+import { KYCRegistry } from "../contracts/KYCRegistry.sol";
 
 contract DeployKYCRegistry is Script {
     function run() external returns (KYCRegistry registry) {

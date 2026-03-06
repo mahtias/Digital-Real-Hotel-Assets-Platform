@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import fs from 'fs';
 import path from 'path';
 import { sendAdminKycEmail } from "../utils/sendAdminKycEmail";
+import kyc from '../blockchain/kyc'; 
 
 const uploadDir = path.join(__dirname, '../../uploads/kyc');
 
@@ -12,9 +13,7 @@ const deleteFile = (fileName?: string | null) => {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 };
 
-
 // SUBMIT KYC
-
 export const submitKYC = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -46,19 +45,25 @@ export const submitKYC = async (req: Request, res: Response) => {
       addressProof: files?.addressProof?.[0]?.filename ?? null,
     };
 
-    const kyc = await prisma.kyc.create({
+    const kycRecord = await prisma.kyc.create({
       data,
     });
 
-      const user = await prisma.user.findUnique({
+    // Update user's kycSubmittedAt
+    await prisma.user.update({
+      where: { id: userId },
+      data: { kycSubmittedAt: new Date() }
+    });
+
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true }
     });
 
-    //  Notify admin
+    // Notify admin
     if (user) sendAdminKycEmail(user);
-    
-    return res.json({ success: true, data: kyc });
+
+    return res.json({ success: true, data: kycRecord });
 
   } catch (error: any) {
     return res.status(500).json({
@@ -68,48 +73,45 @@ export const submitKYC = async (req: Request, res: Response) => {
   }
 };
 
-
 // GET KYC BY ID
-
 export const getKYCById = async (req: Request, res: Response) => {
   try {
-    const kyc = await prisma.kyc.findUnique({
-  where: { id: req.params.id },
-  include: {
-    user: {
-      select: {
-        email: true,
-        walletAddress: true
+    const kycRecord = await prisma.kyc.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: {
+          select: {
+            email: true,
+            walletAddress: true
+          }
+        }
       }
-    }
-  }
-});
+    });
 
-    if (!kyc) return res.status(404).json({ success: false, message: 'KYC not found' });
+    if (!kycRecord) return res.status(404).json({ success: false, message: 'KYC not found' });
 
-    return res.json({ success: true, data: kyc });
+    return res.json({ success: true, data: kycRecord });
 
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
 // GET ALL KYC (ADMIN)
-
 export const getAllKYC = async (req: Request, res: Response) => {
   try {
     const list = await prisma.kyc.findMany({
-  orderBy: { createdAt: 'desc' },
-  include: {
-    user: {
-      select: {
-        email: true,
-        walletAddress: true
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            email: true,
+            walletAddress: true,
+            kycStatus: true
+          }
+        }
       }
-    }
-  }
-});
+    });
 
     return res.json({ success: true, data: list });
 
@@ -118,51 +120,158 @@ export const getAllKYC = async (req: Request, res: Response) => {
   }
 };
 
-
-// REVIEW KYC (ADMIN)
-
+// ✅ Fully ready REVIEW KYC (ADMIN) with blockchain verification
 export const reviewKYC = async (req: Request, res: Response) => {
   try {
     const { status, rejectionReason } = req.body;
+    const kycId = req.params.id;
 
-    const data: any = {
-      status,
-      reviewedAt: new Date(),
-      reviewedBy: req.user?.userId
-    };
+    console.log('🔍 Starting KYC review process...');
+    console.log('📋 KYC ID:', kycId);
+    console.log('📊 New Status:', status);
 
-    if (status === "REJECTED") {
-      data.rejectionReason = rejectionReason;
-    } else {
-      data.rejectionReason = null;
-      data.approvedAt = new Date();
-    }
-
-    // Update KYC table
-    const updated = await prisma.kyc.update({
-      where: { id: req.params.id },
-      data
-    });
-
-    //  VERY IMPORTANT: Sync USER table
-    await prisma.user.update({
-      where: { id: updated.userId },
-      data: {
-        kycStatus: status === "APPROVED" ? "APPROVED" : "PENDING"
+    // Fetch KYC record and associated user
+    const kycRecord = await prisma.kyc.findUnique({
+      where: { id: kycId },
+      include: {
+        user: {
+          select: { id: true, email: true, walletAddress: true }
+        }
       }
     });
 
-    return res.json({ success: true, data: updated });
+    if (!kycRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC record not found'
+      });
+    }
+
+    console.log('👤 User:', kycRecord.user.email);
+    console.log('💳 Wallet:', kycRecord.user.walletAddress);
+
+    // Base update object
+    const data: any = {
+      status,
+      reviewedAt: new Date(),
+      // Uncomment if you add `reviewedBy` column later
+      // reviewedBy: req.user?.userId
+    };
+
+    // -----------------------------
+    // Handle REJECTION
+    // -----------------------------
+    if (status === "REJECTED") {
+      if (!rejectionReason) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rejection reason is required'
+        });
+      }
+
+      data.rejectionReason = rejectionReason;
+
+      const updated = await prisma.kyc.update({
+        where: { id: kycId },
+        data
+      });
+
+      await prisma.user.update({
+        where: { id: updated.userId },
+        data: { kycStatus: "REJECTED" }
+      });
+
+      console.log('❌ KYC Rejected');
+      return res.json({
+        success: true,
+        data: updated,
+        message: 'KYC rejected successfully'
+      });
+    }
+
+    // -----------------------------
+    // Handle APPROVAL
+    // -----------------------------
+    if (status === "APPROVED") {
+      if (!kycRecord.user.walletAddress) {
+        return res.status(400).json({
+          success: false,
+          message: 'User wallet address not found. Cannot verify on blockchain.'
+        });
+      }
+
+      console.log('🔗 Verifying user on blockchain...');
+      let txHash: string;
+
+      try {
+        txHash = await kyc.verifyUser(kycRecord.user.walletAddress);
+
+        console.log('✅ Blockchain verification result:', txHash);
+
+        // Handle already-approved case
+        if (txHash === "already-approved") {
+          console.log(' User already approved on-chain');
+          let txHash: string | null;
+        }
+
+        data.rejectionReason = null;
+        data.approvedAt = new Date();
+        data.blockchainTx = txHash;
+      } catch (blockchainError: any) {
+        console.error(' Blockchain verification failed:', blockchainError.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Blockchain verification failed',
+          error: blockchainError.message
+        });
+      }
+
+      const updated = await prisma.kyc.update({
+        where: { id: kycId },
+        data
+      });
+
+      await prisma.user.update({
+        where: { id: updated.userId },
+        data: {
+          kycStatus: "APPROVED",
+          kycApprovedAt: new Date()
+        }
+      });
+
+      console.log('💾 Database updated for approved KYC');
+
+      return res.json({
+        success: true,
+        data: {
+          ...updated,
+          blockchainTx: txHash
+        },
+        message: 'KYC approved and verified on blockchain',
+        txHash: txHash
+      });
+    }
+
+    // -----------------------------
+    // Invalid status
+    // -----------------------------
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid status'
+    });
 
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('❌ Review KYC error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
 
 
 // UPDATE KYC (RESUBMIT)
-
 export const updateKYC = async (req: Request, res: Response) => {
   try {
     const existing = await prisma.kyc.findUnique({
@@ -221,9 +330,7 @@ export const updateKYC = async (req: Request, res: Response) => {
   }
 };
 
-
 // DELETE KYC
-
 export const deleteKYC = async (req: Request, res: Response) => {
   try {
     const existing = await prisma.kyc.findUnique({
@@ -247,9 +354,7 @@ export const deleteKYC = async (req: Request, res: Response) => {
   }
 };
 
-
 // PENDING KYC
-
 export const getPendingKYCs = async () => {
   return await prisma.kyc.findMany({
     where: { status: "PENDING" },
@@ -257,11 +362,79 @@ export const getPendingKYCs = async () => {
   });
 };
 
+// ✅ GET KYC STATUS (FOR FRONTEND) - NEW FUNCTION
+export const checkKYCStatus = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        walletAddress: true,
+        kycStatus: true,
+        kycSubmittedAt: true,
+        kycApprovedAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check blockchain verification
+    let blockchainVerified = false;
+    let blockchainError = null;
+
+    if (user.walletAddress && user.kycStatus === 'APPROVED') {
+      try {
+        console.log('🔍 Checking blockchain KYC for:', user.walletAddress);
+        blockchainVerified = await kyc.isVerified(user.walletAddress);
+        console.log('✅ Blockchain verification result:', blockchainVerified);
+      } catch (error: any) {
+        console.error('❌ Blockchain check error:', error.message);
+        blockchainError = error.message;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        userId: user.id,
+        email: user.email,
+        walletAddress: user.walletAddress,
+        kycStatus: user.kycStatus,
+        kycSubmittedAt: user.kycSubmittedAt,
+        kycApprovedAt: user.kycApprovedAt,
+        blockchain: {
+          verified: blockchainVerified,
+          error: blockchainError,
+          checkedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error checking KYC status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check KYC status',
+      details: error.message
+    });
+  }
+};
+
+// GET KYC STATUS BY ID
 export const getKYCStatus = async (req: Request, res: Response) => {
   try {
     const id = req.params.id;
 
-    const kyc = await prisma.kyc.findUnique({
+    const kycRecord = await prisma.kyc.findUnique({
       where: { id },
       select: {
         id: true,
@@ -270,10 +443,11 @@ export const getKYCStatus = async (req: Request, res: Response) => {
         approvedAt: true,
         reviewedAt: true,
         reviewedBy: true,
+        blockchainTx: true,
       },
     });
 
-    if (!kyc) {
+    if (!kycRecord) {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
@@ -282,7 +456,7 @@ export const getKYCStatus = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      data: kyc,
+      data: kycRecord,
     });
 
   } catch (error: any) {
@@ -294,7 +468,6 @@ export const getKYCStatus = async (req: Request, res: Response) => {
 };
 
 // STATISTICS
-
 export const getKYCStatistics = async (req: Request, res: Response) => {
   try {
     const stats = {

@@ -9,6 +9,7 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secre
 const JWT_EXPIRES_IN = '1h';
 const JWT_REFRESH_EXPIRES_IN = '7d';
 console.log("JWT SECRET IN JWT.UTILS:", process.env.JWT_SECRET);
+
 export interface TokenPayload {
   //id: string;
   userId: string;
