@@ -9,6 +9,7 @@ const ABI = [
   "function getHotel(uint256) view returns (tuple(string hotelId,string name,string location,string imageUrl,address propertyOwner,address tokenContract,uint256 totalShares,uint256 pricePerShare,uint256 minimumInvestment,uint256 fundingDeadline,uint8 status,bool isVerified,uint256 createdAt))"
 ];
 
+
 async function main() {
   try {
     const RPC_URL = process.env.RPC_URL as string;

@@ -26,8 +26,6 @@ import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
 import VerifyEmailSent from '@/pages/auth/VerifyEmailSent';
 import VerifyEmail from '@/pages/auth/VerifyEmail';
-
-
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import { useAuthModal } from "@/context/AuthModalContext";
 import AuthModal from "@/components/AuthModal";
