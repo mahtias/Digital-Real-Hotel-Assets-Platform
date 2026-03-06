@@ -113,18 +113,15 @@ exports.getAllKYC = getAllKYC;
 const reviewKYC = async (req, res) => {
     try {
         const { status, rejectionReason } = req.body;
+        const kycId = req.params.id;
         console.log('🔍 Starting KYC review process...');
-        console.log('📋 KYC ID:', req.params.id);
+        console.log('📋 KYC ID:', kycId);
         console.log('📊 New Status:', status);
         const kycRecord = await database_1.default.kyc.findUnique({
-            where: { id: req.params.id },
+            where: { id: kycId },
             include: {
                 user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        walletAddress: true
-                    }
+                    select: { id: true, email: true, walletAddress: true }
                 }
             }
         });
@@ -139,12 +136,17 @@ const reviewKYC = async (req, res) => {
         const data = {
             status,
             reviewedAt: new Date(),
-            reviewedBy: req.user?.userId
         };
         if (status === "REJECTED") {
+            if (!rejectionReason) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Rejection reason is required'
+                });
+            }
             data.rejectionReason = rejectionReason;
             const updated = await database_1.default.kyc.update({
-                where: { id: req.params.id },
+                where: { id: kycId },
                 data
             });
             await database_1.default.user.update({
@@ -166,43 +168,47 @@ const reviewKYC = async (req, res) => {
                 });
             }
             console.log('🔗 Verifying user on blockchain...');
+            let txHash;
             try {
-                const txHash = await kyc_1.default.verifyUser(kycRecord.user.walletAddress);
-                console.log('✅ Blockchain verification successful!');
-                console.log('📝 Transaction Hash:', txHash);
+                txHash = await kyc_1.default.verifyUser(kycRecord.user.walletAddress);
+                console.log('✅ Blockchain verification result:', txHash);
+                if (txHash === "already-approved") {
+                    console.log(' User already approved on-chain');
+                    let txHash;
+                }
                 data.rejectionReason = null;
                 data.approvedAt = new Date();
-                data.blockchainTxHash = txHash;
-                const updated = await database_1.default.kyc.update({
-                    where: { id: req.params.id },
-                    data
-                });
-                await database_1.default.user.update({
-                    where: { id: updated.userId },
-                    data: {
-                        kycStatus: "APPROVED",
-                        kycApprovedAt: new Date()
-                    }
-                });
-                console.log('💾 Database updated');
-                return res.json({
-                    success: true,
-                    data: {
-                        ...updated,
-                        blockchainTxHash: txHash
-                    },
-                    message: 'KYC approved and verified on blockchain',
-                    txHash: txHash
-                });
+                data.blockchainTx = txHash;
             }
             catch (blockchainError) {
-                console.error('❌ Blockchain verification failed:', blockchainError.message);
+                console.error(' Blockchain verification failed:', blockchainError.message);
                 return res.status(500).json({
                     success: false,
                     message: 'Blockchain verification failed',
                     error: blockchainError.message
                 });
             }
+            const updated = await database_1.default.kyc.update({
+                where: { id: kycId },
+                data
+            });
+            await database_1.default.user.update({
+                where: { id: updated.userId },
+                data: {
+                    kycStatus: "APPROVED",
+                    kycApprovedAt: new Date()
+                }
+            });
+            console.log('💾 Database updated for approved KYC');
+            return res.json({
+                success: true,
+                data: {
+                    ...updated,
+                    blockchainTx: txHash
+                },
+                message: 'KYC approved and verified on blockchain',
+                txHash: txHash
+            });
         }
         return res.status(400).json({
             success: false,

@@ -5,7 +5,7 @@ const auth_middleware_1 = require("../middleware/auth.middleware");
 const client_1 = require("@prisma/client");
 const userController_1 = require("../controllers/userController");
 const router = (0, express_1.Router)();
-router.patch('/wallet', auth_middleware_1.authenticate, userController_1.updateWalletAddress);
+router.put('/wallet', auth_middleware_1.authenticate, userController_1.updateWalletAddress);
 router.get('/profile', auth_middleware_1.authenticate, userController_1.getUserProfile);
 router.put('/profile', auth_middleware_1.authenticate, userController_1.updateUserProfile);
 router.get('/portfolio', auth_middleware_1.authenticate, userController_1.getUserPortfolio);

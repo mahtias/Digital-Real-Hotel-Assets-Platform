@@ -25,7 +25,7 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes_1.default);
 router.use('/kyc', kycRoutes_1.default);
 router.use('/user', userRoutes_1.default);
-router.use('/hotel-assets', hotelAssetRoutes_1.default);
+router.use('/hotels', hotelAssetRoutes_1.default);
 router.use('/investments', investmentRoutes_1.default);
 router.use('/book', bookingRoutes_1.default);
 router.use('/proposals', proposalRoutes_1.default);

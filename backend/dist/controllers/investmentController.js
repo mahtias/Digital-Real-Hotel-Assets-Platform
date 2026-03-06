@@ -3,11 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelInvestment = exports.deleteInvestment = exports.updateInvestment = exports.getInvestmentsByStatus = exports.getInvestmentStats = exports.getInvestmentById = exports.getUserInvestments = exports.createInvestment = void 0;
+exports.cancelInvestment = exports.deleteInvestment = exports.updateInvestment = exports.getInvestmentsByStatus = exports.getInvestmentStats = exports.getInvestmentById = exports.getUserInvestments = exports.confirmInvestment = exports.createInvestment = void 0;
 const database_1 = __importDefault(require("../config/database"));
-const web3Service_1 = require("../services/web3Service");
 const client_1 = require("@prisma/client");
 const kyc_1 = __importDefault(require("../blockchain/kyc"));
+const blockchain_1 = require("../utils/blockchain");
 const toNumber = (value) => {
     if (value === null || value === undefined)
         return 0;
@@ -19,11 +19,18 @@ const sumDecimals = (values) => {
     return values.reduce((sum, val) => sum + toNumber(val), 0);
 };
 const createInvestment = async (req, res) => {
+    console.log("🔥 CREATE INVESTMENT FUNCTION HIT");
     try {
         const { hotelId, amount } = req.body;
         if (!req.user?.userId) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("🔥 BACKEND RECEIVED REQUEST");
+        console.log("hotelId:", hotelId);
+        console.log("amount:", amount);
+        console.log("type:", typeof amount);
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         const userId = req.user.userId;
         if (!hotelId || !amount) {
             return res.status(400).json({
@@ -102,12 +109,16 @@ const createInvestment = async (req, res) => {
                 message: 'Token price not set for this hotel'
             });
         }
-        const tokenAmount = amount / hotelAsset.tokenPrice;
-        const newTokensSold = (hotelAsset.tokensSold || 0) + tokenAmount;
-        if (hotelAsset.totalTokens && newTokensSold > hotelAsset.totalTokens) {
+        const tokenPrice = Number(hotelAsset.tokenPrice);
+        const totalTokens = hotelAsset.totalTokens ? Number(hotelAsset.totalTokens) : 0;
+        const tokensSold = hotelAsset.tokensSold ? Number(hotelAsset.tokensSold) : 0;
+        const rawTokenAmount = amount / tokenPrice;
+        const tokenAmount = Number(rawTokenAmount.toFixed(6));
+        const newTokensSold = tokensSold + tokenAmount;
+        if (totalTokens && newTokensSold > totalTokens) {
             return res.status(400).json({
-                message: 'Not enough tokens available',
-                available: hotelAsset.totalTokens - (hotelAsset.tokensSold || 0),
+                message: "Not enough tokens available",
+                available: totalTokens - tokensSold,
                 requested: tokenAmount
             });
         }
@@ -119,59 +130,21 @@ const createInvestment = async (req, res) => {
                 tokenAmount,
                 walletAddress,
                 status: 'PENDING',
-                blockchainStatus: 'PENDING',
+                blockchainStatus: 'AWAITING_USER_TX',
                 investedAmount: amount,
                 earnedRewards: 0,
                 pendingRewards: 0,
                 stakedAmount: 0,
             }
         });
-        await database_1.default.hotelAsset.update({
-            where: { id: hotelId },
-            data: { tokensSold: newTokensSold }
-        });
-        (async () => {
-            try {
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log(' MINTING TOKENS ON BLOCKCHAIN');
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log('Investment ID:', investment.id);
-                console.log('Hotel Asset:', hotelAsset.name);
-                console.log('Token ID:', hotelAsset.tokenId);
-                console.log('Recipient:', walletAddress);
-                console.log('Amount:', tokenAmount);
-                const txHash = await web3Service_1.web3Service.processInvestment(hotelId, walletAddress, tokenAmount.toString());
-                await database_1.default.investment.update({
-                    where: { id: investment.id },
-                    data: {
-                        blockchainTxHash: txHash,
-                        blockchainStatus: "MINTED",
-                        status: "CONFIRMED"
-                    }
-                });
-                console.log(' Investment minted! TX:', txHash);
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-            }
-            catch (error) {
-                console.error(' Minting failed:', error);
-                await database_1.default.investment.update({
-                    where: { id: investment.id },
-                    data: {
-                        blockchainStatus: "MINT_FAILED",
-                        status: "FAILED",
-                        blockchainError: error.message
-                    }
-                });
-            }
-        })();
         return res.status(201).json({
-            message: `Successfully invested $${amount}! Minting ${tokenAmount} ${hotelAsset.tokenSymbol || 'tokens'} for ${hotelAsset.name}...`,
+            message: "Investment created. Please confirm the transaction in your wallet.",
             investment: {
                 id: investment.id,
                 amount,
                 tokenAmount,
-                status: investment.status,
-                blockchainStatus: investment.blockchainStatus,
+                status: "PENDING",
+                blockchainStatus: "AWAITING_USER_TX",
                 hotelAsset: {
                     name: hotelAsset.name,
                     tokenSymbol: hotelAsset.tokenSymbol,
@@ -188,6 +161,80 @@ const createInvestment = async (req, res) => {
     }
 };
 exports.createInvestment = createInvestment;
+const confirmInvestment = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const { hotelId, amount, blockchainTxHash } = req.body;
+        if (!hotelId || !amount || !blockchainTxHash) {
+            return res.status(400).json({
+                error: "hotelId, amount and blockchainTxHash are required",
+            });
+        }
+        const txReceipt = await (0, blockchain_1.verifyTransaction)(blockchainTxHash);
+        const existing = await database_1.default.investment.findFirst({
+            where: { blockchainTxHash },
+        });
+        if (existing) {
+            return res.status(400).json({
+                error: "Transaction already used",
+            });
+        }
+        const hotelAsset = await database_1.default.hotelAsset.findUnique({
+            where: { id: hotelId },
+        });
+        if (!hotelAsset) {
+            return res.status(404).json({
+                error: "Hotel not found",
+            });
+        }
+        const tokenPrice = Number(hotelAsset.tokenPrice);
+        const investmentAmount = Number(amount);
+        const tokenAmount = Number((investmentAmount / tokenPrice).toFixed(6));
+        const newTokensSold = Number(hotelAsset.tokensSold || 0) + tokenAmount;
+        if (hotelAsset.totalTokens && newTokensSold > Number(hotelAsset.totalTokens)) {
+            return res.status(400).json({
+                message: "Not enough tokens available",
+            });
+        }
+        const [investment] = await database_1.default.$transaction([
+            database_1.default.investment.create({
+                data: {
+                    userId,
+                    hotelAssetId: hotelId,
+                    amount: investmentAmount,
+                    investedAmount: investmentAmount,
+                    tokenAmount,
+                    pendingRewards: 0,
+                    earnedRewards: 0,
+                    stakedAmount: 0,
+                    blockchainTxHash,
+                    status: "ACTIVE",
+                    blockchainStatus: "MINTED",
+                },
+            }),
+            database_1.default.hotelAsset.update({
+                where: { id: hotelId },
+                data: {
+                    tokensSold: newTokensSold,
+                },
+            }),
+        ]);
+        return res.json({
+            success: true,
+            investment,
+        });
+    }
+    catch (error) {
+        console.error("confirmInvestment error:", error);
+        return res.status(500).json({
+            error: "Failed to confirm investment",
+        });
+    }
+};
+exports.confirmInvestment = confirmInvestment;
 const getUserInvestments = async (req, res) => {
     try {
         const userId = req.user?.userId;

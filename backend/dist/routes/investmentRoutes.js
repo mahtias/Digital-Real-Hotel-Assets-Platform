@@ -5,6 +5,7 @@ const investmentController_1 = require("../controllers/investmentController");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
+router.post("/confirm", investmentController_1.confirmInvestment);
 router.post("/", investmentController_1.createInvestment);
 router.get("/", investmentController_1.getUserInvestments);
 router.get("/stats", investmentController_1.getInvestmentStats);

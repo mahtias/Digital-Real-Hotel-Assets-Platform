@@ -9,6 +9,7 @@ interface AuthRequest extends Request {
     walletAddress?: string;
 }
 export declare const createInvestment: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const confirmInvestment: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const getUserInvestments: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 export declare const getInvestmentById: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 export declare const getInvestmentStats: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
