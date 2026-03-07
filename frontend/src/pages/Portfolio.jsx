@@ -46,7 +46,7 @@ export default function Portfolio() {
       .catch(() => setUser(null))
       .finally(() => setUserLoading(false));
   }, [authFetch]);
- console.log("investments state:", investments);
+ //console.log("investments state:", investments);
   // 🔥 Investments
  const { data: investmentsRaw = [], isLoading: investmentsLoading } = useQuery({
   queryKey: ["investments", user?.id],
