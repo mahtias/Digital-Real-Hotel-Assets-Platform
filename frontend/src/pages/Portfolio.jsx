@@ -47,7 +47,7 @@ export default function Portfolio() {
       .finally(() => setUserLoading(false));
   }, [authFetch]);
 
-  //  Investments
+  // 🔥 Investments
 const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
   queryKey: ["investments"],
   queryFn: async () => {
@@ -56,14 +56,15 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
     console.log("STATUS:", res.status);
 
     if (!res.ok) {
-      console.error("Request failed");
+      console.error("Request failed:", res);
       throw new Error("Failed to fetch investments");
     }
 
-    const json = await res.json();
+    const text = await res.text();   // 👈 read raw response
+    console.log("RAW RESPONSE:", text);
 
-    console.log("FULL RESPONSE:", json);
-    console.log("INVESTMENTS ARRAY:", json?.data);
+    const json = JSON.parse(text);
+    console.log("PARSED JSON:", json);
 
     return json?.data ?? [];
   },
