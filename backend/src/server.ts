@@ -69,10 +69,10 @@ app.use((req, res) => {
 if (process.env.NODE_ENV === 'production') {
   console.log('\n Starting PRODUCTION cron jobs...');
   startKycSyncJob(); // Every hour
-  console.log('✅ KYC sync job: Running every hour\n');
+  console.log(' KYC sync job: Running every hour\n');
   
 } else if (process.env.ENABLE_TEST_CRON === 'true') {
-  console.log('\n🧪 Starting TEST cron jobs...');
+  console.log('\n Starting TEST cron jobs...');
   startKycSyncJobTest(); // Every minute (for testing)
   console.log(' KYC sync job: Running every minute (TEST MODE)\n');
   
