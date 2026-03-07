@@ -46,7 +46,7 @@ export default function Portfolio() {
       .catch(() => setUser(null))
       .finally(() => setUserLoading(false));
   }, [authFetch]);
- 
+
   // 🔥 Investments
   const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
     queryKey: ["investments"],
@@ -57,7 +57,7 @@ export default function Portfolio() {
       console.log("INVESTMENTS RAW DATA:", data);
       return data.data || []; // ✅ Fix here
     },
-   enabled: !userLoading,
+    enabled: !!user,
   });
 
   // 🔥 Enrich investments using hotelAsset from API
