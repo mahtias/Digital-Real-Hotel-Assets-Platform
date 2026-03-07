@@ -48,7 +48,7 @@ export default function Portfolio() {
   }, [authFetch]);
 
   // 🔥 Investments
- const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
+const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
   queryKey: ["investments"],
   queryFn: async () => {
     const res = await authFetch("/api/v1/investments");
@@ -64,7 +64,7 @@ export default function Portfolio() {
 
     return json.data ?? [];
   },
-  enabled: !!user,
+  enabled: !!localStorage.getItem("authToken"), 
 });
 
   // 🔥 Enrich investments using hotelAsset from API
