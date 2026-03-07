@@ -20,7 +20,7 @@ import WalletConnect from '@/components/common/WalletConnect';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/context/AuthContext';
 
-//const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 function LayoutContent({ children }) {
   const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,8 +36,9 @@ function LayoutContent({ children }) {
     setAuthModalOpen(true);
     localStorage.removeItem("openAuthModal");
   }
-    console.log("Testing API connection...");
-    fetch("http://localhost:5000/api/v1/health") 
+    console.log("Testing API connection..."); 
+    fetch(`${API_URL}/api/v1/health`) 
+    //fetch("http://localhost:5000/api/v1/health") 
       .then((res) => res.json())
       .then((data) => console.log("Frontend → Backend OK:", data))
       .catch((err) => console.error("Frontend → Backend ERROR:", err));
