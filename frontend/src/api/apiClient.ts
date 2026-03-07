@@ -14,11 +14,9 @@ const apiClient = axios.create({
 // REQUEST INTERCEPTOR - Add Bearer token from localStorage
 apiClient.interceptors.request.use(
   (config) => {
-    if (typeof window !== "undefined") { 
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     return config;
