@@ -47,7 +47,7 @@ export default function Portfolio() {
       .finally(() => setUserLoading(false));
   }, [authFetch]);
 
-  // 🔥 Investments
+  //  Investments
 const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
   queryKey: ["investments"],
   queryFn: async () => {
@@ -55,16 +55,19 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
 
     console.log("STATUS:", res.status);
 
-    const json = await res.json();
-    console.log("FULL RESPONSE:", json);
-
     if (!res.ok) {
+      console.error("Request failed");
       throw new Error("Failed to fetch investments");
     }
 
-    return json.data ?? [];
+    const json = await res.json();
+
+    console.log("FULL RESPONSE:", json);
+    console.log("INVESTMENTS ARRAY:", json?.data);
+
+    return json?.data ?? [];
   },
-  enabled: !!localStorage.getItem("authToken"), 
+  enabled: !!localStorage.getItem("authToken"),
 });
 
   // 🔥 Enrich investments using hotelAsset from API
