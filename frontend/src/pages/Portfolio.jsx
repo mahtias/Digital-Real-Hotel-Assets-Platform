@@ -10,17 +10,16 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuthModal } from "@/context/AuthModalContext";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 import { useAccount, useReadContract } from "wagmi";
 import { HAT_TOKEN_ABI } from "@/contracts/abis";
 import { HAT_TOKEN_ADDRESS } from "@/config/chains";
 import { formatUnits } from "viem";
-import apiClient from "@/utils/apiClient"; // ✅ Use apiClient instead of authFetch
-import { toast } from "sonner";
 
 export default function Portfolio() {
-
   const { openAuthModal } = useAuthModal();
-  
+  const { authFetch } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
@@ -41,19 +40,22 @@ export default function Portfolio() {
   const [userLoading, setUserLoading] = useState(true);
   useEffect(() => {
     setUserLoading(true);
-    apiClient.get("/auth/me")
-      .then(res => setUser(res.data.user))
+    authFetch("/api/v1/auth/me")
+      .then(res => res.json())
+      .then(data => setUser(data.user))
       .catch(() => setUser(null))
       .finally(() => setUserLoading(false));
-  }, []);
+  }, [authFetch]);
 
   // 🔥 Investments
   const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
     queryKey: ["investments"],
     queryFn: async () => {
-      const { data } = await apiClient.get("/investments");
+      const res = await authFetch("/api/v1/investments");
+      if (!res.ok) throw new Error("Failed to fetch investments");
+      const data = await res.json();
       console.log("INVESTMENTS RAW DATA:", data);
-      return data.data || [];
+      return data.data || []; // ✅ Fix here
     },
     enabled: !!user,
   });
@@ -83,8 +85,9 @@ export default function Portfolio() {
   // 🔥 Claim rewards
   const claimRewardsMutation = useMutation({
     mutationFn: async (investment) => {
-      const { data } = await apiClient.post(`/investments/${investment.id}/claim`);
-      return data;
+      const res = await authFetch(`/api/v1/investments/${investment.id}/claim`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to claim rewards");
+      return res.json();
     },
     onSuccess: () => refetchInvestments(),
     onError: (err) => toast.error(`Failed to claim: ${err.message}`),
@@ -93,8 +96,9 @@ export default function Portfolio() {
   // 🔥 Delete investment
   const deleteInvestmentMutation = useMutation({
     mutationFn: async (investmentId) => {
-      const { data } = await apiClient.delete(`/investments/${investmentId}`);
-      return data;
+      const res = await authFetch(`/api/v1/investments/${investmentId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete investment");
+      return res.json();
     },
     onSuccess: () => refetchInvestments(),
     onError: (err) => toast.error(`Failed to delete: ${err.message}`),
