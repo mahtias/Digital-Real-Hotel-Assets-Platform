@@ -48,27 +48,25 @@ export default function Portfolio() {
   }, [authFetch]);
 
   // 🔥 Investments
-  const token = localStorage.getItem("authToken");
-
-const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
+ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
   queryKey: ["investments"],
   queryFn: async () => {
     const res = await authFetch("/api/v1/investments");
-    if (!res.ok) throw new Error("Failed to fetch investments");
-    const data = await res.json();
-    console.log("INVESTMENTS RAW DATA:", data);
-    return data.data || [];
-  },
-  enabled: !!token, // ✅ fetch as long as token exists
-});
- 
-useEffect(() => {
-  console.log("USER state:", user);
-}, [user]);
 
-useEffect(() => {
-  console.log("Investments data:", investmentsRaw);
-}, [investmentsRaw]);
+    console.log("STATUS:", res.status);
+
+    const json = await res.json();
+    console.log("FULL RESPONSE:", json);
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch investments");
+    }
+
+    return json.data ?? [];
+  },
+  enabled: !!user,
+});
+
   // 🔥 Enrich investments using hotelAsset from API
   const enrichedInvestments = investmentsRaw.map(inv => ({
     ...inv,
