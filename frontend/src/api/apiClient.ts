@@ -38,10 +38,10 @@ apiClient.interceptors.response.use(
 
     // 🔓 Handle 401 Unauthorized
     if (error.response?.status === 401) {
-      console.warn('🔓 Unauthorized - Clearing token');
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
+  console.warn('🔓 Unauthorized - Clearing token');
+  localStorage.removeItem('authToken');   // FIX
+  //window.location.href = '/login';
+}
 
     // 🚫 Handle 403 Forbidden
     if (error.response?.status === 403) {
