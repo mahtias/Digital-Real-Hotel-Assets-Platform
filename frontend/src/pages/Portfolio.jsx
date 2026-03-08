@@ -16,7 +16,8 @@ import { useAccount, useReadContract } from "wagmi";
 import { HAT_TOKEN_ABI } from "@/contracts/abis";
 import { HAT_TOKEN_ADDRESS } from "@/config/chains";
 import { formatUnits } from "viem";
-
+//import {apiClient} from "@/api/apiClient"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 export default function Portfolio() {
   const { openAuthModal } = useAuthModal();
   const { authFetch } = useAuth();
@@ -33,6 +34,8 @@ export default function Portfolio() {
     enabled: !!address,
     watch: true,
   });
+
+  
   const hatBalance = hatBalanceRaw ? Number(formatUnits(hatBalanceRaw, 18)) : 0;
 
   // 🔥 User
@@ -51,8 +54,9 @@ export default function Portfolio() {
 const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
   queryKey: ["investments"],
   queryFn: async () => {
-    const res = await authFetch("/api/v1/investments");
-
+    const res = await authFetch(`${API_URL}/api/v1/investments`)
+     //  const res =await authFetch("/api/v1/investments");
+        //const res = await apiClient.get(`/investments`);
     console.log("STATUS:", res.status);
 
     if (!res.ok) {
