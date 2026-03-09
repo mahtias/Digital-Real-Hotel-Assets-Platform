@@ -246,33 +246,41 @@ const handleInvest = async () => {
     return;
   }
 
-  try {
-    setLoading(true);
-    setIsInvesting(true);
+ try {
+  setLoading(true);
+  setIsInvesting(true);
 
-    // 🔗 Setup signer
-    const provider = new BrowserProvider(walletClient.transport as any);
-    const signer = await provider.getSigner();
-    await web3Service.setSigner(signer);
+  const provider = new BrowserProvider(walletClient.transport as any);
+  const signer = await provider.getSigner();
+  await web3Service.setSigner(signer);
 
-    const walletAddress = await signer.getAddress();
-    console.log("Using wallet:", walletAddress);
+  const walletAddress = await signer.getAddress();
+  console.log("Using wallet:", walletAddress);
 
-    // 🪙 Invest on blockchain & backend
-    const receipt = await web3Service.investOnBlockchain(
-      hotel.blockchainId, // blockchain ID (number)
-      hotel.id,           // DB hotel ID (string)
-      numericAmount       // USDC amount
-    );
+  const receipt = await web3Service.investOnBlockchain(
+    hotel.blockchainId,
+    hotel.id,
+    numericAmount
+  );
 
-    toast.success(`Investment successful! TX: ${receipt.hash}`);
-  } catch (err: any) {
-    console.error(err);
-    toast.error(err.response?.data?.error || err.message || "Investment failed");
-  } finally {
-    setLoading(false);
-    setIsInvesting(false);
-  }
+  console.log("Investment TX:", receipt.hash);
+
+  toast.success("🎉 Investment successful! Tokens added to your portfolio.");
+ 
+  setInvestmentAmount("");
+  setHatAmount("");
+ 
+  setTimeout(() => {
+    navigate("/portfolio");
+  }, 1500);
+
+} catch (err: any) {
+  console.error(err);
+  toast.error(err.response?.data?.error || err.message || "Investment failed");
+} finally {
+  setLoading(false);
+  setIsInvesting(false);
+}
 };
 
   // const handleInvest = async () => {

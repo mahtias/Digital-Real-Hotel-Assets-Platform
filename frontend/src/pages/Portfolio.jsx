@@ -16,7 +16,6 @@ import { useAccount, useReadContract } from "wagmi";
 import { HAT_TOKEN_ABI } from "@/contracts/abis";
 import { HAT_TOKEN_ADDRESS } from "@/config/chains";
 import { formatUnits } from "viem";
-//import {apiClient} from "@/api/apiClient"
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 export default function Portfolio() {
   const { openAuthModal } = useAuthModal();
@@ -34,8 +33,6 @@ export default function Portfolio() {
     enabled: !!address,
     watch: true,
   });
-
-  
   const hatBalance = hatBalanceRaw ? Number(formatUnits(hatBalanceRaw, 18)) : 0;
 
   // 🔥 User
@@ -55,8 +52,8 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
   queryKey: ["investments"],
   queryFn: async () => {
     const res = await authFetch(`${API_URL}/api/v1/investments`)
-     //  const res =await authFetch("/api/v1/investments");
-        //const res = await apiClient.get(`/investments`);
+    //const res = await authFetch("/api/v1/investments");
+
     console.log("STATUS:", res.status);
 
     if (!res.ok) {
@@ -69,7 +66,7 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
 
     const json = JSON.parse(text);
     console.log("PARSED JSON:", json);
-
+    
     return json?.data ?? [];
   },
   enabled: !!localStorage.getItem("authToken"),
@@ -162,7 +159,9 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
               <div className="text-sm text-slate-500 uppercase tracking-wider">Properties</div>
             </div>
           </div>
-          <Button onClick={refreshPortfolio} className="ml-auto bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold flex items-center gap-2">
+          <Button onClick={refreshPortfolio}
+                  disabled={investmentsLoading}
+           className="ml-auto bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold flex items-center gap-2">
             <RefreshCw className="w-4 h-4" /> Refresh
           </Button>
         </div>

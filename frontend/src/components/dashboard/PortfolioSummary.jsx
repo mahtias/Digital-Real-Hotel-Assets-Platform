@@ -9,15 +9,18 @@ import { useLanguage } from '@/components/common/LanguageContext';
 
 export default function PortfolioSummary({ 
   investments, 
-  totalValue, 
-  totalRewards,
-  hatBalance = 0,  
-  hatPrice = 20    
+  totalInvested,
+  totalTokens,
+  totalProperties
+  // totalValue, 
+  // totalRewards,
+  // hatBalance = 0,  
+  // hatPrice = 20    
 }) {
   const { t } = useLanguage();
 
   // 🔥 Calculate pending rewards
-  const pendingRewards = investments?.reduce((acc, inv) => acc + (inv.pending_rewards || 0), 0) || 0;
+ const pendingRewards = investments?.reduce((acc, inv) => acc + (inv.pendingRewards || 0), 0) || 0;
 
   return (
     <Card className="bg-gradient-to-br from-amber-500/10 via-slate-900/50 to-slate-900/50 border-amber-500/20 p-6">
@@ -34,42 +37,34 @@ export default function PortfolioSummary({
       </div>
 
       {/* 🔥 4-CARD STATS WITH WALLET HAT */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {/* Total Invested */}
-        <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-          <p className="text-slate-400 text-xs mb-1">{t('portfolio.totalInvested')}</p>
-          <p className="text-xl md:text-2xl font-bold text-white">${totalValue?.toLocaleString() || '0'}</p>
-        </div>
+   <div className="flex gap-4 mb-6">
+  <div className="text-center">
+    <div className="text-2xl font-black text-white ">
+      ${(totalInvested || 0).toLocaleString()}
+    </div>
+    <div className="text-sm text-slate-500 uppercase tracking-wider text-white">
+      Total Invested
+    </div>
+  </div>
 
-        {/* 🔥 WALLET HAT BALANCE */}
-        <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-          <p className="text-slate-400 text-xs mb-1">HAT Wallet</p>
-          <p className="text-xl md:text-2xl font-bold text-amber-400  flex items-center justify-center gap-1">
-            {hatBalance?.toFixed(2) || '0'} HAT
-            <span className="text-sm font-normal text-white ml-1">
-              ${((hatBalance || 0) * hatPrice).toLocaleString()}
-            </span>
-          </p>
-        </div>
+  <div className="text-center">
+    <div className="text-2xl font-black text-emerald-400">
+      {(totalTokens || 0).toFixed(2)}
+    </div>
+    <div className="text-sm text-slate-500 uppercase tracking-wider text-white">
+      HAT Tokens
+    </div>
+  </div>
 
-        {/* Total Earned */}
-        <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-          <p className="text-slate-400 text-xs mb-1">{t('portfolio.totalEarned')}</p>
-          <p className="text-xl md:text-2xl font-bold text-emerald-400 flex items-center justify-center gap-1">
-            <TrendingUp className="w-5 h-5" />
-            ${totalRewards?.toLocaleString() || '0'}
-          </p>
-        </div>
-
-        {/* Pending Rewards */}
-        <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-          <p className="text-slate-400 text-xs mb-1">{t('portfolio.pendingRewards')}</p>
-          <p className="text-xl md:text-2xl font-bold text-amber-400 flex items-center justify-center gap-1">
-            <Gift className="w-5 h-5" />
-            ${pendingRewards.toFixed(2)}
-          </p>
-        </div>
-      </div>
+  <div className="text-center">
+    <div className="text-2xl font-black text-amber-400">
+      {totalProperties || 0}
+    </div>
+    <div className="text-sm text-slate-500 uppercase tracking-wider text-white">
+      Properties
+    </div>
+  </div>
+</div>
 
       {/* 🔥 INVESTMENT LIST */}
       {investments && investments.length > 0 ? (
@@ -81,16 +76,16 @@ export default function PortfolioSummary({
                   🏨
                 </div>
                 <div>
-                  <p className="text-white font-medium text-sm">{inv.hotel_name || inv.hotelAsset?.name || 'HAT Hotel'}</p>
-                  <p className="text-slate-20 text-xs">
-                    {inv.token_amount?.toLocaleString() || inv.amount} HAT
+                  <p className="text-white font-medium text-sm">{inv.hotelAsset?.name || 'HAT Hotel'}</p>
+                  <p className="text-slate-20 text-white">
+                    {Number(inv.tokenAmount || 0).toLocaleString()} HAT
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-white font-bold">${(inv.invested_amount || inv.amount)?.toLocaleString()}</p>
-                <p className="text-emerald-20 text-xs">
-                  +{(((inv.earned_rewards || 0) / (inv.invested_amount || 1)) * 100).toFixed(1)}%
+                <p className="text-white font-bold"> ${Number(inv.amount || 0).toLocaleString()}</p>
+                <p className="text-emerald-20 text-white">
+                  +{((Number(inv.pendingRewards || 0) / Number(inv.amount || 1)) * 100).toFixed(1)}%
                 </p>
               </div>
             </div>

@@ -14,7 +14,7 @@ import PortfolioSummary from "@/components/dashboard/PortfolioSummary";
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuth } from "@/context/AuthContext";
 
-// 🔥 HOTEL TOKEN ABI
+//  HOTEL TOKEN ABI
 import { HOTEL_TOKEN_ABI } from '@/contracts/abis';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -24,10 +24,10 @@ export default function Home() {
   const { t } = useLanguage();
   const { authFetch } = useAuth();
 
-  // 🔥 WALLET CONNECTION
+  //  WALLET CONNECTION
   const { address, isConnected } = useAccount();
 
-  // 🔥 Load user data
+  //  Load user data
   useEffect(() => {
     authFetch("/api/v1/auth/me")
       .then(res => res.json())
@@ -35,7 +35,7 @@ export default function Home() {
       .catch(() => setUser(null));
   }, [authFetch]);
 
-  // 🔥 HOTELS WITH TOKEN ADDRESSES
+  //  HOTELS WITH TOKEN ADDRESSES
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
     queryFn: async () => {
@@ -45,20 +45,54 @@ export default function Home() {
     },
   });
 
-  // 🔥 INVESTMENTS
-  const { data: investments = [] } = useQuery({
-    queryKey: ["user-investments"],
-    queryFn: async () => {
-      if (!user) return [];
-      const res = await authFetch(`/api/v1/investments?email=${user.email}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: !!user,
-  });
+  //  INVESTMENTS
+//   const { data: investments = [] } = useQuery({
+//   queryKey: ["user-investments"],
+//   queryFn: async () => {
+//     if (!user) return [];
+//     const res = await authFetch(`/api/v1/investments?email=${user.email}`);
+//     if (!res.ok) return [];
+//     const json = await res.json();
+//     //  Make sure to return the array inside the response
+//     return Array.isArray(json?.data) ? json.data : [];
+//   },
+//   enabled: !!user,
+// });
 
-  // 🔥 BUILD CONTRACTS ARRAY FOR BATCH READ
+const { data: investments = [] } = useQuery({
+  queryKey: ["investments"],
+  queryFn: async () => {
+    const res = await authFetch(`${API_URL}/api/v1/investments`)
+    //const res = await authFetch("/api/v1/investments");
+
+    console.log("STATUS:", res.status);
+
+    if (!res.ok) {
+      console.error("Request failed:", res);
+      throw new Error("Failed to fetch investments");
+    }
+
+    const text = await res.text();   // 👈 read raw response
+    console.log("RAW RESPONSE:", text);
+
+    const json = JSON.parse(text);
+    console.log("PARSED JSON:", json);
+    
+    return json?.data ?? [];
+  },
+  enabled: !!localStorage.getItem("authToken"),
+});
+// const normalizedInvestments = useMemo(() => {
+//   return investments.map((inv) => ({
+//     ...inv,
+//     amount: Number(inv.amount ?? inv.invested_amount ?? inv.investedAmount ?? 0),
+//     tokenAmount: Number(inv.tokenAmount ?? inv.tokens ?? 0),
+//     pendingRewards: Number(inv.pendingRewards ?? inv.rewards_earned ?? 0),
+//     hotel: inv.hotel ?? { name: "HAT Hotel" }
+//   }));
+// }, [investments]);
+
+  //  BUILD CONTRACTS ARRAY FOR BATCH READ
   const contracts = useMemo(() => {
     if (!address || hotels.length === 0) return [];
     
@@ -77,13 +111,13 @@ export default function Home() {
     ]);
   }, [hotels, address]);
 
-  // 🔥 READ ALL HOTEL TOKEN BALANCES AT ONCE
+  //  READ ALL HOTEL TOKEN BALANCES AT ONCE
   const { data: contractResults } = useReadContracts({
     contracts,
     watch: true,
   });
 
-  // 🔥 PARSE RESULTS INTO HOTEL TOKEN BALANCES
+  //  PARSE RESULTS INTO HOTEL TOKEN BALANCES
   const hotelTokenBalances = useMemo(() => {
     if (!contractResults || contractResults.length === 0) return [];
 
@@ -106,14 +140,23 @@ export default function Home() {
     });
   }, [contractResults, hotels]);
 
-  // 🔥 CALCULATIONS
-  const totalValue = investments.reduce((acc, inv) => acc + (inv.invested_amount || 0), 0);
-  const totalRewards = investments.reduce((acc, inv) => acc + (inv.rewards_earned || 0), 0);
-  
-  const totalTokenBalance = hotelTokenBalances.reduce((acc, token) => acc + token.balance, 0);
-  const walletHatValue = hotelTokenBalances.reduce((acc, token) => acc + token.value, 0);
+  //  CALCULATIONS
+  const totalValue = investments.reduce(
+  (sum, inv) => sum + Number(inv.amount ?? inv.invested_amount ?? inv.investedAmount ?? 0), 0);
 
-  // 🔥 FEATURES
+const totalRewards = investments.reduce(
+  (sum, inv) => sum + Number(inv.rewards_earned ?? inv.pendingRewards ?? 0), 0);
+
+const totalTokenBalance = investments.reduce(
+  (sum, inv) => sum + Number(inv.tokenAmount ?? inv.tokens ?? 0),0);
+
+const walletHatValue = hotelTokenBalances.reduce(
+  (sum, token) => sum + (token.value || 0),0);
+
+  //  const totalInvested = investments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  // const totalTokens = investments.reduce((sum, inv) => sum + (inv.tokenAmount || 0), 0);
+  
+  //  FEATURES
   const features = [
     {
       icon: Shield,
@@ -161,14 +204,14 @@ export default function Home() {
             <div className="flex gap-4 justify-center">
               <Link to={createPageUrl('Marketplace')}>
                 <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-white">
-                  {t('home.exploreHotels')}
+                  {t('home.exploreBtn')}
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
               </Link>
               <Button
                 size="lg"
                 variant="outline"
-                className="border-slate-700 text-white hover:bg-slate-800"
+                className="bg-amber-500 hover:bg-amber-600 text-white"
                 asChild
               >
                 <a
@@ -183,13 +226,10 @@ export default function Home() {
           </div>
 
           {/* 🔥 STATS WITH WALLET TOKENS */}
-          <StatsOverview 
-            totalValue={totalValue}
-            totalRewards={totalRewards}
-            tokenBalance={totalTokenBalance}
-            walletValue={walletHatValue}
-            hotelTokenBalances={hotelTokenBalances}
-          />
+         <StatsOverview
+  hotels={hotels}
+  investments={investments}
+/>
         </div>
       </div>
 
@@ -243,11 +283,9 @@ export default function Home() {
           <div>
             <PortfolioSummary 
               investments={investments}
-              totalValue={totalValue}
-              totalRewards={totalRewards}
-              tokenBalance={totalTokenBalance}
-              hatPrice={20}
-              hotelTokenBalances={hotelTokenBalances}
+              totalInvested={totalValue}
+              totalTokens={totalTokenBalance}
+              totalProperties={investments.length}
             />
 
             {/* Quick Actions */}
@@ -258,22 +296,22 @@ export default function Home() {
               </h3>
               <div className="space-y-3">
                 <Link to={createPageUrl('Booking')}>
-                  <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">
+                  <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white">
                     {t('home.bookRoom')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Governance')}>
-                  <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white">
+                  <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white">
                     {t('home.joinDao')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('ESGRewards')}>
-                  <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                  <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white">
                     {t('home.esgRewards')}
                   </Button>
                 </Link>
                 <Link to={createPageUrl('Staking')}>
-                  <Button className="w-full bg-indigo-500 hover:bg-indigo-600 text-white">
+                  <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white">
                     {t('home.stakeDra')}
                   </Button>
                 </Link>
