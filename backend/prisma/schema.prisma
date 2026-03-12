@@ -137,6 +137,7 @@ model Investment {
   createdById      String?          @map("created_by_id")
   earnedRewards    Decimal          @map("earned_rewards") @db.Decimal(10, 2)
   investedAmount   Decimal          @map("invested_amount") @db.Decimal(10, 2)
+  platformFee      Decimal          @default(0) @map("platform_fee") @db.Decimal(10, 2)
   isSample         Boolean          @default(false) @map("is_sample")
   pendingRewards   Decimal          @map("pending_rewards") @db.Decimal(10, 2)
   stakedAmount     Decimal          @map("staked_amount") @db.Decimal(10, 2)
