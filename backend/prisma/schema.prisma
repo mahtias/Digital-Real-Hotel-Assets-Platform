@@ -23,17 +23,17 @@ model User {
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
   kycExpiresAt         DateTime?          @map("kyc_expires_at")
-  kycBlockchainTxHash    String?         @map("kyc_blockchain_tx_hash")
-  kycBlockchainSynced    Boolean          @default(false) @map("kyc_blockchain_synced")
-  kycLastVerified        DateTime?        @map("kyc_last_verified")
-  kycDocumentHash       String? 
-  kycSyncAttempts        Int              @default(0) @map("kyc_sync_attempts")
-  kycSyncError           String?          @map("kyc_sync_error")
   verificationLevel    VerificationLevel? @map("verification_level")
   verificationExpires  DateTime?
   verificationToken    String?            @unique
   resetPasswordExpires DateTime?
   resetPasswordToken   String?
+  kycBlockchainSynced  Boolean            @default(false) @map("kyc_blockchain_synced")
+  kycBlockchainTxHash  String?            @map("kyc_blockchain_tx_hash")
+  kycLastVerified      DateTime?          @map("kyc_last_verified")
+  kycSyncAttempts      Int                @default(0) @map("kyc_sync_attempts")
+  kycSyncError         String?            @map("kyc_sync_error")
+  kycDocumentHash      String?
   bookings             Booking[]
   createdHotelAssets   HotelAsset[]       @relation("CreatedAssets")
   investments          Investment[]
@@ -90,7 +90,6 @@ model Kyc {
 
 model HotelAsset {
   id            String       @id @default(uuid())
-   blockchainId  Int?         @unique @map("blockchain_id")
   name          String
   location      String
   status        AssetStatus  @default(UPCOMING)
@@ -107,15 +106,16 @@ model HotelAsset {
   leaseEndDate  DateTime?    @map("lease_end_date")
   occupancyRate Float?       @map("occupancy_rate")
   revpar        Int?
-  tokenId Int? @unique
   roomCount     Int?         @map("room_count")
   starRating    Int?         @map("star_rating")
   tokenPrice    Int?         @map("token_price")
   tokenSymbol   String?      @map("token_symbol")
   tokensSold    Int?         @map("tokens_sold")
-  totalTokens   Decimal?     @map("total_tokens")
+  totalTokens   Int?         @map("total_tokens")
   totalValue    Int?         @map("total_value")
-  tokenAddress  String?      @map("token_address") 
+  tokenId       Int?         @unique
+  tokenAddress  String?      @unique(map: "unique_token_address") @map("token_address")
+  blockchainId  Int?         @unique @map("blockchain_id")
   bookings      Booking[]
   createdByUser User         @relation("CreatedAssets", fields: [createdById], references: [id])
   investments   Investment[]
@@ -143,9 +143,9 @@ model Investment {
   tokenAmount      Decimal          @map("token_amount") @db.Decimal(18, 8)
   blockchainStatus String?          @default("PENDING")
   blockchainTxHash String?          @map("blockchain_tx_hash")
-  blockchainError   String?
-  walletAddress    String?
   deletedAt        DateTime?        @map("deleted_at")
+  walletAddress    String?
+  blockchainError  String?
   hotelAsset       HotelAsset       @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -319,10 +319,10 @@ enum DocumentType {
 
 enum AssetStatus {
   UPCOMING
-  FUNDRAISING
   ACTIVE
   SOLD_OUT
   CLOSED
+  FUNDRAISING
 }
 
 enum BookingStatus {

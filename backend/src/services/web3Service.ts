@@ -1,12 +1,11 @@
 // backend/src/services/web3Service.ts
 
-import { ethers } from "ethers";
+import { ethers, getBytes } from "ethers";
 import prisma from "../config/database";
 import kycRegistryAbi from "../../../out/KYCRegistry.sol/KYCRegistry.json";
 import hotelAssetManagerAbi from "../../../out/HotelAssetManager.sol/HotelAssetManager.json";
 import hotelInvestmentAbi from "../../../out/HotelInvestment.sol/HotelInvestment.json";
 import hotelAssetTokenAbi from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
-
 // ============================================================
 //  CONSTANTS & CONFIG
 // ============================================================
@@ -67,15 +66,30 @@ export class Web3Service {
     return signer;
   }
 
-  private initializeKycContract(): ethers.Contract {
-    const address = process.env.KYC_CONTRACT_ADDRESS;
-    if (!address) throw new Error(" Missing KYC_CONTRACT_ADDRESS in .env");
-    
-    const contract = new ethers.Contract(address, kycRegistryAbi.abi, this.signer);
-    console.log(' KYC connected:', address);
-    return contract;
-  }
+private initializeKycContract(): ethers.Contract {
+  const address = process.env.KYC_CONTRACT_ADDRESS;
 
+  if (!address) throw new Error(" Missing KYC_CONTRACT_ADDRESS in .env");
+
+  const contract = new ethers.Contract(address, kycRegistryAbi.abi, this.signer);
+
+  console.log(' KYC connected:', address);
+
+  // 🔍 Debug contract functions
+  console.log(
+    "KYC Contract Functions:",
+    contract.interface.fragments
+      .filter((f: any) => f.type === "function")
+      .map((f: any) => f.name)
+  );
+
+  // 🔍 Show exact approveKYC signature
+  const approveFn = contract.interface.getFunction("approveKYC");
+  console.log("approveKYC signature:", approveFn?.format());
+
+  return contract;
+}
+     
   private initializeAssetManager(): ethers.Contract {
     const address = process.env.HOTEL_ASSET_MANAGER_ADDRESS;
     if (!address) throw new Error(" Missing HOTEL_ASSET_MANAGER_ADDRESS in .env");
@@ -196,188 +210,160 @@ export class Web3Service {
    * @param hash - Document hash (IPFS CID or similar)
    * @returns Transaction hash
    */
-  async registerKyc(address: string, hash: string): Promise<string> {
-    try {
-      console.log(` Registering KYC for ${address}...`);
+async registerKyc(address: string, hash: string): Promise<string> {
+  try {
+    console.log(` Registering KYC for ${address}...`);
 
-      const tx = await this.kycContract.registerUser(address, hash, {
-        gasLimit: GAS_LIMITS.KYC_REGISTER
-      });
+    const level = 1; // BASIC
+    const expiresAt = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
 
-      console.log('   Tx sent:', tx.hash);
-      const receipt = await tx.wait();
+    // Pre-flight checks
+    const verifierRole = await this.kycContract.VERIFIER_ROLE();
+    const hasRole = await this.kycContract.hasRole(verifierRole, this.signer.address);
+    const paused = await this.kycContract.paused();
+    console.log("Signer has VERIFIER_ROLE:", hasRole);
+    console.log("KYC contract paused:", paused);
 
-      console.log('  KYC registered:', receipt.hash);
+    if (!hasRole) throw new Error("Signer does not have VERIFIER_ROLE");
+    if (paused) throw new Error("KYC contract is currently paused");
 
-      // Update database
-      await prisma.user.update({
-        where: { walletAddress: address.toLowerCase() },
-        data: {
-          kycBlockchainTxHash: receipt.hash,
-          kycBlockchainSynced: true,
-          kycLastVerified: new Date(),
-          kycSyncAttempts: 0,
-          kycSyncError: null
-        }
-      });
+    // Approve KYC
+    const tx = await this.kycContract.approveKYC(address, level, expiresAt, {
+      gasLimit: GAS_LIMITS.KYC_REGISTER
+    });
 
-      return receipt.hash;
+    console.log(" Tx sent:", tx.hash);
+    const receipt = await tx.wait();
+    console.log(" KYC approved on blockchain:", receipt.hash);
 
-    } catch (error: any) {
-      console.error(' KYC registration failed:', error.message);
-
-      // Update attempt counter
-      await prisma.user.update({
-        where: { walletAddress: address.toLowerCase() },
-        data: {
-          kycSyncAttempts: { increment: 1 },
-          kycSyncError: error.message
-        }
-      }).catch(() => {});
-
-      throw error;
-    }
-  }
-
- private async registerKycWithRetry(
-  userAddress: string,
-  documentHash: string,
-  maxRetries: number = 3
-): Promise<string> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(` Attempt ${attempt}/${maxRetries}...`);
-
-      //  Call with only 2 parameters
-      const txHash = await this.registerKyc(userAddress, documentHash);
-
-      console.log(`   Success on attempt ${attempt}`);
-      return txHash;
-
-    } catch (error: any) {
-      lastError = error;
-      console.error(` Attempt ${attempt} failed:`, error.message);
-
-      // Don't retry on certain errors
-      if (
-        error.message.includes('already registered') ||
-        error.message.includes('invalid address') ||
-        error.message.includes('invalid document hash')
-      ) {
-        console.log(`    Non-retryable error, stopping retries`);
-        throw error;
+    await prisma.user.update({
+      where: { walletAddress: address.toLowerCase() },
+      data: {
+        kycBlockchainTxHash: receipt.hash,
+        kycBlockchainSynced: true,
+        kycLastVerified: new Date(),
+        kycSyncAttempts: 0,
+        kycSyncError: null
       }
+    });
 
-      // Wait before retrying (exponential backoff)
-      if (attempt < maxRetries) {
-        const delayMs = KYC_CONFIG.SYNC_RETRY_DELAY * attempt;
-        console.log(`  Waiting ${delayMs}ms before retry...`);
-        await this.delay(delayMs);
+    return receipt.hash;
+
+  } catch (error: any) {
+    console.error(" KYC registration failed:", error.message);
+
+    await prisma.user.update({
+      where: { walletAddress: address.toLowerCase() },
+      data: {
+        kycSyncAttempts: { increment: 1 },
+        kycSyncError: error.message
       }
-    }
-  }
+    }).catch(() => {});
 
-  // All retries failed
-  throw new Error(
-    `KYC registration failed after ${maxRetries} attempts: ${lastError?.message}`
-  )
+    throw error;
+  }
 }
+
+
   /**
    *  Sync approved KYCs to blockchain (background job)
    */
-  async syncAllPendingKycs(): Promise<{
-  synced: number;
-  failed: number;
-}> {
+async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
   try {
-    console.log('\n Starting bulk KYC sync to blockchain...');
+    console.log('\nStarting bulk KYC sync to blockchain...');
 
     // Find all approved users not yet synced
     const pendingUsers = await prisma.user.findMany({
       where: {
         kycStatus: 'APPROVED',
         kycBlockchainSynced: false,
-        walletAddress: { not: null }
+        walletAddress: { not: null },
       },
       select: {
         id: true,
         walletAddress: true,
         kycDocumentHash: true,
-        email: true
-      }
+        email: true,
+      },
     });
 
     if (pendingUsers.length === 0) {
-      console.log(' No pending KYC syncs needed');
+      console.log('No pending KYC syncs needed');
       return { synced: 0, failed: 0 };
     }
 
-    console.log(` Found ${pendingUsers.length} users to sync`);
+    console.log(`Found ${pendingUsers.length} users to sync`);
 
     let synced = 0;
     let failed = 0;
 
-    // Process each user
     for (const user of pendingUsers) {
-      try {
-        if (!user.walletAddress) {
-          console.log(` Skipping ${user.email}: No wallet address`);
-          failed++;
-          continue;
-        }
-
-        const hash = user.kycDocumentHash || ethers.keccak256(
-          ethers.toUtf8Bytes(`kyc-${user.id}-${Date.now()}`)
-        );
-
-        console.log(`\n Syncing KYC for: ${user.email}`);
-        console.log(`   Wallet: ${user.walletAddress}`);
-
-        const txHash = await this.registerKycWithRetry(
-          user.walletAddress,
-          hash
-        );
-
-        // Update database
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            kycBlockchainSynced: true,
-            kycBlockchainTxHash: txHash,
-            kycLastVerified: new Date(),
-            kycDocumentHash: hash,
-            updatedAt: new Date()
-          }
-        });
-
-        synced++;
-        console.log(`  Synced successfully (tx: ${txHash.slice(0, 10)}...)`);
-
-        // Add delay to avoid rate limiting
-        await this.delay(2000);
-
-      } catch (error: any) {
+      if (!user.walletAddress) {
+        console.log(`Skipping ${user.email}: No wallet address`);
         failed++;
-        console.error(`  Failed to sync ${user.email}:`, error.message);
-        
-        // Continue with next user instead of throwing
         continue;
       }
+
+      const hash =
+        user.kycDocumentHash ||
+        ethers.keccak256(ethers.toUtf8Bytes(`kyc-${user.id}-${Date.now()}`));
+
+      console.log(`\nSyncing KYC for: ${user.email}`);
+      console.log(`   Wallet: ${user.walletAddress}`);
+
+      let attempts = 0;
+      let txHash: string | null = null;
+
+      while (attempts < 3 && !txHash) {
+        attempts++;
+        try {
+          txHash = await this.registerKyc(user.walletAddress, hash);
+        } catch (error: any) {
+          console.warn(
+            `Attempt ${attempts} failed for ${user.email}: ${error.message}`
+          );
+          if (attempts < 3) {
+            await this.delay(2000); // wait before retry
+          }
+        }
+      }
+
+      if (!txHash) {
+        console.error(`Failed to sync ${user.email} after 3 attempts`);
+        failed++;
+        continue;
+      }
+
+      // Update database
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          kycBlockchainSynced: true,
+          kycBlockchainTxHash: txHash,
+          kycLastVerified: new Date(),
+          kycDocumentHash: hash,
+          updatedAt: new Date(),
+        },
+      });
+
+      synced++;
+      console.log(`Synced successfully (tx: ${txHash.slice(0, 10)}...)`);
+
+      // Delay to avoid rate limiting
+      await this.delay(2000);
     }
 
-    console.log('\n Bulk sync completed:');
+    console.log('\nBulk KYC sync completed:');
     console.log(`   ✓ Success: ${synced}`);
     console.log(`   ✗ Failed: ${failed}`);
 
     return { synced, failed };
-
   } catch (error: any) {
-    console.error(' Bulk KYC sync failed:', error.message);
+    console.error('Bulk KYC sync failed:', error.message);
     throw error;
   }
 }
+
 
  /**
    * Delay execution (for rate limiting)

@@ -12,12 +12,6 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable, IKYCRegistry {
     mapping(address => IKYCRegistry.KYCRecord) private kycRecords;
     mapping(bytes32 => bool) public usedDocumentHashes;
 
-    //  DELETE THESE - They're already in IKYCRegistry
-    // event KYCSubmitted(...);
-    // event KYCApproved(...);
-    // event KYCRejected(...);
-    // event KYCRevoked(...);
-
     constructor(address backendVerifier) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(VERIFIER_ROLE, msg.sender);
@@ -74,7 +68,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable, IKYCRegistry {
         IKYCRegistry.KYCRecord storage record = kycRecords[_user];
         require(record.status == IKYCRegistry.KYCStatus.PENDING, "KYC not pending");
 
-        // ✅ ADD: Prevent approving at lower level than submitted
+        //  ADD: Prevent approving at lower level than submitted
         require(_approvedLevel >= record.level, "Cannot approve at lower level than submitted");
 
         IKYCRegistry.KYCLevel requestedLevel = record.level;

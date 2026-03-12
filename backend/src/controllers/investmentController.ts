@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import prisma from "../config/database";
-import { web3Service } from "../services/web3Service";
+//import { web3Service } from "../services/web3Service";
 import { KycStatus } from "@prisma/client";
 import  kyc  from "../blockchain/kyc";
 import { Prisma } from "@prisma/client";
@@ -273,6 +273,7 @@ export const confirmInvestment = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ✅ Verify blockchain transaction
     const txReceipt = await verifyTransaction(blockchainTxHash);
 
     const existing = await prisma.investment.findFirst({
@@ -285,68 +286,73 @@ export const confirmInvestment = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ✅ Fetch hotel asset
     const hotelAsset = await prisma.hotelAsset.findUnique({
       where: { id: hotelId },
     });
 
     if (!hotelAsset) {
-      return res.status(404).json({
-        error: "Hotel not found",
-      });
+      return res.status(404).json({ error: "Hotel not found" });
     }
 
     const tokenPrice = Number(hotelAsset.tokenPrice);
     const investmentAmount = Number(amount);
 
-    const tokenAmount = Number((investmentAmount / tokenPrice).toFixed(6));
+    // ✅ Platform fee calculation
+    const PLATFORM_FEE_PERCENT = 2; // 2% fee
+    const platformFee = Number(((investmentAmount * PLATFORM_FEE_PERCENT) / 100).toFixed(2));
+    const netInvestedAmount = Number((investmentAmount - platformFee).toFixed(2));
 
-    const newTokensSold =
-      Number(hotelAsset.tokensSold || 0) + tokenAmount;
+    // ✅ Calculate token amount
+    const tokenAmount = Number((netInvestedAmount / tokenPrice).toFixed(6));
 
+    // ✅ Check token availability
+    const newTokensSold = Number(hotelAsset.tokensSold || 0) + tokenAmount;
     if (hotelAsset.totalTokens && newTokensSold > Number(hotelAsset.totalTokens)) {
       return res.status(400).json({
         message: "Not enough tokens available",
+        available: Number(hotelAsset.totalTokens) - Number(hotelAsset.tokensSold),
+        requested: tokenAmount,
       });
     }
 
+    //  Transaction: create investment + update hotel asset
     const [investment] = await prisma.$transaction([
       prisma.investment.create({
         data: {
           userId,
-          
           hotelAssetId: hotelId,
-          amount: investmentAmount,
-          investedAmount: investmentAmount,
+          amount: investmentAmount,       // gross amount
+          investedAmount: netInvestedAmount, // net after fee
+          platformFee,
           tokenAmount,
-          
-          pendingRewards: 0,
           earnedRewards: 0,
+          pendingRewards: 0,
           stakedAmount: 0,
-         
           blockchainTxHash,
           status: "ACTIVE",
           blockchainStatus: "MINTED",
         },
       }),
-
+      
       prisma.hotelAsset.update({
         where: { id: hotelId },
-        data: {
-          tokensSold: newTokensSold,
-        },
+        data: { tokensSold: newTokensSold },
       }),
     ]);
 
     return res.json({
       success: true,
       investment,
+      message: `Investment confirmed. Platform fee: $${platformFee}, Net invested: $${netInvestedAmount}`,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("confirmInvestment error:", error);
 
     return res.status(500).json({
       error: "Failed to confirm investment",
+      details: error.message,
     });
   }
 };
@@ -375,16 +381,18 @@ export const getUserInvestments = async (req: AuthRequest, res: Response) => {
             imageUrl: true,
             location: true,
             status: true,
-            apy: true, // ✅ Include APY for calculations
+            apy: true, // Include APY for calculations
           }
         }
       },
       orderBy: { createdAt: "desc" }
     });
 
-    //  Calculate portfolio statistics
+    //  Calculate portfolio statistics (net invested)
     const stats = {
-     totalInvested: investments.reduce((sum, inv) => sum + Number(inv.amount), 0),
+      totalGrossInvested: investments.reduce((sum, inv) => sum + Number(inv.amount), 0),      // original amount
+      totalNetInvested: investments.reduce((sum, inv) => sum + Number(inv.investedAmount), 0), // after fee
+      totalPlatformFees: investments.reduce((sum, inv) => sum + Number(inv.platformFee || 0), 0),
       totalTokens: investments.reduce((sum, inv) => sum + Number(inv.tokenAmount), 0),
       totalEarned: investments.reduce((sum, inv) => sum + Number(inv.earnedRewards || 0), 0),
       totalPending: investments.reduce((sum, inv) => sum + Number(inv.pendingRewards || 0), 0),
@@ -400,16 +408,23 @@ export const getUserInvestments = async (req: AuthRequest, res: Response) => {
       failed: investments.filter(inv => inv.blockchainStatus === 'MINT_FAILED').length,
     };
 
+    // ✅ Map investments to include formatted platform fee info
+    const investmentsWithFee = investments.map(inv => ({
+      ...inv,
+      platformFee: Number(inv.platformFee || 0),
+      netInvested: Number(inv.investedAmount),
+    }));
+
     res.json({ 
       success: true, 
-      data: investments,
+      data: investmentsWithFee,
       count: investments.length,
       stats,
       blockchainStatus: byStatus
     });
 
   } catch (error: any) {
-    console.error('❌ Get investments error:', error);
+    console.error('Get investments error:', error);
     res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -464,39 +479,45 @@ export const getInvestmentById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ✅ FIX: Convert all Decimals to numbers
-    const amount = toNumber(investment.amount);
+    // ✅ Convert all Decimals to numbers safely
+    const amount = toNumber(investment.amount);             // gross amount
+    const investedAmount = toNumber(investment.investedAmount); // net after fee
+    const platformFee = toNumber(investment.platformFee || 0);
     const tokenAmount = toNumber(investment.tokenAmount);
     const earnedRewards = toNumber(investment.earnedRewards);
+    const pendingRewards = toNumber(investment.pendingRewards);
     const tokenPrice = toNumber(investment.hotelAsset.tokenPrice);
     const apy = toNumber(investment.hotelAsset.apy);
 
-    // ✅ Calculate metrics with safe numbers
+    // ✅ Calculate metrics
     const currentValue = tokenAmount * tokenPrice;
-    const profitLoss = earnedRewards - amount;
-    const profitLossPercentage = amount > 0 ? (earnedRewards / amount) * 100 : 0;
+    const profitLoss = earnedRewards - investedAmount;
+    const profitLossPercentage = investedAmount > 0 ? (earnedRewards / investedAmount) * 100 : 0;
     const daysInvested = Math.floor(
       (Date.now() - investment.createdAt.getTime()) / (1000 * 60 * 60 * 24)
     );
-    const estimatedAnnualReturn = amount * (apy / 100);
+    const estimatedAnnualReturn = investedAmount * (apy / 100);
 
     res.json({ 
       success: true, 
       data: {
         ...investment,
+        platformFee,
+        netInvested: investedAmount,
         metrics: {
           currentValue,
           profitLoss,
           profitLossPercentage: profitLossPercentage.toFixed(2),
           daysInvested,
-          estimatedAnnualReturn
+          estimatedAnnualReturn,
+          pendingRewards
         },
         blockchainConfirmed: investment.blockchainStatus === 'MINTED'
       }
     });
 
   } catch (error: any) {
-    console.error('❌ Get investment error:', error);
+    console.error('Get investment error:', error);
     res.status(500).json({ success: false, error: "Server error" });
   }
 };
@@ -976,20 +997,6 @@ export const cancelInvestment = async (req: AuthRequest, res: Response) => {
           updatedAt: new Date()
         }
       });
-
-      // ✅ Optional: Log cancellation (if you have activityLog model)
-      // Uncomment if activityLog exists in your schema
-      /*
-      if (reason) {
-        await tx.activityLog.create({
-          data: {
-            userId,
-            action: "INVESTMENT_CANCELLED",
-            details: JSON.stringify({ investmentId: id, reason }),
-          }
-        });
-      }
-      */
     });
 
     res.json({ 

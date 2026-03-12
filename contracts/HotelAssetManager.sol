@@ -16,7 +16,6 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // ============ STATE ============
-
     IKYCRegistry public immutable kycRegistry;
     address public investmentContract;
 
@@ -45,17 +44,13 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
         bool isVerified;
         uint256 createdAt;
     }
-
     mapping(uint256 => Hotel) public hotels;
     mapping(string => uint256) public hotelIdToIndex; // UUID -> index
     mapping(address => uint256[]) public userHotels; // Track user's hotels
-
     // Revenue tracking
     mapping(uint256 => uint256) public totalRevenue;
     mapping(uint256 => mapping(address => uint256)) public revenueClaimed;
-
     // ============ EVENTS ============
-
     event HotelListed(
         uint256 indexed hotelIndex,
         string hotelId,
@@ -78,7 +73,6 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
     event InvestmentContractSet(address indexed investmentContract);
     event TokenRoleGranted(string indexed hotelId, bytes32 indexed role, address indexed account);
     // ============ ERRORS ============
-
     error NotInvestment();
     error HotelNotVerified();
     error FundingClosed();
@@ -91,7 +85,6 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
     error HotelExists();
     error TokenDeploymentFailed();
     error HotelNotFound();
-
     // ============ MODIFIERS ============
 
     //  FIXED: Simplified modifier
@@ -166,7 +159,6 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
         } catch {
             revert TokenDeploymentFailed();
         }
-
         hotels[hotelIndex] = Hotel({
             hotelId: hotelId,
             name: name,

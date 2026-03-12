@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { keccak256 } from "ethers";
 import fs from 'fs';
 import path from 'path';
 import { sendAdminKycEmail } from "../utils/sendAdminKycEmail";
 import kyc from '../blockchain/kyc'; 
-
+import { web3Service } from '../services/web3Service';
 const uploadDir = path.join(__dirname, '../../uploads/kyc');
 
 const deleteFile = (fileName?: string | null) => {
@@ -45,9 +46,15 @@ export const submitKYC = async (req: Request, res: Response) => {
       addressProof: files?.addressProof?.[0]?.filename ?? null,
     };
 
-    const kycRecord = await prisma.kyc.create({
-      data,
-    });
+    const filePath = path.join(uploadDir, files.documentFront[0].filename);
+const buffer = fs.readFileSync(filePath);
+ const documentHash = keccak256(buffer);
+   const kycRecord = await prisma.kyc.create({
+  data: {
+    ...data,
+    documentHash
+  }
+});
 
     // Update user's kycSubmittedAt
     await prisma.user.update({
@@ -181,7 +188,7 @@ export const reviewKYC = async (req: Request, res: Response) => {
         data: { kycStatus: "REJECTED" }
       });
 
-      console.log('❌ KYC Rejected');
+      console.log(' KYC Rejected');
       return res.json({
         success: true,
         data: updated,
@@ -192,76 +199,53 @@ export const reviewKYC = async (req: Request, res: Response) => {
     // -----------------------------
     // Handle APPROVAL
     // -----------------------------
-    if (status === "APPROVED") {
-      if (!kycRecord.user.walletAddress) {
-        return res.status(400).json({
-          success: false,
-          message: 'User wallet address not found. Cannot verify on blockchain.'
-        });
-      }
+  if (status === "APPROVED") {
+  const { walletAddress } = kycRecord.user;
+  if (!walletAddress) throw new Error('User wallet address missing');
+  if (!kycRecord.documentHash) throw new Error('Document hash missing');
 
-      console.log('🔗 Verifying user on blockchain...');
-      let txHash: string;
+  let txHash: string | null = null;
 
-      try {
-        txHash = await kyc.verifyUser(kycRecord.user.walletAddress);
+  try {
+    txHash = await web3Service.registerKyc(walletAddress, kycRecord.documentHash);
+    console.log('Blockchain KYC synced, txHash:', txHash);
+  } catch (err: unknown) {
+    console.error('Blockchain sync failed:', err instanceof Error ? err.message : err);
+  }
 
-        console.log('✅ Blockchain verification result:', txHash);
-
-        // Handle already-approved case
-        if (txHash === "already-approved") {
-          console.log(' User already approved on-chain');
-          let txHash: string | null;
-        }
-
-        data.rejectionReason = null;
-        data.approvedAt = new Date();
-        data.blockchainTx = txHash;
-      } catch (blockchainError: any) {
-        console.error(' Blockchain verification failed:', blockchainError.message);
-        return res.status(500).json({
-          success: false,
-          message: 'Blockchain verification failed',
-          error: blockchainError.message
-        });
-      }
-
-      const updated = await prisma.kyc.update({
-        where: { id: kycId },
-        data
-      });
-
-      await prisma.user.update({
-        where: { id: updated.userId },
-        data: {
-          kycStatus: "APPROVED",
-          kycApprovedAt: new Date()
-        }
-      });
-
-      console.log('💾 Database updated for approved KYC');
-
-      return res.json({
-        success: true,
-        data: {
-          ...updated,
-          blockchainTx: txHash
-        },
-        message: 'KYC approved and verified on blockchain',
-        txHash: txHash
-      });
+  const updated = await prisma.kyc.update({
+    where: { id: kycId },
+    data: {
+      ...data,
+      approvedAt: new Date(),
+      rejectionReason: null,
+      blockchainTx: txHash
     }
+  });
 
-    // -----------------------------
-    // Invalid status
-    // -----------------------------
+  await prisma.user.update({
+    where: { id: updated.userId },
+    data: { kycStatus: 'APPROVED', kycApprovedAt: new Date() }
+  });
+
+  return res.json({
+    success: true,
+    status: updated.status,
+    data: updated,
+    message: txHash
+      ? 'KYC approved and synced to blockchain'
+      : 'KYC approved but blockchain sync failed',
+    txHash
+  });
+}
+
     return res.status(400).json({
       success: false,
       message: 'Invalid status'
     });
 
   } catch (error: any) {
-    console.error('❌ Review KYC error:', error);
+    console.error(' Review KYC error:', error);
     return res.status(500).json({
       success: false,
       message: error.message

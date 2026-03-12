@@ -31,3 +31,4 @@ router.get("/:id", getInvestmentById);
  router.delete("/:id", deleteInvestment);            
 
 export default router;
+

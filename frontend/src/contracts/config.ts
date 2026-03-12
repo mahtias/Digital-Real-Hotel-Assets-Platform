@@ -12,7 +12,7 @@ export const HOTEL_ASSET_MANAGER_ADDRESS ="0x572C8046A079F5782405212c17C44cA74eF
 // KYC Registry
 export const KYC_CONTRACT_ADDRESS = "0x4CC1266e950a15f5F80e2554fc91E013644085Cf" as const;
 
-// ===================================
+// =================================== 
 // 🏨 DEPLOYED HOTEL TOKENS Addess
 // ===================================
 export const HOTEL_TOKENS = {

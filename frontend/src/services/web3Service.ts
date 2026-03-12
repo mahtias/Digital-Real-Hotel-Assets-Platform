@@ -10,6 +10,16 @@ const HotelInvestmentABI = HotelInvestmentJSON.abi;
 
 export const KYC_ABI = [
   {
+    inputs: [
+      { name: "level", type: "uint8" },
+      { name: "documentHash", type: "bytes32" }
+    ],
+    name: "submitKYC",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [{ name: "user", type: "address" }],
     name: "isKYCVerified",
     outputs: [{ name: "", type: "bool" }],
@@ -22,23 +32,14 @@ export const KYC_ABI = [
     outputs: [{ name: "", type: "uint8" }],
     stateMutability: "view",
     type: "function",
-  },
-  {
-    inputs: [
-      { name: "user", type: "address" },
-      { name: "level", type: "uint8" },
-    ],
-    name: "setKYCStatus",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
+  }
 ] as const;
 
 const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)",
-  "function approve(address spender, uint256 amount) returns (bool)"
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)"
 ];
 
 const HOTEL_INVESTMENT_ADDRESS =
@@ -53,46 +54,7 @@ class Web3Service {
   constructor() {
     if (this.isMetaMaskInstalled()) this.setupListeners();
   }
-
-//  async setSignerFromExistingWallet() {
-//   if (!window.ethereum) throw new Error("Wallet not installed");
-
-//   // Reuse provider if already created
-//   if (!this.provider) {
-//     this.provider = new BrowserProvider(window.ethereum);
-//   }
-
-//   // Get already connected accounts (DO NOT request)
-//   const accounts = (await window.ethereum.request({
-//     method: "eth_accounts",
-//   })) as string[];
-
-//   if (!accounts || accounts.length === 0) {
-//     throw new Error("No wallet connected");
-//   }
-
-//   const connectedAccount = accounts[0].toLowerCase();
-
-//   // If signer already exists and matches account → reuse it
-//   if (this.signer) {
-//     const current = (await this.signer.getAddress()).toLowerCase();
-//     if (current === connectedAccount) {
-//       return connectedAccount;
-//     }
-//   }
-
-//   // Otherwise create signer bound to the connected account
-//   this.signer = await this.provider.getSigner(connectedAccount);
-
-//   // Reinitialize contracts with SAME signer
-//   this.kycContract = new Contract(
-//     KYC_CONTRACT_ADDRESS,
-//     KYC_ABI,
-//     this.signer
-//   );
-
-//   return connectedAccount;
-// }
+  
   // -------------------
   // WALLET & PROVIDER  
   // -------------------
@@ -112,20 +74,6 @@ class Web3Service {
     window.ethereum.on?.("accountsChanged", () => this.disconnect());
     window.ethereum.on?.("chainChanged", () => window.location.reload());
   }
-
-  /** Only call this if user hasn’t connected yet */
-  // async connectWallet(): Promise<string> {
-  //   if (!this.isMetaMaskInstalled()) throw new Error("MetaMask not installed.");
-  //   const ethereum = this.getEthereumProvider();
-  //   const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
-
-  //   this.provider = new BrowserProvider(ethereum);
-  //   this.signer = await this.provider.getSigner();
-
-  //   this.kycContract = new Contract(KYC_CONTRACT_ADDRESS, KYC_ABI, this.signer);
-
-  //   return accounts[0];
-  // }
 
   /** Use an existing signer (from Wagmi or another source) */
   async setSigner(signer: Signer) {
@@ -155,21 +103,33 @@ class Web3Service {
   // KYC METHODS
   // -------------------
 
-  async submitKYC(documentHash: string): Promise<bigint> {
-    if (!this.kycContract || !this.signer) throw new Error("Wallet not connected.");
-
-    const user = await this.getCurrentAddress();
-    if (!user) throw new Error("No wallet connected.");
-
-    const padded = documentHash.startsWith("0x") ? documentHash : "0x" + documentHash;
-    const hash32 = ethers.zeroPadValue(padded, 32);
-
-    const tx = await this.kycContract.submitKYC(user, hash32);
-    const receipt = await tx.wait();
-
-    const event = receipt.logs.find((l: any) => l.fragment?.name === "KYCSubmitted");
-    return event?.args?.kycId ?? 0n;
+ async submitKYC(documentHash: string, level: number = 1): Promise<string> {
+  if (!this.kycContract || !this.signer) {
+    throw new Error("Wallet not connected.");
   }
+
+  // Ensure hash is bytes32
+  const padded = documentHash.startsWith("0x")
+    ? documentHash
+    : "0x" + documentHash;
+
+  const hash32 = ethers.zeroPadValue(padded, 32);
+
+  console.log("Submitting KYC:", {
+    level,
+    hash32
+  });
+
+  const tx = await this.kycContract.submitKYC(level, hash32);
+
+  console.log("KYC tx sent:", tx.hash);
+
+  const receipt = await tx.wait();
+
+  console.log("KYC confirmed:", receipt.hash);
+
+  return receipt.hash;
+}
 
   async getUserKYCLevel(address: string): Promise<number> {
     if (!this.kycContract) throw new Error("Contract not initialized.");
@@ -184,35 +144,110 @@ class Web3Service {
   // -------------------
   // HOTEL INVESTMENT
   // -------------------
- async investOnBlockchain(blockchainId: number, dbHotelId: string, usdcAmount: number) {
-    if (!this.signer) throw new Error("Wallet not connected.");
+async investOnBlockchain(
+  blockchainId: number,
+  dbHotelId: string,
+  usdcAmount: number
+) {
+  if (!this.signer) throw new Error("Wallet not connected.");
 
-    const hotelContract = new Contract(
-      HOTEL_INVESTMENT_ADDRESS!,
-      HotelInvestmentABI,
-      this.signer
+  const userAddress = await this.signer.getAddress();
+
+  const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
+
+  if (!USDC_ADDRESS) {
+    throw new Error("USDC address not configured");
+  }
+
+  const hotelContract = new Contract(
+    HOTEL_INVESTMENT_ADDRESS,
+    HotelInvestmentABI,
+    this.signer
+  );
+
+  const usdcContract = new Contract(
+    USDC_ADDRESS,
+    ERC20_ABI,
+    this.signer
+  );
+
+  // Convert to 6 decimals
+  const usdcAmountWei = ethers.parseUnits(usdcAmount.toString(), 6);
+
+  console.log("User:", userAddress);
+  console.log("Amount:", usdcAmountWei.toString());
+
+  // -----------------------------
+  // 1️ CHECK BALANCE
+  // -----------------------------
+  const balance = await usdcContract.balanceOf(userAddress);
+
+  if (balance < usdcAmountWei) {
+    throw new Error("Insufficient USDC balance");
+  }
+
+  // -----------------------------
+  // 2️ CHECK ALLOWANCE
+  // -----------------------------
+  const allowance = await usdcContract.allowance(
+    userAddress,
+    HOTEL_INVESTMENT_ADDRESS
+  );
+
+  console.log("Current allowance:", allowance.toString());
+
+  // -----------------------------
+  // 3️ APPROVE IF NEEDED
+  // -----------------------------
+  if (allowance < usdcAmountWei) {
+    console.log("Approving USDC...");
+
+    const approveTx = await usdcContract.approve(
+      HOTEL_INVESTMENT_ADDRESS,
+      usdcAmountWei
     );
 
-    // Convert USDC amount to 6 decimals
-    const usdcAmountWei = ethers.parseUnits(usdcAmount.toString(), 6);
+    console.log("Approve tx:", approveTx.hash);
 
-    // Send transaction
-    const tx = await hotelContract.invest(blockchainId, usdcAmountWei, { gasLimit: 500_000 });
-    console.log("Transaction sent:", tx.hash);
+    await approveTx.wait();
 
-    // Wait for confirmation
-    const receipt = await tx.wait();
-    console.log("Transaction confirmed:", receipt.hash);
+    console.log("USDC approved");
+  }
 
-    // ✅ Update backend via apiClient (token handled automatically)
-    await apiClient.post("/investments/confirm", {
-      hotelId: dbHotelId,            // DB UUID string
-      amount: usdcAmount,
-      blockchainTxHash: receipt.hash // always `hash` from ethers v6
-    });
-globalEvent.emit('investmentAdded', { hotelId: dbHotelId, amount: usdcAmount });
-    return receipt;
-  
+  // -----------------------------
+  // 4️ INVEST
+  // -----------------------------
+  console.log("Sending invest transaction...");
+
+  const tx = await hotelContract.invest(
+    blockchainId,
+    usdcAmountWei
+  );
+
+  console.log("Invest tx:", tx.hash);
+
+  const receipt = await tx.wait();
+
+  console.log("Investment confirmed:", receipt.hash);
+
+  // -----------------------------
+  // 5️ BACKEND CONFIRMATION
+  // -----------------------------
+  await apiClient.post("/investments/confirm", {
+    hotelId: dbHotelId,
+    amount: usdcAmount,
+    blockchainTxHash: receipt.hash
+  });
+
+  // -----------------------------
+  // 6️ FRONTEND EVENT
+  // -----------------------------
+  globalEvent.emit("investmentAdded", {
+    hotelId: dbHotelId,
+    amount: usdcAmount
+  });
+
+  return receipt;
 }
 }
 

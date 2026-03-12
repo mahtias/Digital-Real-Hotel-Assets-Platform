@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { web3Service } from "@/services/web3Service";
-import { useWalletClient } from "wagmi";
+import { useWalletClient  } from "wagmi";
+
 import { useEffect } from "react";
 import { ethers, BrowserProvider } from "ethers";
 import { 
@@ -41,7 +42,7 @@ export default function HotelDetail() {
   const [amount, setAmount] = useState(0);
  const { data: walletClient } = useWalletClient();
   console.log("🔍 Hotel ID from URL:", id);
-  console.log("👛 Wallet Address:", address);
+  console.log(" Wallet Address:", address);
 
 
 useEffect(() => {
@@ -95,7 +96,7 @@ useEffect(() => {
 // 🔐 KYC VERIFICATION
 const backendKycApproved = user?.kycStatus === 'APPROVED';
 
-const { data: isVerified, isLoading: isLoadingKyc } = useReadContract({
+const { data: isVerified, isLoading: isLoadingKyc , refetch: refetchKyc } = useReadContract({
   address: KYC_CONTRACT_ADDRESS,
   abi: KYC_ABI,
   functionName: 'isKYCVerified',
@@ -225,13 +226,13 @@ console.log('🔐 KYC Status:', {
   });
   
 const handleInvest = async () => {
-  if (!isHotelAvailable) {
-    toast.error("Cannot invest: Hotel not verified on-chain");
+  if (!canInvest) {
+    toast.error("Cannot invest: KYC or hotel verification incomplete.");
     return;
   }
 
-  if (!hotel?.blockchainId || !hotel.id) {
-    toast.error("Hotel blockchain ID not available");
+  if (!investmentAmount || Number(investmentAmount) < 1) {
+    toast.error("Minimum investment is $1");
     return;
   }
 
@@ -240,128 +241,110 @@ const handleInvest = async () => {
     return;
   }
 
-  const numericAmount = Number(investmentAmount);
-  if (!numericAmount || numericAmount < 1) {
-    toast.error("Minimum investment is $1");
+  try {
+    setIsInvesting(true);
+    setLoading(true);
+
+    // 1️⃣ Setup signer
+    const provider = new BrowserProvider(walletClient.transport as any);
+    const signer = await provider.getSigner();
+    await web3Service.setSigner(signer);
+    const walletAddress = await signer.getAddress();
+
+    console.log("Using wallet:", walletAddress);
+
+    // 2️⃣ Invest on blockchain
+    const numericAmount = Number(investmentAmount);
+    const txReceipt = await web3Service.investOnBlockchain(
+      hotel.blockchainId,
+      hotel.id,
+      numericAmount
+    );
+
+    console.log("Investment TX:", txReceipt.hash);
+    toast.success("🎉 Investment successful on blockchain!");
+
+    // 3️⃣ Save investment to backend
+    const backendPayload = {
+      hotelId: hotel.id,
+      blockchainId: hotel.blockchainId,
+      walletAddress,
+      amount: numericAmount,
+      userId: user?.id,
+      txHash: txReceipt.hash,
+      tokenAmount: numericAmount / Number(tokenPriceFormatted),
+    };
+
+    // const res = await authFetch('/api/v1/investments', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(backendPayload),
+    // });
+
+    // if (!res.ok) {
+    //   const err = await res.json();
+    //   throw new Error(err.message || "Failed to save investment to backend");
+    // }
+
+    toast.success(`Investment recorded in backend!`);
+
+    // Reset form & redirect
+    setInvestmentAmount('');
+    setHatAmount('');
+    setTimeout(() => navigate("/portfolio"), 1500);
+
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error.response?.data?.error || error.message || "Investment failed");
+  } finally {
+    setLoading(false);
+    setIsInvesting(false);
+  }
+};
+
+
+const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+
+const handleRetryBlockchainKyc = async () => {
+  if (!walletClient || !address) {
+    toast.error("Wallet not connected");
     return;
   }
 
- try {
-  setLoading(true);
-  setIsInvesting(true);
+  try {
+    setIsSubmittingKyc(true);
 
-  const provider = new BrowserProvider(walletClient.transport as any);
-  const signer = await provider.getSigner();
-  await web3Service.setSigner(signer);
+    // 1️⃣ Setup signer
+    const provider = new BrowserProvider(walletClient.transport as any);
+    const signer = await provider.getSigner();
+    await web3Service.setSigner(signer);
 
-  const walletAddress = await signer.getAddress();
-  console.log("Using wallet:", walletAddress);
+    toast.info("Submitting blockchain KYC...");
 
-  const receipt = await web3Service.investOnBlockchain(
-    hotel.blockchainId,
-    hotel.id,
-    numericAmount
-  );
+    // 2️⃣ Call submitKYC
+    const txHash = await web3Service.submitKYC(
+      user?.kycDocumentHash || ethers.keccak256(
+        ethers.toUtf8Bytes(`kyc-${user?.id}-${Date.now()}`)
+      ),
+      1 // KYC level
+    );
 
-  console.log("Investment TX:", receipt.hash);
+    console.log("KYC TX submitted:", txHash);
+    toast.success(` Blockchain KYC completed! TX: ${txHash.slice(0, 10)}...`);
 
-  toast.success("🎉 Investment successful! Tokens added to your portfolio.");
- 
-  setInvestmentAmount("");
-  setHatAmount("");
- 
-  setTimeout(() => {
-    navigate("/portfolio");
-  }, 1500);
+  } catch (err: any) {
+    console.error("Blockchain KYC error:", err);
 
-} catch (err: any) {
-  console.error(err);
-  toast.error(err.response?.data?.error || err.message || "Investment failed");
-} finally {
-  setLoading(false);
-  setIsInvesting(false);
-}
-};
-
-  // const handleInvest = async () => {
-  //   if (!hatAmount || parseFloat(hatAmount) <= 0) {
-  //     toast.error('Please enter a valid amount');
-  //     return;
-  //   }
-
-  //   if (!hotelTokenAddress || blockchainId === undefined) {
-  //     toast.error('Hotel token address not available');
-  //     return;
-  //   }
-
-  //   try {
-  //     setIsInvesting(true);
-  //     const hatAmountWei = parseUnits(hatAmount, 18);
-
-  //     console.log('💰 Investing:', {
-  //       hotelId: hotel.id,
-  //       blockchainId,
-  //       amount: hatAmount,
-  //       hatAmount: hatAmountWei.toString(),
-  //     });
-
-  //     // Step 1: Approve HAT tokens
-  //     toast.info("Approving HAT tokens...");
-  //     const approveTx = await writeContractAsync({
-  //       address: HAT_TOKEN_ADDRESS,
-  //       abi: HAT_TOKEN_ABI,
-  //       functionName: 'approve',
-  //       args: [hotelTokenAddress, hatAmountWei],
-  //     });
-  //     console.log('✅ Approve TX:', approveTx);
-
-  //     // Step 2: Invest
-  //     toast.info("Processing investment...");
-  //     const investTx = await writeContractAsync({
-  //       address: hotelTokenAddress,
-  //       abi: HOTEL_TOKEN_ABI,
-  //       functionName: 'invest',
-  //       args: [hatAmountWei],
-  //     });
-  //     console.log('✅ Invest TX:', investTx);
-
-  //     // Step 3: Save to backend
-  //     const investData = {
-  //       hotelId: hotel.id,
-  //       amount: parseFloat(hatAmount),
-  //       walletAddress: address,
-  //       userId: user?.id,
-  //       tokenAmount: parseFloat(hatAmount) / parseFloat(tokenPriceFormatted),
-  //       txHash: investTx,
-  //       blockchainId: blockchainId,
-  //     };
-
-  //     console.log('📤 Saving investment to backend:', investData);
-  //     const res = await authFetch('/api/v1/investments', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(investData),
-  //     });
-
-  //     if (!res.ok) {
-  //       const errorData = await res.json();
-  //       throw new Error(errorData.message || 'Failed to save investment');
-  //     }
-
-  //     const data = await res.json();
-  //     console.log('✅ Backend response:', data);
-
-  //     toast.success(`Successfully invested ${hatAmount} HAT!`);
-  //     setInvestmentAmount('');
-  //     setHatAmount('');
-
-  //   } catch (error: any) {
-  //     console.error('❌ Investment error:', error);
-  //     toast.error(error.message || 'Investment failed');
-  //   } finally {
-  //     setIsInvesting(false);
-  //   }
-  // };
+    if (err?.reason?.includes("KYC already pending or approved")) {
+      toast.info(" Blockchain KYC is already pending or approved.");
+      refetchKyc(); // force blockchain KYC status refresh
+    } else {
+      toast.error(err.message || "Blockchain KYC failed");
+    }
+  } finally {
+    setIsSubmittingKyc(false);
+  }
+}; 
 
   // ===================================
   // 📊 CALCULATE DERIVED DATA
@@ -378,7 +361,7 @@ const handleInvest = async () => {
   const userHatBalanceFormatted = userHatBalance ? Number(formatUnits(userHatBalance, 18)).toFixed(2) : "0.00";
 
   // ===================================
-  // 🎨 LOADING & ERROR STATES
+  //  LOADING & ERROR STATES
   // ===================================
 
   if (isLoadingHotel) {
@@ -393,7 +376,7 @@ const handleInvest = async () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <Card className="bg-slate-900/50 border-slate-800 p-8 max-w-md">
-          <h2 className="text-white text-2xl font-bold mb-4">❌ Hotel Not Found</h2>
+          <h2 className="text-white text-2xl font-bold mb-4"> Hotel Not Found</h2>
           <p className="text-slate-400 mb-6">
             {hotelError?.message || `Invalid hotel ID: ${id}`}
           </p>
@@ -450,8 +433,8 @@ const handleInvest = async () => {
           {/* 🏨 LEFT: HOTEL INFO */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="bg-slate-900/50 border-slate-800 p-8">
-              <h1 className="text-4xl font-bold text-white mb-4">{hotelName || hotel.name}</h1>
-
+              <h1 className="text-4xl font-bold text-white mb-4">{hotel.name}</h1>
+                 {/* <h1>{hotelName || hotel.name}</h1> */}
               <div className="flex items-center gap-4 text-slate-300 mb-6">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
@@ -511,7 +494,8 @@ const handleInvest = async () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Symbol:</span>
-                  <span className="text-white font-mono">{hotelSymbol || hotel.tokenSymbol}</span>
+                  <span className="text-white font-mono">{hotel.tokenSymbol}</span>
+                   {/* <span className="text-white font-mono">{hotelSymbol || hotel.tokenSymbol}</span> */}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Blockchain ID:</span>
@@ -654,7 +638,34 @@ const handleInvest = async () => {
                         )}
                       </div>
                        
-                      <Button 
+                       {backendKycApproved && !blockchainKycApproved && (
+                   <Button
+                    onClick={handleRetryBlockchainKyc}
+                    disabled={isSubmittingKyc || isVerified} // use the up-to-date value
+                    className="w-full bg-amber-500 hover:bg-amber-600"
+                  >
+                    {isSubmittingKyc ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Submitting...
+                      </>
+                    ) : isVerified ? (
+                      "✅ Blockchain KYC Verified"
+                    ) : (
+                      "Retry Blockchain KYC"
+                    )}
+                  </Button>
+                  )}
+
+                  {!backendKycApproved && (
+                    <Button
+                      className="w-full bg-amber-500 hover:bg-amber-600"
+                      onClick={() => window.open('/kyc/submit', '_blank')}
+                    >
+                      Complete KYC
+                    </Button>
+                  )}
+                      {/* <Button 
                        
                         className="w-full bg-amber-500 hover:bg-amber-600" >
                          <a 
@@ -664,7 +675,7 @@ const handleInvest = async () => {
                         {user?.kycStatus === 'APPROVED' ? 'Complete Blockchain KYC' : 'Complete KYC'}
                        
                          </a>
-                      </Button>
+                      </Button> */}
                     </div>
                   )}
                 </>

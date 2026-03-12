@@ -73,15 +73,19 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
 });
 
   // 🔥 Enrich investments using hotelAsset from API
-  const enrichedInvestments = investmentsRaw.map(inv => ({
-    ...inv,
-    hotel: inv.hotelAsset || { name: "Unknown Hotel", location: "N/A", expectedYield: 0 },
-    amount: Number(inv.investedAmount || inv.amount),
-    tokenAmount: Number(inv.tokenAmount || 0),
-    pendingRewards: Number(inv.pendingRewards || 0),
-  }));
+const enrichedInvestments = investmentsRaw.map(inv => ({
+  ...inv,
+  hotel: inv.hotelAsset || { name: "Unknown Hotel", location: "N/A", expectedYield: 0 },
+  amount: Number(inv.amount ?? 0),
+  platformFee: Number(inv.platformFee ?? 0),
+  netInvested: Number(inv.netInvested ?? 0),
+  tokenAmount: inv.tokenAmount !== null && inv.tokenAmount !== undefined 
+               ? Number(inv.tokenAmount) 
+               : 0,
+  pendingRewards: Number(inv.pendingRewards ?? 0),
+}));
 
-  // 🔥 Portfolio totals
+  //  Portfolio totals
   const totalInvested = enrichedInvestments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const totalTokens = enrichedInvestments.reduce((sum, inv) => sum + (inv.tokenAmount || 0), 0);
   const totalProperties = enrichedInvestments.length;
@@ -203,13 +207,41 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-4 text-sm">
+
                         <div>
-                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Investment</div>
-                          <div className="font-bold text-lg text-white">${inv.amount.toFixed(2)}</div>
+                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
+                            Investment
+                          </div>
+                          <div className="font-bold text-lg text-white">
+                            ${inv.amount.toFixed(2)}
+                          </div>
                         </div>
+
                         <div>
-                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">HAT Tokens</div>
-                          <div className="font-bold text-lg text-emerald-400">{inv.tokenAmount.toFixed(2)} HAT</div>
+                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
+                            Platform Fee
+                          </div>
+                          <div className="font-bold text-red-400">
+                            ${inv.platformFee.toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
+                            Net Invested
+                          </div>
+                          <div className="font-bold text-emerald-400">
+                            ${inv.netInvested.toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
+                            HAT Tokens
+                          </div>
+                          <div className="font-bold text-lg text-emerald-400">
+                            {inv.tokenAmount.toFixed(2)} HAT
+                          </div>
                         </div>
                         <div>
                           <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Location</div>
