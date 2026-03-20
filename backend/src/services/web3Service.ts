@@ -48,6 +48,16 @@ export class Web3Service {
     this.hotelInvestment = this.initializeInvestmentContract();
   }
 
+   private async getReceiptWithRetry(txHash: string, retries = 5, delayMs = 2000) {
+    for (let i = 0; i < retries; i++) {
+      const receipt = await this.provider.getTransactionReceipt(txHash);
+      if (receipt) return receipt;
+      console.log(`Receipt not found yet, retry ${i + 1}/${retries}`);
+      await new Promise((res) => setTimeout(res, delayMs));
+    }
+    return null;
+  }
+
   // ============================================================
   //  INITIALIZATION (Private Methods)
   // ============================================================
@@ -691,76 +701,72 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
 
   ///verification trasanction hash for booking ///
 
-async verifyUSDCTransfer(
-  txHash: string,
-  expectedAmount: number,
-  expectedReceiver: string,
-  usdcAddress: string
-) {
-  const receipt = await this.provider.getTransactionReceipt(txHash);
+public async verifyUSDCTransfer(
+    txHash: string,
+    expectedAmount: bigint,
+    expectedReceiver: string,
+    usdcAddress: string
+  ) {
+    const receipt = await this.getReceiptWithRetry(txHash);
 
-  if (!receipt || receipt.status !== 1) {
-    throw new Error("Transaction failed");
-  }
+    if (!receipt) {
+      console.error("Transaction receipt not found after retries");
+      throw new Error("Transaction not found or not mined yet");
+    }
 
-  const usdcInterface = new ethers.Interface(USDC_ABI);
+    if (receipt.status !== 1) {
+      console.error("Transaction receipt indicates failure", receipt);
+      throw new Error("Transaction failed on-chain");
+    }
 
-  let found = false;
+    const usdcInterface = new ethers.Interface(USDC_ABI);
+    let found = false;
 
-  for (const log of receipt.logs) {
-    // ✅ Only check USDC contract logs
-    if (log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
 
-    try {
-     const parsed = usdcInterface.parseLog(log);
-
-// ✅ check null first
-        if (!parsed) continue;
-
-        // ✅ now safe
-        if (parsed.name !== "Transfer") continue;
+      try {
+        const parsed = usdcInterface.parseLog(log);
+        if (!parsed || parsed.name !== "Transfer") continue;
 
         const from = parsed.args.from;
         const to = parsed.args.to;
-        const value = parsed.args.value;
+        const value = parsed.args.value; // BigInt
 
-      const amount = Number(ethers.formatUnits(value, 6));
+        console.log("USDC Transfer Found:", {
+          from,
+          to,
+          value: value.toString(),
+          expectedAmount: expectedAmount.toString(),
+        });
 
-      console.log("USDC Transfer Found:", {
-        from,
-        to,
-        amount
-      });
+        if (to.toLowerCase() !== expectedReceiver.toLowerCase()) continue;
 
-      // ✅ Check receiver ONLY
-      if (to.toLowerCase() !== expectedReceiver.toLowerCase()) continue;
+        if (value < expectedAmount) {
+          throw new Error(
+            `Insufficient USDC payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`
+          );
+        }
 
-      // ✅ Allow >= expected (important)
-      if (amount < expectedAmount) {
-        throw new Error(
-          `Insufficient USDC payment. Expected: ${expectedAmount}, Got: ${amount}`
-        );
+        found = true;
+
+        return {
+          sender: from,
+          receiver: to,
+          amount: value,
+        };
+      } catch (err) {
+        console.warn("Failed to parse log:", err);
+        continue;
       }
+    }
 
-      found = true;
-
-      return {
-        sender: from,
-        receiver: to,
-        amount
-      };
-
-    } catch (err) {
-      // debug logs if needed
-      continue;
+    if (!found) {
+      console.error("No matching USDC transfer found in receipt logs", receipt.logs);
+      throw new Error("USDC transfer event not found in transaction");
     }
   }
 
-  if (!found) {
-    console.error("Receipt logs:", receipt.logs);
-    throw new Error("USDC transfer event not found in transaction");
-  }
-}
 
 }
 

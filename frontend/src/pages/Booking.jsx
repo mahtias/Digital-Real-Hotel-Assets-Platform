@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient  } from "wagmi";
 import { ethers } from "ethers";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
@@ -36,6 +36,7 @@ export default function Booking() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingCode, setBookingCode] = useState('');
  const { address, isConnected } = useAccount();
+ const { data: walletClient } = useWalletClient();
  const navigate = useNavigate();
  const kycStatus = user?.kycStatus; 
 const [signer, setSigner] = useState(null);
@@ -51,19 +52,29 @@ useEffect(() => {
 
 useEffect(() => {
   const setupSigner = async () => {
-    if (window.ethereum && isConnected) {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+    if (!walletClient) return;
 
-      const signerInstance = await provider.getSigner(); // ✅ FIX
+    try {
+      // ✅ Use Wagmi's provider (THIS IS THE KEY FIX)
+      const provider = new ethers.BrowserProvider(walletClient.transport);
 
-      console.log("Signer loaded:", await signerInstance.getAddress());
+      const signerInstance = await provider.getSigner();
+      const signerAddress = await signerInstance.getAddress();
+
+      console.log("Signer (wagmi):", signerAddress);
+      console.log("Wagmi address:", address);
+      console.log("User DB wallet:", user?.walletAddress);
 
       setSigner(signerInstance);
       web3Service.setSigner(signerInstance);
+
+    } catch (err) {
+      console.error("Signer setup failed:", err);
     }
   };
+
   setupSigner();
-}, [isConnected, address]);
+}, [walletClient, address, user]);
 
 // hotels
 const { data: hotels = [] } = useQuery({
@@ -122,7 +133,7 @@ const handleBookingPayment = async () => {
     return;
   }
 
-  // ✅ Enforce registered wallet
+  //  Enforce registered wallet
   if (address.toLowerCase() !== user.walletAddress.toLowerCase()) {
     toast.error(
       `Connected wallet does not match your registered wallet! Please connect: ${user.walletAddress}`
@@ -171,15 +182,16 @@ const handleBookingPayment = async () => {
     const receipt = await web3Service.payBookingUSDC(
       bookingId,
       paymentAmount,
-      import.meta.env.VITE_TREASURY_ADDRESS
+      import.meta.env.VITE_TREASURY_ADDRESS,
+      user.walletAddress
     );
 
     // 3️⃣ Verify payment came from registered wallet
-    if (receipt.from.toLowerCase() !== user.walletAddress.toLowerCase()) {
-      throw new Error(
-        `Payment must come from your registered wallet: ${user.walletAddress}`
-      );
-    }
+    // if (receipt.from.toLowerCase() !== user.walletAddress.toLowerCase()) {
+    //   throw new Error(
+    //     `Payment must come from your registered wallet: ${user.walletAddress}`
+    //   );
+    // }
     toast.success("Payment successful! Booking confirmed.");
     setBookingCode(bookingCode);
     setBookingSuccess(true);

@@ -3,6 +3,7 @@ import prisma from "../config/database";
 import { web3Service } from "../services/web3Service";
 import { sendBookingEmail } from "../utils/sendBookingEmail";
 import { Prisma } from "@prisma/client"; 
+import { ethers } from "ethers";
 // Generate unique booking code
 function generateBookingCode() {
   const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -270,53 +271,34 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     const { bookingId, txHash } = req.body;
 
     if (!bookingId || !txHash) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing bookingId or txHash",
-      });
+      return res.status(400).json({ success: false, message: "Missing bookingId or txHash" });
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-    });
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found",
-      });
-    }
-
-    if (booking.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Booking already processed",
-      });
-    }
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+    if (booking.status !== "PENDING")
+      return res.status(400).json({ success: false, message: "Booking already processed" });
 
     // Prevent TX hash reuse
     const existingTx = await prisma.booking.findFirst({ where: { txHash } });
-    if (existingTx) {
-      return res.status(400).json({
-        success: false,
-        message: "Transaction already used",
-      });
-    }
+    if (existingTx)
+      return res.status(400).json({ success: false, message: "Transaction already used" });
 
-    // Verify USDC payment
-    const expectedAmount = Number(booking.totalPrice);
-    const MIN_TEST_AMOUNT = 1;
+    // Expected amount in USDC smallest units (6 decimals)
+    const expectedAmount: bigint =
+      process.env.NODE_ENV === "development"
+        ? 1_000_000n // 1 USDC for testing
+        : ethers.parseUnits(booking.totalPrice.toString(), 6); // converts string -> bigint
 
+    // Verify payment
     const payment = await web3Service.verifyUSDCTransfer(
       txHash,
-      process.env.NODE_ENV === "development" ? MIN_TEST_AMOUNT : expectedAmount,
+      expectedAmount,
       process.env.TREASURY_ADDRESS!,
       process.env.USDC_ADDRESS!
     );
 
-    if (!payment) {
-      throw new Error("Payment verification failed");
-    }
+    if (!payment) throw new Error("Payment verification failed");
 
     // Update booking
     const updatedBooking = await prisma.booking.update({
@@ -330,7 +312,7 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       },
     });
 
-    // Fetch hotelAsset and user info
+    // Fetch related info
     const [hotelAsset, user] = await Promise.all([
       prisma.hotelAsset.findUnique({ where: { id: booking.hotelAssetId } }),
       prisma.user.findUnique({ where: { id: booking.userId } }),
@@ -340,55 +322,48 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     const hotelLocation = hotelAsset?.location ?? "Unknown Location";
     const hotelDescription = hotelAsset?.description ?? "";
 
-    // Send emails (non-blocking)
-    // Send emails (non-blocking)
-(async () => {
-  try {
-    const safeBookingCode = booking.bookingCode ?? "UNKNOWN";
-   const safeTotal =
-  booking.totalPrice instanceof Prisma.Decimal
-    ? booking.totalPrice.toNumber()
-    : Number(booking.totalPrice ?? 0);;
+    // Send emails asynchronously
+    (async () => {
+      try {
+        const safeBookingCode = booking.bookingCode ?? "UNKNOWN";
+        const safeTotal =
+          booking.totalPrice instanceof Prisma.Decimal
+            ? booking.totalPrice.toNumber()
+            : Number(booking.totalPrice ?? 0);
 
-    // Send to user
-    if (user?.email) {
-      await sendBookingEmail({
-        to: user.email,
-        bookingCode: safeBookingCode,
-        hotelName,
-        hotelLocation,
-        hotelDescription,
-        checkIn: booking.checkInDate,
-        checkOut: booking.checkOutDate,
-        total: safeTotal,
-        txHash,
-      });
-      console.log("Booking email sent to user:", user.email);
-    } else {
-      console.warn("No valid user email for booking", booking.bookingCode);
-    }
+        if (user?.email) {
+          await sendBookingEmail({
+            to: user.email,
+            bookingCode: safeBookingCode,
+            hotelName,
+            hotelLocation,
+            hotelDescription,
+            checkIn: booking.checkInDate,
+            checkOut: booking.checkOutDate,
+            total: safeTotal,
+            txHash,
+          });
+          console.log("Booking email sent to user:", user.email);
+        }
 
-    // Send to admin
-    if (process.env.ADMIN_EMAIL) {
-      await sendBookingEmail({
-        to: process.env.ADMIN_EMAIL,
-        bookingCode: safeBookingCode,
-        hotelName,
-        hotelLocation,
-        hotelDescription,
-        checkIn: booking.checkInDate,
-        checkOut: booking.checkOutDate,
-        total: safeTotal,
-        txHash,
-      });
-      console.log("Booking email BCC sent to admin:", process.env.ADMIN_EMAIL);
-    } else {
-      console.warn("No admin email configured for booking", booking.bookingCode);
-    }
-  } catch (emailErr) {
-    console.error("Email sending failed:", emailErr);
-  }
-})();
+        if (process.env.ADMIN_EMAIL) {
+          await sendBookingEmail({
+            to: process.env.ADMIN_EMAIL,
+            bookingCode: safeBookingCode,
+            hotelName,
+            hotelLocation,
+            hotelDescription,
+            checkIn: booking.checkInDate,
+            checkOut: booking.checkOutDate,
+            total: safeTotal,
+            txHash,
+          });
+          console.log("Booking email BCC sent to admin:", process.env.ADMIN_EMAIL);
+        }
+      } catch (emailErr) {
+        console.error("Email sending failed:", emailErr);
+      }
+    })();
 
     return res.json({
       success: true,
@@ -397,10 +372,6 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Confirm Booking Payment Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Payment confirmation failed",
-      error: err.message,
-    });
+    return res.status(500).json({ success: false, message: "Payment confirmation failed", error: err.message });
   }
 };
