@@ -440,7 +440,7 @@ const handleBookingPayment = async () => {
             hover:from-amber-600 hover:to-amber-700
             text-slate-900 font-semibold"
   onClick={handleBookingPayment}
-  disabled={!user || !user.walletAddress || !isConnected || isPaying}
+  disabled={!user || !isConnected || !address || isPaying}
 >
   <CreditCard className="w-4 h-4 mr-2" />
   {isPaying ? t("hotelDetail.processing") : t("booking.confirmBooking")}
