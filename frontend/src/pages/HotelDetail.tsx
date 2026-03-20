@@ -253,7 +253,7 @@ const handleInvest = async () => {
 
     console.log("Using wallet:", walletAddress);
 
-    // 2️⃣ Invest on blockchain
+    // 2️ Invest on blockchain
     const numericAmount = Number(investmentAmount);
     const txReceipt = await web3Service.investOnBlockchain(
       hotel.blockchainId,
@@ -264,7 +264,7 @@ const handleInvest = async () => {
     console.log("Investment TX:", txReceipt.hash);
     toast.success("🎉 Investment successful on blockchain!");
 
-    // 3️⃣ Save investment to backend
+    // 3️ Save investment to backend
     const backendPayload = {
       hotelId: hotel.id,
       blockchainId: hotel.blockchainId,
@@ -314,14 +314,14 @@ const handleRetryBlockchainKyc = async () => {
   try {
     setIsSubmittingKyc(true);
 
-    // 1️⃣ Setup signer
+    // 1️ Setup signer
     const provider = new BrowserProvider(walletClient.transport as any);
     const signer = await provider.getSigner();
     await web3Service.setSigner(signer);
 
     toast.info("Submitting blockchain KYC...");
 
-    // 2️⃣ Call submitKYC
+    // 2️ Call submitKYC
     const txHash = await web3Service.submitKYC(
       user?.kycDocumentHash || ethers.keccak256(
         ethers.toUtf8Bytes(`kyc-${user?.id}-${Date.now()}`)

@@ -29,7 +29,7 @@ router.use('/kyc', kycRoutes);
 router.use('/user', userRoutes);
 router.use('/hotels', hotelRoutes);
 router.use('/investments', investmentRoutes);
-router.use('/book', bookingRoutes);
+router.use('/bookings', bookingRoutes);
 router.use('/proposals', proposalRoutes);
 router.use('/staking', stakingRoutes);
 router.use('/esgreward', esgRewardRoutes);

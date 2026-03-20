@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useAccount } from "wagmi";
+import { ethers } from "ethers";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-
+import { web3Service } from '@/services/web3Service';
 import { CalendarIcon, MapPin, Star, Users, CreditCard, CheckCircle, Gift, Tag } from "lucide-react";
 import { format, differenceInDays } from 'date-fns';
 import { useLanguage } from '@/components/common/LanguageContext';
@@ -37,8 +38,8 @@ export default function Booking() {
  const { address, isConnected } = useAccount();
  const navigate = useNavigate();
  const kycStatus = user?.kycStatus; 
- const normalizedKyc = kycStatus?.toUpperCase();
-  
+const [signer, setSigner] = useState(null);
+
 // logged-in user  86a2465e-482e-49cf-9225-6b9d9091986b
 
 useEffect(() => {
@@ -47,6 +48,22 @@ useEffect(() => {
     .then(data => setUser(data.user))
     .catch(() => setUser(null));
 }, [])
+
+useEffect(() => {
+  const setupSigner = async () => {
+    if (window.ethereum && isConnected) {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+
+      const signerInstance = await provider.getSigner(); // ✅ FIX
+
+      console.log("Signer loaded:", await signerInstance.getAddress());
+
+      setSigner(signerInstance);
+      web3Service.setSigner(signerInstance);
+    }
+  };
+  setupSigner();
+}, [isConnected, address]);
 
 // hotels
 const { data: hotels = [] } = useQuery({
@@ -85,7 +102,7 @@ const { data: investments = [] } = useQuery({
   }
 });
 
-  const hotel = hotels.find(h => h.id === selectedHotel);
+  const hotel = hotels.find(h => String(h.id) === String(selectedHotel));
   const userHasTokens = investments.some(inv => inv.hotel_asset_id === selectedHotel && inv.token_amount > 0);
   
   const roomPrices = { standard: 120, deluxe: 180, suite: 320 };
@@ -95,49 +112,84 @@ const { data: investments = [] } = useQuery({
   const discount = userHasTokens ? basePrice * 0.15 : (paymentMethod === 'dra_token' ? basePrice * 0.05 : 0);
   const totalPrice = basePrice - discount;
 
- const createBookingMutation = useMutation({
-  mutationFn: async () => {
-    const code =
-      "DRA" +
-      Math.random().toString(36).substring(2, 10).toUpperCase();
+const [isPaying, setIsPaying] = useState(false);
 
-    const payload = {
-      hotel_asset_id: selectedHotel,
-      user_email: user.email,
-      check_in_date: format(checkIn, "yyyy-MM-dd"),
-      check_out_date: format(checkOut, "yyyy-MM-dd"),
-      room_type: roomType,
+const handleBookingPayment = async () => {
+  if (!user) return;
+
+  if (!isConnected || !address) {
+    toast.error("Wallet not connected.");
+    return;
+  }
+
+  // ✅ Enforce registered wallet
+  if (address.toLowerCase() !== user.walletAddress.toLowerCase()) {
+    toast.error(
+      `Connected wallet does not match your registered wallet! Please connect: ${user.walletAddress}`
+    );
+    return;
+  }
+
+  setIsPaying(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+
+    // 1️⃣ Create booking (PENDING)
+    const createPayload = {
+      userId: user.id,
+      hotelAssetId: selectedHotel,
+      checkInDate: checkIn.toISOString(),
+      checkOutDate: checkOut.toISOString(),
+      totalPrice: totalPrice,
+      roomType,
       guests,
-      total_price: totalPrice,
-      payment_method: paymentMethod,
-      discount_applied: discount,
-      status: "confirmed",
-      booking_code: code,
+      paymentMethod,
+      discountApplied: discount,
     };
-     const token = localStorage.getItem("authToken");
-    const res = await fetch(`${API_URL}/api/v1/bookings`, {
+
+    const createRes = await fetch(`${API_URL}/api/v1/bookings`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(createPayload),
     });
 
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error("Booking failed: " + error);
+    if (!createRes.ok) {
+      const error = await createRes.text();
+      throw new Error("Booking creation failed: " + error);
     }
 
-    return code;
-  },
+    const bookingData = await createRes.json();
+    const bookingId = bookingData.data.id;
+    const bookingCode = bookingData.data.bookingCode;
 
-  onSuccess: (code) => {
-    setBookingCode(code);
+    // 2️⃣ Send USDC payment
+    const paymentAmount = 1; // 1 USDC for testing
+    const receipt = await web3Service.payBookingUSDC(
+      bookingId,
+      paymentAmount,
+      import.meta.env.VITE_TREASURY_ADDRESS
+    );
+
+    // 3️⃣ Verify payment came from registered wallet
+    if (receipt.from.toLowerCase() !== user.walletAddress.toLowerCase()) {
+      throw new Error(
+        `Payment must come from your registered wallet: ${user.walletAddress}`
+      );
+    }
+    toast.success("Payment successful! Booking confirmed.");
+    setBookingCode(bookingCode);
     setBookingSuccess(true);
-  },
-});
-
+  } catch (err) {
+    console.error("Booking payment error:", err);
+    toast.error(err?.message || "Booking failed");
+  } finally {
+    setIsPaying(false);
+  }
+};
 
   if (bookingSuccess) {
     return (
@@ -185,59 +237,56 @@ const { data: investments = [] } = useQuery({
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2 space-y-6">
-            < Card className="bg-slate-900/50 border-slate-800 p-6">
-              <h3 className="text-white font-semibold mb-4">{t('booking.selectHotel')}</h3>
-              <Select value={selectedHotel} onValueChange={setSelectedHotel}>
-                <  SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                  <SelectValue placeholder={t('booking.selectHotelPlaceholder')} />
-                </SelectTrigger>
-                <  SelectContent className="bg-slate-800 border-slate-700">
-                  {hotels.map((h) => (
-                    <  SelectItem key={h.id} value={h.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{h.name}</span>
-                        <span className="text-slate-400 text-sm">- {h.location}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+           <Card className="bg-slate-900/50 border-slate-800 p-6">
+  <h3 className="text-white font-semibold mb-4">{t('booking.selectHotel')}</h3>
 
-              {hotel && (
-                <div className="mt-4 p-4 bg-slate-800/50 rounded-lg flex items-center gap-4">
-                  <img 
-                    src={hotel.image_url || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200'}
-                    alt={hotel.name}
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
-                  <div>
-                    <h4 className="text-white font-semibold">{hotel.name}</h4>
-                    <p className="text-slate-400 text-sm flex items-center gap-1">
-                      <MapPin 
+  <Select value={String(selectedHotel)} onValueChange={(val) => setSelectedHotel(val)}>
+    <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+      <SelectValue placeholder={t('booking.selectHotelPlaceholder')} />
+    </SelectTrigger>
+    <SelectContent className="bg-slate-800 border-slate-700">
+      {hotels.map((h) => (
+        <SelectItem key={h.id} value={String(h.id)}>
+          <div className="flex items-center gap-2">
+            <span>{h.name}</span>
+            <span className="text-slate-400 text-sm">- {h.location}</span>
+          </div>
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
 
-                      className="w-3 h-3" />
-                      {hotel.location}, {hotel.country}
-                    </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[...Array(hotel.star_rating || 4)].map((_, i) => (
-                        
-                        <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      ))}
-                    </div>
-                  </div>
-                  {userHasTokens && (
-                    <
-
-                    Badge className="ml-auto bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      <Gift 
-
-                      className="w-3 h-3 mr-1" />
-                      {t('booking.holderExclusive')}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </Card>
+  {hotel && (
+    <div key={hotel.id} className="mt-4 p-4 bg-slate-800/50 rounded-lg flex items-center gap-4">
+          <img
+        src={
+          hotel.imageUrl ||
+          `https://source.unsplash.com/200x200/?luxury-hotel,${hotel.id}`
+        }
+        alt={hotel.name}
+        className="w-20 h-20 rounded-lg object-cover"
+      />
+      <div>
+        <h4 className="text-white font-semibold">{hotel.name}</h4>
+        <p className="text-slate-400 text-sm flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          {hotel.location}, {hotel.country}
+        </p>
+        <div className="flex items-center gap-1 mt-1">
+          {[...Array(hotel.star_rating || 4)].map((_, i) => (
+            <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
+          ))}
+        </div>
+      </div>
+      {userHasTokens && (
+        <Badge className="ml-auto bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          <Gift className="w-3 h-3 mr-1" />
+          {t('booking.holderExclusive')}
+        </Badge>
+      )}
+    </div>
+  )}
+</Card>
 
             < Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-semibold mb-4">{t('booking.stayInfo')}</h3>
@@ -372,46 +421,26 @@ const { data: investments = [] } = useQuery({
                   </div>
 
                {!isConnected ? (
-                  <Button
-                    className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold"
-                    onClick={() =>
-                      toast.error("Connect your wallet before confirming your booking")
-                    }
-                  >
-                    Connect Wallet Before Booking
-                  </Button>
-                ) : normalizedKyc !== "APPROVED" ? (
-                  normalizedKyc === "PENDING" || normalizedKyc === "IN_REVIEW" ? (
-                    <Button
-                      disabled
-                      className="w-full bg-gray-700 text-gray-400 font-semibold cursor-not-allowed"
-                    >
-                      KYC is Pending – Approval Required
-                    </Button>
-                  ) : (
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-                      onClick={() =>
-                        window.open("/kyc/submit", "_blank", "noopener,noreferrer")
-                      }
-                    >
-                      Complete KYC to Continue
-                    </Button>
-                  )
-                ) : (
-                  <Button
-                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600
-                              hover:from-amber-600 hover:to-amber-700
-                              text-slate-900 font-semibold"
-                    onClick={() => createBookingMutation.mutate()}
-                    disabled={createBookingMutation.isPending || !user}
-                  >
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    {createBookingMutation.isPending
-                      ? t("hotelDetail.processing")
-                      : t("booking.confirmBooking")}
-                  </Button>
-                )}
+  <Button
+    className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold"
+    onClick={() =>
+      toast.error("Connect your wallet before confirming your booking")
+    }
+  >
+    Connect Wallet Before Booking
+  </Button>
+) : (
+ <Button
+  className="w-full bg-gradient-to-r from-amber-500 to-amber-600
+            hover:from-amber-600 hover:to-amber-700
+            text-slate-900 font-semibold"
+  onClick={handleBookingPayment}
+  disabled={!user || !isConnected || isPaying}
+>
+  <CreditCard className="w-4 h-4 mr-2" />
+  {isPaying ? t("hotelDetail.processing") : t("booking.confirmBooking")}
+</Button>
+)}
                 </>
               ) : (
                 <p className="text-slate-400 text-sm text-center py-4">

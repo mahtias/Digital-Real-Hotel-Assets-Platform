@@ -6,7 +6,8 @@ import {
   getBookingsByHotelAsset,
   updateBookingStatus,
   cancelBooking,
-  deleteBooking
+  deleteBooking,
+  confirmBookingPayment
 } from "../controllers/bookingController";
 
 const router = express.Router();
@@ -18,5 +19,5 @@ router.get("/:id", getBooking);
 router.put("/:id/status", updateBookingStatus);
 router.put("/:id/cancel", cancelBooking);
 router.delete("/:id", deleteBooking);
-
+router.post("/confirm-payment", confirmBookingPayment);
 export default router;

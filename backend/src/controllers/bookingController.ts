@@ -1,15 +1,19 @@
 import { Request, Response } from "express";
 import prisma from "../config/database";
-
+import { web3Service } from "../services/web3Service";
+import { sendBookingEmail } from "../utils/sendBookingEmail";
+import { Prisma } from "@prisma/client"; 
 // Generate unique booking code
 function generateBookingCode() {
   const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
-  return `BKG-${new Date().getFullYear()}-${rand}`;
+  const year = new Date().getFullYear();
+  return `DRA-BKG-${year}-${rand}`;
 }
-
+console.log(" confirm-payment endpoint HIT"); 
 // ------------------------------------
 // CREATE BOOKING
 // ------------------------------------
+
 export const createBooking = async (req: Request, res: Response) => {
   try {
     const {
@@ -62,7 +66,7 @@ export const createBooking = async (req: Request, res: Response) => {
       });
     }
 
-    // Create booking
+    // Create booking ///
     const newBooking = await prisma.booking.create({
       data: {
         userId,
@@ -253,6 +257,150 @@ export const deleteBooking = async (req: Request, res: Response) => {
       success: false,
       message: "Failed to delete booking",
       error: err.message
+    });
+  }
+};
+
+// ------------------------------------
+// CONFIRM BOOKING PAYMENT
+// ------------------------------------
+
+export const confirmBookingPayment = async (req: Request, res: Response) => {
+  try {
+    const { bookingId, txHash } = req.body;
+
+    if (!bookingId || !txHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing bookingId or txHash",
+      });
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking already processed",
+      });
+    }
+
+    // Prevent TX hash reuse
+    const existingTx = await prisma.booking.findFirst({ where: { txHash } });
+    if (existingTx) {
+      return res.status(400).json({
+        success: false,
+        message: "Transaction already used",
+      });
+    }
+
+    // Verify USDC payment
+    const expectedAmount = Number(booking.totalPrice);
+    const MIN_TEST_AMOUNT = 1;
+
+    const payment = await web3Service.verifyUSDCTransfer(
+      txHash,
+      process.env.NODE_ENV === "development" ? MIN_TEST_AMOUNT : expectedAmount,
+      process.env.TREASURY_ADDRESS!,
+      process.env.USDC_ADDRESS!
+    );
+
+    if (!payment) {
+      throw new Error("Payment verification failed");
+    }
+
+    // Update booking
+    const updatedBooking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "PAID",
+        txHash,
+        walletAddress: payment.sender,
+        paymentToken: "USDC",
+        paymentStatus: "SUCCESS",
+      },
+    });
+
+    // Fetch hotelAsset and user info
+    const [hotelAsset, user] = await Promise.all([
+      prisma.hotelAsset.findUnique({ where: { id: booking.hotelAssetId } }),
+      prisma.user.findUnique({ where: { id: booking.userId } }),
+    ]);
+
+    const hotelName = hotelAsset?.name ?? "Unknown Hotel";
+    const hotelLocation = hotelAsset?.location ?? "Unknown Location";
+    const hotelDescription = hotelAsset?.description ?? "";
+
+    // Send emails (non-blocking)
+    // Send emails (non-blocking)
+(async () => {
+  try {
+    const safeBookingCode = booking.bookingCode ?? "UNKNOWN";
+   const safeTotal =
+  booking.totalPrice instanceof Prisma.Decimal
+    ? booking.totalPrice.toNumber()
+    : Number(booking.totalPrice ?? 0);;
+
+    // Send to user
+    if (user?.email) {
+      await sendBookingEmail({
+        to: user.email,
+        bookingCode: safeBookingCode,
+        hotelName,
+        hotelLocation,
+        hotelDescription,
+        checkIn: booking.checkInDate,
+        checkOut: booking.checkOutDate,
+        total: safeTotal,
+        txHash,
+      });
+      console.log("Booking email sent to user:", user.email);
+    } else {
+      console.warn("No valid user email for booking", booking.bookingCode);
+    }
+
+    // Send to admin
+    if (process.env.ADMIN_EMAIL) {
+      await sendBookingEmail({
+        to: process.env.ADMIN_EMAIL,
+        bookingCode: safeBookingCode,
+        hotelName,
+        hotelLocation,
+        hotelDescription,
+        checkIn: booking.checkInDate,
+        checkOut: booking.checkOutDate,
+        total: safeTotal,
+        txHash,
+      });
+      console.log("Booking email BCC sent to admin:", process.env.ADMIN_EMAIL);
+    } else {
+      console.warn("No admin email configured for booking", booking.bookingCode);
+    }
+  } catch (emailErr) {
+    console.error("Email sending failed:", emailErr);
+  }
+})();
+
+    return res.json({
+      success: true,
+      message: "Booking payment confirmed",
+      data: updatedBooking,
+    });
+  } catch (err: any) {
+    console.error("Confirm Booking Payment Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Payment confirmation failed",
+      error: err.message,
     });
   }
 };

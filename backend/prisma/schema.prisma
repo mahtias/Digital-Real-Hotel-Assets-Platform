@@ -167,13 +167,18 @@ model Booking {
   guests          Int
   roomType        String        @map("room_type")
   totalPrice      Decimal       @map("total_price") @db.Decimal(10, 2)
+  platformFee     Decimal?      @map("platform_fee") @db.Decimal(10, 2)
   status          BookingStatus @default(PENDING)
+  paymentMethod   String?       @map("payment_method")
+  paymentToken    String?       @map("payment_token")
+  paymentStatus   String?       @map("payment_status")
+  txHash          String?       @map("tx_hash")
+  walletAddress   String?       @map("wallet_address")
   specialRequests String?       @map("special_requests")
+  bookingCode String? @unique @map("booking_code")
+  discountApplied Int?          @map("discount_applied")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
-  bookingCode     String?       @map("booking_code")
-  discountApplied Int?          @map("discount_applied")
-  paymentMethod   String?       @map("payment_method")
   hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -328,6 +333,7 @@ enum AssetStatus {
 
 enum BookingStatus {
   PENDING
+  PAID
   CONFIRMED
   CANCELLED
   COMPLETED

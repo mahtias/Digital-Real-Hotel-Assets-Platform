@@ -9,6 +9,9 @@ import hotelAssetTokenAbi from "../../../out/HotelAssetToken.sol/HotelAssetToken
 // ============================================================
 //  CONSTANTS & CONFIG
 // ============================================================
+const USDC_ABI = [
+  "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
 
 const KYC_CONFIG = {
   LARGE_INVESTMENT_THRESHOLD: 1000, // $1000+ requires blockchain check
@@ -685,6 +688,80 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
     this.tokenContractCache.clear();
     console.log(' Token contract cache cleared');
   }
+
+  ///verification trasanction hash for booking ///
+
+async verifyUSDCTransfer(
+  txHash: string,
+  expectedAmount: number,
+  expectedReceiver: string,
+  usdcAddress: string
+) {
+  const receipt = await this.provider.getTransactionReceipt(txHash);
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Transaction failed");
+  }
+
+  const usdcInterface = new ethers.Interface(USDC_ABI);
+
+  let found = false;
+
+  for (const log of receipt.logs) {
+    // ✅ Only check USDC contract logs
+    if (log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
+
+    try {
+     const parsed = usdcInterface.parseLog(log);
+
+// ✅ check null first
+        if (!parsed) continue;
+
+        // ✅ now safe
+        if (parsed.name !== "Transfer") continue;
+
+        const from = parsed.args.from;
+        const to = parsed.args.to;
+        const value = parsed.args.value;
+
+      const amount = Number(ethers.formatUnits(value, 6));
+
+      console.log("USDC Transfer Found:", {
+        from,
+        to,
+        amount
+      });
+
+      // ✅ Check receiver ONLY
+      if (to.toLowerCase() !== expectedReceiver.toLowerCase()) continue;
+
+      // ✅ Allow >= expected (important)
+      if (amount < expectedAmount) {
+        throw new Error(
+          `Insufficient USDC payment. Expected: ${expectedAmount}, Got: ${amount}`
+        );
+      }
+
+      found = true;
+
+      return {
+        sender: from,
+        receiver: to,
+        amount
+      };
+
+    } catch (err) {
+      // debug logs if needed
+      continue;
+    }
+  }
+
+  if (!found) {
+    console.error("Receipt logs:", receipt.logs);
+    throw new Error("USDC transfer event not found in transaction");
+  }
+}
+
 }
 
 // ============================================================
