@@ -52,25 +52,18 @@ useEffect(() => {
 
 useEffect(() => {
   const setupSigner = async () => {
-    if (!walletClient) return;
+    if (!walletClient || !user) return; // wait for both
 
-    try {
-      // ✅ Use Wagmi's provider (THIS IS THE KEY FIX)
-      const provider = new ethers.BrowserProvider(walletClient.transport);
+    const provider = new ethers.BrowserProvider(walletClient.transport);
+    const signerInstance = await provider.getSigner();
+    const signerAddress = await signerInstance.getAddress();
 
-      const signerInstance = await provider.getSigner();
-      const signerAddress = await signerInstance.getAddress();
+    console.log("Signer (wagmi):", signerAddress);
+    console.log("Wagmi address:", address);
+    console.log("User DB wallet:", user.walletAddress);
 
-      console.log("Signer (wagmi):", signerAddress);
-      console.log("Wagmi address:", address);
-      console.log("User DB wallet:", user?.walletAddress);
-
-      setSigner(signerInstance);
-      web3Service.setSigner(signerInstance);
-
-    } catch (err) {
-      console.error("Signer setup failed:", err);
-    }
+    setSigner(signerInstance);
+    web3Service.setSigner(signerInstance);
   };
 
   setupSigner();
@@ -447,7 +440,7 @@ const handleBookingPayment = async () => {
             hover:from-amber-600 hover:to-amber-700
             text-slate-900 font-semibold"
   onClick={handleBookingPayment}
-  disabled={!user || !isConnected || isPaying}
+  disabled={!user || !user.walletAddress || !isConnected || isPaying}
 >
   <CreditCard className="w-4 h-4 mr-2" />
   {isPaying ? t("hotelDetail.processing") : t("booking.confirmBooking")}
