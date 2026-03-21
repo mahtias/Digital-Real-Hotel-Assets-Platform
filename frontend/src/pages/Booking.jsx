@@ -41,6 +41,7 @@ export default function Booking() {
  const kycStatus = user?.kycStatus; 
 const [signer, setSigner] = useState(null);
 
+const isWalletReady = isConnected && address && signer;
 // logged-in user  86a2465e-482e-49cf-9225-6b9d9091986b
 
 useEffect(() => {
@@ -435,12 +436,13 @@ const handleBookingPayment = async () => {
     Connect Wallet Before Booking
   </Button>
 ) : (
+  
  <Button
   className="w-full bg-gradient-to-r from-amber-500 to-amber-600
             hover:from-amber-600 hover:to-amber-700
             text-slate-900 font-semibold"
   onClick={handleBookingPayment}
-  disabled={!user || !isConnected || !address || isPaying}
+  disabled={!user || !isWalletReady || isPaying}
 >
   <CreditCard className="w-4 h-4 mr-2" />
   {isPaying ? t("hotelDetail.processing") : t("booking.confirmBooking")}
