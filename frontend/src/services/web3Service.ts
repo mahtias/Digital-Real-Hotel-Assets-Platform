@@ -260,7 +260,7 @@ async payBookingUSDC(
   bookingId: string,
   amount: number,
   receiver: string,
-  registeredWallet?: string 
+  registeredWallet?: string
 ) {
   if (!this.signer) throw new Error("Wallet not connected.");
 
@@ -281,7 +281,7 @@ async payBookingUSDC(
 
   console.log("Booking payment");
   console.log("User:", userAddress);
-  console.log("Amount:", amountWei.toString());
+  console.log("Amount (in USDC smallest units):", amountWei.toString());
 
   // -----------------------------
   // CHECK BALANCE

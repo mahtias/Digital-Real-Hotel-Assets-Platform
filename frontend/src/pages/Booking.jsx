@@ -133,8 +133,6 @@ const handleBookingPayment = async () => {
   setIsPaying(true);
 
   try {
-    const token = localStorage.getItem("authToken");
-
     // 1️⃣ Create booking (PENDING)
     const createPayload = {
       userId: user.id,
@@ -162,10 +160,16 @@ const handleBookingPayment = async () => {
     const bookingId = bookingData.data.id;
     const bookingCode = bookingData.data.bookingCode;
 
-    // 2️ Send USDC payment
-    // Use 1 USDC only in development, otherwise use actual hotel total
+    // 2️⃣ Send USDC payment
+    // 🔹 Use 1 USDC in local/test environments to avoid balance issues
     const paymentAmount =
-      import.meta.env.NODE_ENV === "development" ? 1 : totalPrice;
+      import.meta.env.VITE_NODE_ENV === "development" ? 1 : totalPrice;
+
+    console.log(
+      `Paying USDC for booking ${bookingId} | Amount: ${paymentAmount} ${
+        import.meta.env.VITE_NODE_ENV === "development" ? "(Dev Test)" : "(Prod Full Price)"
+      }`
+    );
 
     const receipt = await web3Service.payBookingUSDC(
       bookingId,

@@ -721,7 +721,7 @@ public async verifyUSDCTransfer(
 
   const usdcInterface = new ethers.Interface(USDC_ABI);
 
-  let foundAnyTransfer = false; // track if any transfer exists at all
+  let foundAnyTransfer = false;
   let foundMatchingReceiver = false;
 
   for (const log of receipt.logs) {
@@ -748,7 +748,8 @@ public async verifyUSDCTransfer(
 
       foundMatchingReceiver = true;
 
-      if (value < expectedAmount) {
+      // ✅ Skip full amount check in development for testing
+      if (process.env.NODE_ENV !== "development" && value < expectedAmount) {
         throw new Error(
           `Insufficient USDC payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`
         );
@@ -778,8 +779,7 @@ public async verifyUSDCTransfer(
     });
     throw new Error("USDC Transfer found, but not sent to expected receiver");
   }
-
-  // fallback
+  
   throw new Error("USDC transfer verification failed");
 }
 

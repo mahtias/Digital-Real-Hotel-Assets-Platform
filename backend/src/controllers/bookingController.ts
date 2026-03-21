@@ -288,8 +288,8 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     // Expected amount in USDC smallest units (6 decimals)
     const expectedAmount: bigint =
       process.env.NODE_ENV === "development"
-        ? 1_000_000n
-        : ethers.parseUnits(booking.totalPrice.toString(), 6);
+        ? 1_000_000n // 1 USDC for dev
+        : ethers.parseUnits(booking.totalPrice.toString(), 6); // Full hotel price in prod
 
     // Verify payment
     const payment = await web3Service.verifyUSDCTransfer(
@@ -306,7 +306,7 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       where: { id: bookingId },
       data: {
         status: "PAID",
-        txHash,               // camelCase
+        txHash,
         walletAddress: payment.sender,
         paymentToken: "USDC",
         paymentStatus: "SUCCESS",
@@ -373,6 +373,10 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Confirm Booking Payment Error:", err);
-    return res.status(500).json({ success: false, message: "Payment confirmation failed", error: err.message });
+    return res.status(500).json({
+      success: false,
+      message: "Payment confirmation failed",
+      error: err.message,
+    });
   }
 };
