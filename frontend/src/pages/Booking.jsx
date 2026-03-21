@@ -73,6 +73,13 @@ useEffect(() => {
   setupSigner();
 }, [walletClient, address, user]);
 
+console.log("DEBUG:", {
+  user,
+  isConnected,
+  address,
+  walletClient,
+  signer
+});
 // hotels
 const { data: hotels = [] } = useQuery({
   queryKey: ["booking-hotels"],
