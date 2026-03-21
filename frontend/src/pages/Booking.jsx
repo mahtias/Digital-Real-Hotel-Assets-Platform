@@ -51,9 +51,11 @@ useEffect(() => {
     .catch(() => setUser(null));
 }, [])
 
+const [walletReady, setWalletReady] = useState(false);
+
 useEffect(() => {
   const setupSigner = async () => {
-    if (!walletClient || !user) return; // wait for both
+    if (!walletClient || !user) return;
 
     const provider = new ethers.BrowserProvider(walletClient.transport);
     const signerInstance = await provider.getSigner();
@@ -65,6 +67,7 @@ useEffect(() => {
 
     setSigner(signerInstance);
     web3Service.setSigner(signerInstance);
+    setWalletReady(true); // <-- now wallet is ready
   };
 
   setupSigner();
@@ -439,13 +442,17 @@ const handleBookingPayment = async () => {
   
  <Button
   className="w-full bg-gradient-to-r from-amber-500 to-amber-600
-            hover:from-amber-600 hover:to-amber-700
-            text-slate-900 font-semibold"
+             hover:from-amber-600 hover:to-amber-700
+             text-slate-900 font-semibold"
   onClick={handleBookingPayment}
-  disabled={!user || !isWalletReady || isPaying}
+  disabled={!user || !isConnected || !walletReady || isPaying}
 >
   <CreditCard className="w-4 h-4 mr-2" />
-  {isPaying ? t("hotelDetail.processing") : t("booking.confirmBooking")}
+  {isPaying
+    ? t("hotelDetail.processing")
+    : !walletReady
+    ? "Initializing Wallet..."
+    : t("booking.confirmBooking")}
 </Button>
 )}
                 </>
