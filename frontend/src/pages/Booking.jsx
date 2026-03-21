@@ -46,10 +46,21 @@ const isWalletReady = isConnected && address && signer;
 
 useEffect(() => {
   authFetch("/api/v1/auth/me")
-    .then(res => res.json())
-    .then(data => setUser(data.user))
-    .catch(() => setUser(null));
-}, [])
+    .then(async (res) => {
+      console.log("ME status:", res.status);
+
+      const data = await res.json();
+      console.log("ME data:", data);
+
+      if (!res.ok) throw new Error("Failed /me");
+
+      setUser(data.user);
+    })
+    .catch((err) => {
+      console.error("ME ERROR:", err);
+      setUser(null);
+    });
+}, []);
 
 const [walletReady, setWalletReady] = useState(false);
 
