@@ -25,8 +25,8 @@ export default function Booking() {
   const urlParams = new URLSearchParams(window.location.search);
   const preselectedHotelId = urlParams.get('hotel_id');
   const { t } = useLanguage();
-  const { authFetch } = useAuth(); 
-  const [user, setUser] = useState(null);
+ const { authFetch, user } = useAuth();
+  //const [user, setUser] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(preselectedHotelId || '');
   const [checkIn, setCheckIn] = useState();
   const [checkOut, setCheckOut] = useState();
@@ -44,23 +44,23 @@ const [signer, setSigner] = useState(null);
 const isWalletReady = isConnected && address && signer;
 // logged-in user  86a2465e-482e-49cf-9225-6b9d9091986b
 
-useEffect(() => {
-  authFetch("/api/v1/auth/me")
-    .then(async (res) => {
-      console.log("ME status:", res.status);
+// useEffect(() => {
+//   authFetch("/api/v1/auth/me")
+//     .then(async (res) => {
+//       console.log("ME status:", res.status);
 
-      const data = await res.json();
-      console.log("ME data:", data);
+//       const data = await res.json();
+//       console.log("ME data:", data);
 
-      if (!res.ok) throw new Error("Failed /me");
+//       if (!res.ok) throw new Error("Failed /me");
 
-      setUser(data.user);
-    })
-    .catch((err) => {
-      console.error("ME ERROR:", err);
-      setUser(null);
-    });
-}, []);
+//       setUser(data.user);
+//     })
+//     .catch((err) => {
+//       console.error("ME ERROR:", err);
+//       setUser(null);
+//     });
+// }, []);
 
 const [walletReady, setWalletReady] = useState(false);
 
@@ -111,19 +111,11 @@ const { data: investments = [] } = useQuery({
   queryKey: ["user-investments", user?.email],
   enabled: !!user,
   queryFn: async () => {
-    const token = localStorage.getItem("authToken");
-
-    const res = await fetch(`${API_URL}/api/v1/investments`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
-    });
+    const res = await authFetch(`${API_URL}/api/v1/investments`);
 
     if (!res.ok) return [];
 
     const data = await res.json();
-
     return Array.isArray(data) ? data : data.investments || [];
   }
 });
@@ -174,14 +166,10 @@ const handleBookingPayment = async () => {
       discountApplied: discount,
     };
 
-    const createRes = await fetch(`${API_URL}/api/v1/bookings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(createPayload),
-    });
+    const createRes = await authFetch(`${API_URL}/api/v1/bookings`, {
+  method: "POST",
+  body: JSON.stringify(createPayload),
+});
 
     if (!createRes.ok) {
       const error = await createRes.text();
