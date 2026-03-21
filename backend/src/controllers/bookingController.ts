@@ -274,6 +274,7 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Missing bookingId or txHash" });
     }
 
+    // Find booking
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
     if (booking.status !== "PENDING")
@@ -287,8 +288,8 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     // Expected amount in USDC smallest units (6 decimals)
     const expectedAmount: bigint =
       process.env.NODE_ENV === "development"
-        ? 1_000_000n // 1 USDC for testing
-        : ethers.parseUnits(booking.totalPrice.toString(), 6); // converts string -> bigint
+        ? 1_000_000n
+        : ethers.parseUnits(booking.totalPrice.toString(), 6);
 
     // Verify payment
     const payment = await web3Service.verifyUSDCTransfer(
@@ -305,7 +306,7 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       where: { id: bookingId },
       data: {
         status: "PAID",
-        txHash,
+        txHash,               // camelCase
         walletAddress: payment.sender,
         paymentToken: "USDC",
         paymentStatus: "SUCCESS",
