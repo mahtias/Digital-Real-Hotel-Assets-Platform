@@ -174,11 +174,11 @@ model Booking {
   bookingCode     String?       @unique @map("booking_code")
   discountApplied Int?          @map("discount_applied")
   paymentMethod   String?       @map("payment_method")
-  payment_status  String?
-  payment_token   String?
-  platform_fee    Decimal?      @db.Decimal(10, 2)
-  tx_hash         String?
-  wallet_address  String?
+  paymentStatus   String?  @map("payment_status")
+  paymentToken    String?  @map("payment_token")
+  platformFee     Decimal? @map("platform_fee") @db.Decimal(10, 2)
+  txHash          String?  @map("tx_hash")
+  walletAddress   String?  @map("wallet_address")
   hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
