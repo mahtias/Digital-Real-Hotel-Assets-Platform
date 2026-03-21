@@ -42,25 +42,7 @@ export default function Booking() {
 const [signer, setSigner] = useState(null);
 
 const isWalletReady = isConnected && address && signer;
-// logged-in user  86a2465e-482e-49cf-9225-6b9d9091986b
 
-// useEffect(() => {
-//   authFetch("/api/v1/auth/me")
-//     .then(async (res) => {
-//       console.log("ME status:", res.status);
-
-//       const data = await res.json();
-//       console.log("ME data:", data);
-
-//       if (!res.ok) throw new Error("Failed /me");
-
-//       setUser(data.user);
-//     })
-//     .catch((err) => {
-//       console.error("ME ERROR:", err);
-//       setUser(null);
-//     });
-// }, []);
 
 const [walletReady, setWalletReady] = useState(false);
 
@@ -140,7 +122,7 @@ const handleBookingPayment = async () => {
     return;
   }
 
-  //  Enforce registered wallet
+  // Enforce registered wallet
   if (address.toLowerCase() !== user.walletAddress.toLowerCase()) {
     toast.error(
       `Connected wallet does not match your registered wallet! Please connect: ${user.walletAddress}`
@@ -167,9 +149,9 @@ const handleBookingPayment = async () => {
     };
 
     const createRes = await authFetch(`${API_URL}/api/v1/bookings`, {
-  method: "POST",
-  body: JSON.stringify(createPayload),
-});
+      method: "POST",
+      body: JSON.stringify(createPayload),
+    });
 
     if (!createRes.ok) {
       const error = await createRes.text();
@@ -180,8 +162,11 @@ const handleBookingPayment = async () => {
     const bookingId = bookingData.data.id;
     const bookingCode = bookingData.data.bookingCode;
 
-    // 2️⃣ Send USDC payment
-    const paymentAmount = 1; // 1 USDC for testing
+    // 2️ Send USDC payment
+    // Use 1 USDC only in development, otherwise use actual hotel total
+    const paymentAmount =
+      import.meta.env.NODE_ENV === "development" ? 1 : totalPrice;
+
     const receipt = await web3Service.payBookingUSDC(
       bookingId,
       paymentAmount,
@@ -189,12 +174,6 @@ const handleBookingPayment = async () => {
       user.walletAddress
     );
 
-    // 3️⃣ Verify payment came from registered wallet
-    // if (receipt.from.toLowerCase() !== user.walletAddress.toLowerCase()) {
-    //   throw new Error(
-    //     `Payment must come from your registered wallet: ${user.walletAddress}`
-    //   );
-    // }
     toast.success("Payment successful! Booking confirmed.");
     setBookingCode(bookingCode);
     setBookingSuccess(true);

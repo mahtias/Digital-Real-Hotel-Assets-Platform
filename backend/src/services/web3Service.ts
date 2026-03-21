@@ -702,70 +702,86 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
   ///verification trasanction hash for booking ///
 
 public async verifyUSDCTransfer(
-    txHash: string,
-    expectedAmount: bigint,
-    expectedReceiver: string,
-    usdcAddress: string
-  ) {
-    const receipt = await this.getReceiptWithRetry(txHash);
+  txHash: string,
+  expectedAmount: bigint,
+  expectedReceiver: string,
+  usdcAddress: string
+) {
+  const receipt = await this.getReceiptWithRetry(txHash);
 
-    if (!receipt) {
-      console.error("Transaction receipt not found after retries");
-      throw new Error("Transaction not found or not mined yet");
-    }
+  if (!receipt) {
+    console.error("Transaction receipt not found after retries");
+    throw new Error("Transaction not found or not mined yet");
+  }
 
-    if (receipt.status !== 1) {
-      console.error("Transaction receipt indicates failure", receipt);
-      throw new Error("Transaction failed on-chain");
-    }
+  if (receipt.status !== 1) {
+    console.error("Transaction receipt indicates failure", receipt);
+    throw new Error("Transaction failed on-chain");
+  }
 
-    const usdcInterface = new ethers.Interface(USDC_ABI);
-    let found = false;
+  const usdcInterface = new ethers.Interface(USDC_ABI);
 
-    for (const log of receipt.logs) {
-      if (log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
+  let foundAnyTransfer = false; // track if any transfer exists at all
+  let foundMatchingReceiver = false;
 
-      try {
-        const parsed = usdcInterface.parseLog(log);
-        if (!parsed || parsed.name !== "Transfer") continue;
+  for (const log of receipt.logs) {
+    if (!log.address || log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
 
-        const from = parsed.args.from;
-        const to = parsed.args.to;
-        const value = parsed.args.value; // BigInt
+    try {
+      const parsed = usdcInterface.parseLog(log);
+      if (!parsed || parsed.name !== "Transfer") continue;
 
-        console.log("USDC Transfer Found:", {
-          from,
-          to,
-          value: value.toString(),
-          expectedAmount: expectedAmount.toString(),
-        });
+      const from = parsed.args.from;
+      const to = parsed.args.to;
+      const value = parsed.args.value as bigint;
 
-        if (to.toLowerCase() !== expectedReceiver.toLowerCase()) continue;
+      foundAnyTransfer = true;
 
-        if (value < expectedAmount) {
-          throw new Error(
-            `Insufficient USDC payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`
-          );
-        }
+      console.log("USDC Transfer Found:", {
+        from,
+        to,
+        value: value.toString(),
+        expectedAmount: expectedAmount.toString(),
+      });
 
-        found = true;
+      if (to.toLowerCase() !== expectedReceiver.toLowerCase()) continue;
 
-        return {
-          sender: from,
-          receiver: to,
-          amount: value,
-        };
-      } catch (err) {
-        console.warn("Failed to parse log:", err);
-        continue;
+      foundMatchingReceiver = true;
+
+      if (value < expectedAmount) {
+        throw new Error(
+          `Insufficient USDC payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`
+        );
       }
-    }
 
-    if (!found) {
-      console.error("No matching USDC transfer found in receipt logs", receipt.logs);
-      throw new Error("USDC transfer event not found in transaction");
+      // Successful verification
+      return {
+        sender: from,
+        receiver: to,
+        amount: value,
+      };
+    } catch (err: any) {
+      console.warn("Failed to parse log:", err.message ?? err);
+      continue;
     }
   }
+
+  if (!foundAnyTransfer) {
+    console.error("No USDC Transfer events found at all in receipt logs");
+    throw new Error("No USDC Transfer events found in transaction");
+  }
+
+  if (!foundMatchingReceiver) {
+    console.error("USDC Transfer exists but not to expected receiver", {
+      expectedReceiver,
+      logs: receipt.logs,
+    });
+    throw new Error("USDC Transfer found, but not sent to expected receiver");
+  }
+
+  // fallback
+  throw new Error("USDC transfer verification failed");
+}
 
 
 }
