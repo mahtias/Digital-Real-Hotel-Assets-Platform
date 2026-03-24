@@ -353,9 +353,9 @@ const handleRetryBlockchainKyc = async () => {
   const tokenPriceFormatted = tokenPriceUSD ? Number(formatUnits(tokenPriceUSD, 6)).toFixed(2) : "0.00";
   const maxSupplyFormatted = maxSupply ? Number(formatUnits(maxSupply, 18)).toLocaleString() : "0";
   const totalSupplyFormatted = totalSupply ? Number(formatUnits(totalSupply, 18)).toLocaleString() : "0";
-  const soldPercentage = maxSupply && totalSupply 
-    ? (Number(totalSupply) / Number(maxSupply)) * 100 
-    : 0;
+  const soldPercentage = maxSupply && totalSupply
+  ? (Number(formatUnits(totalSupply, 18)) / Number(formatUnits(maxSupply, 18))) * 100
+  : 0;
   const apyFormatted = expectedAPY ? Number(expectedAPY) / 100 : 0;
   const userBalanceFormatted = userTokenBalance ? Number(formatUnits(userTokenBalance, 18)).toFixed(4) : "0.00";
   const userHatBalanceFormatted = userHatBalance ? Number(formatUnits(userHatBalance, 18)).toFixed(2) : "0.00";

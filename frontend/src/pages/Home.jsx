@@ -215,7 +215,7 @@ const walletHatValue = hotelTokenBalances.reduce(
                 asChild
               >
                 <a
-                  href="https://docs.hotelastoken.com"
+                  href=" http://xhslink.com/o/9RiPnlyZbnP"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

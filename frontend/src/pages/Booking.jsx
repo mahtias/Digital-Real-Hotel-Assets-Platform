@@ -105,7 +105,7 @@ const { data: investments = [] } = useQuery({
   const hotel = hotels.find(h => String(h.id) === String(selectedHotel));
   const userHasTokens = investments.some(inv => inv.hotel_asset_id === selectedHotel && inv.token_amount > 0);
   
-  const roomPrices = { standard: 120, deluxe: 180, suite: 320 };
+  const roomPrices = { standard: 25, deluxe: 50, suite: 100 };
   
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
   const basePrice = nights * roomPrices[roomType];
@@ -203,16 +203,61 @@ const handleBookingPayment = async () => {
           <div className="bg-slate-800 rounded-lg p-4 mb-6">
             <p className="text-3xl font-mono font-bold text-amber-400">{bookingCode}</p>
           </div>
-          <div className="text-left bg-slate-800/50 rounded-lg p-4 space-y-2 mb-6">
-            <p className="text-slate-400 text-sm">{t('booking.hotel')}: <span className="text-white">{hotel?.name}</span></p>
-            <p className="text-slate-400 text-sm">{t('booking.checkIn')}: <span className="text-white">{
+         <div className="text-left bg-slate-800/50 rounded-lg p-4 space-y-3 mb-6">
+          <h4 className="text-white font-semibold text-sm mb-2">
+            Booking Information
+          </h4>
 
-            format(checkIn, 'yyyy/MM/dd')}</span></p>
-            <p className="text-slate-400 text-sm">{t('booking.checkOut')}: <span className="text-white">{
+          <p className="text-slate-400 text-sm">
+            Name:{" "}
+            <span className="text-white">
+              {user?.name || user?.email || "Guest"}
+            </span>
+          </p>
 
-            format(checkOut, 'yyyy/MM/dd')}</span></p>
-            <p className="text-slate-400 text-sm">{t('booking.total')}: <span className="text-emerald-400 font-semibold">${totalPrice.toFixed(2)}</span></p>
-          </div>
+          <p className="text-slate-400 text-sm">
+            Hotel:{" "}
+            <span className="text-white">{hotel?.name}</span>
+          </p>
+
+          <p className="text-slate-400 text-sm">
+            Room:{" "}
+            <span className="text-white capitalize">{roomType}</span>
+          </p>
+
+          <p className="text-slate-400 text-sm">
+            Guests:{" "}
+            <span className="text-white">{guests}</span>
+          </p>
+
+          <p className="text-slate-400 text-sm">
+            Check-in:{" "}
+            <span className="text-white">
+              {format(checkIn, "yyyy/MM/dd")}
+            </span>
+          </p>
+
+          <p className="text-slate-400 text-sm">
+            Check-out:{" "}
+            <span className="text-white">
+              {format(checkOut, "yyyy/MM/dd")}
+            </span>
+          </p>
+
+          <div className="h-px bg-slate-700 my-2" />
+
+          <p className="text-slate-400 text-sm">
+            Total Paid:{" "}
+            <span className="text-emerald-400 font-semibold">
+              ${totalPrice.toFixed(2)}
+            </span>
+          </p>
+          <span className="text-white">  
+            Check your mail to see your booking information ! Thanks.
+
+          </span>
+
+        </div>
           <Button 
             className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900"
             onClick={() => { setBookingSuccess(false); setCheckIn(null); setCheckOut(null); }}
@@ -336,9 +381,9 @@ const handleBookingPayment = async () => {
                       <SelectValue />
                     </SelectTrigger>
                     < SelectContent className="bg-slate-800 border-slate-700">
-                      < SelectItem value="standard">{t('booking.standard')} - $120{t('booking.perNight')}</SelectItem>
-                      < SelectItem value="deluxe">{t('booking.deluxe')} - $180{t('booking.perNight')}</SelectItem>
-                      < SelectItem value="suite">{t('booking.suite')} - $320{t('booking.perNight')}</SelectItem>
+                      < SelectItem value="standard">{t('booking.standard')} - $25{t('booking.perNight')}</SelectItem>
+                      < SelectItem value="deluxe">{t('booking.deluxe')} - $50{t('booking.perNight')}</SelectItem>
+                      < SelectItem value="suite">{t('booking.suite')} - $100{t('booking.perNight')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -394,6 +439,7 @@ const handleBookingPayment = async () => {
               {hotel && checkIn && checkOut ? (
                 <>
                   <div className="space-y-3 mb-6">
+
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-400">
                         {roomType === 'standard' ? t('booking.standard') : roomType === 'deluxe' ? t('booking.deluxe') : t('booking.suite')} x {nights} {t('booking.nights')}
@@ -417,6 +463,8 @@ const handleBookingPayment = async () => {
                       <span className="text-2xl font-bold text-amber-400">${totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
+                  {/* Booking Info Summary */}
+
 
                {!isConnected ? (
   <Button
