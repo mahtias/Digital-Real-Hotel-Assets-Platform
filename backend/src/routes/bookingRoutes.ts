@@ -10,14 +10,27 @@ import {
   confirmBookingPayment
 } from "../controllers/bookingController";
 
+import { authenticate } from "../middleware/auth";
+
 const router = express.Router();
 
+// Protect all routes that require user login
+router.use(authenticate);
+
+// Booking CRUD
 router.post("/", createBooking);
-router.get("/user/:userId", getUserBookings);
+router.post("/confirm-payment", confirmBookingPayment);
+
+// User-specific bookings
+router.get("/my", getUserBookings);
+
+// Admin / asset-specific routes
 router.get("/asset/:assetId", getBookingsByHotelAsset);
 router.get("/:id", getBooking);
+
+// Optional: Update / Cancel / Delete bookings
 router.put("/:id/status", updateBookingStatus);
 router.put("/:id/cancel", cancelBooking);
 router.delete("/:id", deleteBooking);
-router.post("/confirm-payment", confirmBookingPayment);
+
 export default router;

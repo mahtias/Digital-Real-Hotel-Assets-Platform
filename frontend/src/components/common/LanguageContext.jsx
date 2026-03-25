@@ -192,6 +192,7 @@ const translations = {
       bookingSuccess: 'Booking Successful!',
       confirmationCode: 'Your Confirmation Code',
       hotel: 'Hotel',
+      bookNow:'Book Now',
       continueBooking: 'Continue Booking',
       holderExclusive: 'Holder Exclusive',
     },

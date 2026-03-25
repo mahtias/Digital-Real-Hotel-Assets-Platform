@@ -133,7 +133,7 @@ export const getBooking = async (req: Request, res: Response) => {
 };
 
 // ------------------------------------
-// GET BOOKINGS FOR LOGGED-IN USER
+// GET BOOKINGS FOR LOGGED-IN USER (with hotel details)
 // ------------------------------------
 export const getUserBookings = async (req: Request, res: Response) => {
   try {
@@ -141,20 +141,32 @@ export const getUserBookings = async (req: Request, res: Response) => {
 
     const bookings = await prisma.booking.findMany({
       where: { userId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      include: {
+        hotelAsset: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            location: true,
+            description: true
+            
+          },
+        },
+      },
     });
 
     return res.json({
       success: true,
-      data: bookings
+      data: bookings,
     });
-
+    
   } catch (err: any) {
     console.error("Get User Bookings Error:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch user bookings",
-      error: err.message
+      error: err.message,
     });
   }
 };

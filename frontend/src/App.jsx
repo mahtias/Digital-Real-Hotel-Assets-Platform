@@ -15,6 +15,9 @@ import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
 import Login from '@/pages/auth/Login';
 import HotelDetail from '@/pages/HotelDetail';
+import HotelBooking from '@/pages/HotelBooking';
+import MyBookings from "@/pages/MyBookings";
+import BookingDetails from "@/pages/BookingDetails";
 import KYCForm from '@/components/KYC/KYCForm';
 import KYCStatus from '@/components/KYC/KYCStatus';
 import AdminKYCReview from '@/components/Admin/KYCReview';
@@ -93,6 +96,9 @@ function App() {
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/verify-email-sent" element={<VerifyEmailSent />} />
                     <Route path="/verify-email" element={<VerifyEmail />} />
+                   <Route path="/book-hotel/:hotelId" element={<HotelBooking />} />   
+                  <Route path="/booking/:id" element={<BookingDetails />} />         
+                  <Route path="/my-bookings" element={<MyBookings />} />
 
 
                     {/* KYC */}
