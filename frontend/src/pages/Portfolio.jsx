@@ -72,7 +72,7 @@ const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refet
   enabled: !!localStorage.getItem("authToken"),
 });
 
-  // 🔥 Enrich investments using hotelAsset from API
+  //  Enrich investments using hotelAsset from API
 const enrichedInvestments = investmentsRaw.map(inv => ({
   ...inv,
   hotel: inv.hotelAsset || { name: "Unknown Hotel", location: "N/A", expectedYield: 0 },
@@ -90,6 +90,7 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
   const totalTokens = enrichedInvestments.reduce((sum, inv) => sum + (inv.tokenAmount || 0), 0);
   const totalProperties = enrichedInvestments.length;
   const totalPendingRewards = enrichedInvestments.reduce((sum, inv) => sum + (inv.pendingRewards || 0), 0);
+  const totalEarned = enrichedInvestments.reduce((sum, inv) => sum + Number(inv.earnedRewards ?? 0),0);
 
   // 🔥 Refresh
   const refreshPortfolio = async () => {
@@ -158,6 +159,22 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
               <div className="text-2xl font-black text-emerald-400">{totalTokens.toFixed(2)}</div>
               <div className="text-sm text-slate-500 uppercase tracking-wider">HAT Tokens</div>
             </div>
+            <div className="text-center">
+            <div className="text-2xl font-black text-emerald-400">
+              ${totalPendingRewards.toFixed(2)}
+            </div>
+            <div className="text-sm text-slate-500 uppercase tracking-wider">
+              Pending Yield
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-black text-green-500">
+              ${totalEarned.toFixed(2)}
+            </div>
+            <div className="text-sm text-slate-500 uppercase tracking-wider">
+              Total Earned
+            </div>
+          </div>
             <div className="text-center">
               <div className="text-2xl font-black text-amber-400">{totalProperties}</div>
               <div className="text-sm text-slate-500 uppercase tracking-wider">Properties</div>
@@ -251,6 +268,25 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
                           <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Yield</div>
                           <div className="font-bold text-lg text-amber-400">{inv.hotel?.expectedYield}%</div>
                         </div>
+                        <div className="col-span-2 mt-2">
+                        <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
+                          Earnings
+                        </div>
+
+                        <div className="flex flex-col gap-1 text-sm mt-1">
+                      <span className="text-green-400">
+                        Earned: ${Number(inv.earnedRewards ?? 0).toFixed(2)}
+                      </span>
+                      <span className="text-amber-400">
+                        Pending: ${inv.pendingRewards.toFixed(2)}
+                      </span>
+                    </div>
+                     <div className="text-xs text-slate-500 mt-1">
+                      Total: ${(Number(inv.earnedRewards ?? 0) + inv.pendingRewards).toFixed(2)}
+                    </div>
+                    </div>
+
+
                       </div>
                       {inv.pendingRewards > 0 && (
                         <Button size="sm" onClick={()=>claimRewardsMutation.mutate(inv)}>Claim ${inv.pendingRewards.toFixed(2)}</Button>

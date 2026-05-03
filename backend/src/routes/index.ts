@@ -8,8 +8,10 @@ import bookingRoutes from './bookingRoutes'
 import proposalRoutes from './proposalRoutes';
 import stakingRoutes from './stakingRoutes'
 import esgRewardRoutes from './esgRewardRoutes';
+import qloRoutes  from './qloRoutes'
+import settlementRoutes from './settlementRoutes';
 // import portfolioRoutes from './portfolioRoutes';
-// import paymentRoutes from './paymentRoutes';
+import paymentRoutes from './paymentRoutes';
 
 const router = Router();
 
@@ -33,8 +35,10 @@ router.use('/bookings', bookingRoutes);
 router.use('/proposals', proposalRoutes);
 router.use('/staking', stakingRoutes);
 router.use('/esgreward', esgRewardRoutes);
+router.use('/webhook', qloRoutes)
+router.use('/payments', paymentRoutes);
+router.use('/settlements', settlementRoutes);
+// router.use('/portfolios', portfolioRoutes); 
 
-// router.use('/portfolios', portfolioRoutes);
-// router.use('/payments', paymentRoutes);
 
 export default router;

@@ -310,6 +310,47 @@ async payBookingUSDC(
   return receipt;
 }
 
+// -----------------------------
+// SEND USDC (x402 - PURE TRANSFER ONLY)
+// -----------------------------
+async sendUSDC(receiver: string, amount: number): Promise<string> {
+  if (!this.signer) throw new Error("Wallet not connected.");
+
+  const userAddress = await this.signer.getAddress();
+
+  const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
+  if (!USDC_ADDRESS) throw new Error("USDC address not configured");
+
+  const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, this.signer);
+
+  // Convert to 6 decimals (USDC)
+  const amountWei = ethers.parseUnits(amount.toString(), 6);
+
+  console.log("Sending USDC...");
+  console.log("From:", userAddress);
+  console.log("To:", receiver);
+  console.log("Amount:", amountWei.toString());
+
+  // -----------------------------
+  // CHECK BALANCE
+  // -----------------------------
+  const balance = await usdcContract.balanceOf(userAddress);
+  if (balance < amountWei) {
+    throw new Error("Insufficient USDC balance");
+  }
+
+  // -----------------------------
+  // SEND TRANSACTION
+  // -----------------------------
+  const tx = await usdcContract.transfer(receiver, amountWei);
+  console.log("TX sent:", tx.hash);
+
+  const receipt = await tx.wait();
+  console.log("TX confirmed:", receipt.hash);
+
+  return receipt.hash; 
+}
+
 /// HOTEL BOOKING PAYMENT WITH HAT TOKEN /////
 
 // async payBookingToken(

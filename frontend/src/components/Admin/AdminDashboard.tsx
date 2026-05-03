@@ -8,7 +8,6 @@ export default function AdminDashboard() {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
         <a
           href="/admin/kyc"
           className="p-6 border rounded-lg shadow hover:shadow-lg transition bg-white"
@@ -39,25 +38,27 @@ export default function AdminDashboard() {
           </p>
         </a>
 
-        {/* <a
-          href="/admin/projects"
-          className="p-6 border rounded-lg shadow hover:shadow-lg transition bg-white"
-        >
-          <h2 className="text-xl font-bold mb-2">Projects</h2>
-          <p className="text-gray-500">
-            Manage projects, asset tokens, and funding limits.
-          </p>
-        </a> */}
-        
-         <a
+        <a
           href="/admin/kyc/status"
           className="p-6 border rounded-lg shadow hover:shadow-lg transition bg-white"
         >
           <h2 className="text-xl font-bold mb-2">KYC Status Overview</h2>
           <p className="text-gray-500">
-             View all KYC statuses including Approved, Pending, Rejected, Under Review.
+            View all KYC statuses including Approved, Pending, Rejected, Under Review.
           </p>
         </a>
+
+        {/* MANUAL PAYOUT BUTTON */}
+        <a
+          href="/admin/settlements"
+          className="p-6 border rounded-lg shadow hover:shadow-lg transition bg-white"
+        >
+          <h2 className="text-xl font-bold mb-2">Manual Payout</h2>
+          <p className="text-gray-500">
+            Trigger manual payouts for hotel asset settlements.
+          </p>
+        </a>
+
       </div>
     </div>
   );

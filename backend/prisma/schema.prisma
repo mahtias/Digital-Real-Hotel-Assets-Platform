@@ -37,6 +37,7 @@ model User {
   bookings             Booking[]
   createdHotelAssets   HotelAsset[]       @relation("CreatedAssets")
   investments          Investment[]
+  investor_yields      investor_yields[]
   reviewedKyc          Kyc[]              @relation("ReviewedBy")
   kyc                  Kyc?
   createdProposals     Proposal[]         @relation("CreatedProposals")
@@ -89,66 +90,70 @@ model Kyc {
 }
 
 model HotelAsset {
-  id            String       @id @default(uuid())
-  name          String
-  location      String
-  status        AssetStatus  @default(UPCOMING)
-  description   String?
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  createdById   String       @map("created_by_id")
-  apy           Float?
-  country       String?
-  createdBy     String?      @map("created_by")
-  esgScore      Int?         @map("esg_score")
-  imageUrl      String?      @map("image_url")
-  isSample      Boolean?     @map("is_sample")
-  leaseEndDate  DateTime?    @map("lease_end_date")
-  occupancyRate Float?       @map("occupancy_rate")
-  revpar        Int?
-  roomCount     Int?         @map("room_count")
-  starRating    Int?         @map("star_rating")
-  tokenPrice    Int?         @map("token_price")
-  tokenSymbol   String?      @map("token_symbol")
-  tokensSold    Int?         @map("tokens_sold")
-  totalTokens   Int?         @map("total_tokens")
-  totalValue    Int?         @map("total_value")
-  tokenId       Int?         @unique
-  tokenAddress  String?      @unique(map: "unique_token_address") @map("token_address")
-  blockchainId  Int?         @unique @map("blockchain_id")
-  bookings      Booking[]
-  createdByUser User         @relation("CreatedAssets", fields: [createdById], references: [id])
-  investments   Investment[]
-  proposals     Proposal[]
+  id                  String                @id @default(uuid())
+  name                String
+  location            String
+  status              AssetStatus           @default(UPCOMING)
+  description         String?
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  createdById         String                @map("created_by_id")
+  apy                 Float?
+  country             String?
+  createdBy           String?               @map("created_by")
+  esgScore            Int?                  @map("esg_score")
+  imageUrl            String?               @map("image_url")
+  isSample            Boolean?              @map("is_sample")
+  leaseEndDate        DateTime?             @map("lease_end_date")
+  occupancyRate       Float?                @map("occupancy_rate")
+  revpar              Int?
+  roomCount           Int?                  @map("room_count")
+  starRating          Int?                  @map("star_rating")
+  tokenPrice          Int?                  @map("token_price")
+  tokenSymbol         String?               @map("token_symbol")
+  tokensSold          Int?                  @map("tokens_sold")
+  totalTokens         Int?                  @map("total_tokens")
+  totalValue          Int?                  @map("total_value")
+  tokenId             Int?                  @unique
+  tokenAddress        String?               @unique(map: "unique_token_address") @map("token_address")
+  blockchainId        Int?                  @unique @map("blockchain_id")
+  walletAddress       String?               @map("wallet_address")
+  bookings            Booking[]
+  createdByUser       User                  @relation("CreatedAssets", fields: [createdById], references: [id])
+  investments         Investment[]
+  proposals           Proposal[]
+  settlements         Settlement[]
+  yield_distributions yield_distributions[]
 
   @@map("hotel_assets")
 }
 
 model Investment {
-  id               String           @id @default(uuid())
-  userId           String           @map("user_id")
-  hotelAssetId     String           @map("hotel_asset_id")
-  transactionHash  String?          @map("transaction_hash")
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  status           InvestmentStatus @default(PENDING)
-  amount           Decimal?         @map("amount") @db.Decimal(10, 2)
-  createdBy        String?          @map("created_by")
-  createdById      String?          @map("created_by_id")
-  earnedRewards    Decimal          @map("earned_rewards") @db.Decimal(10, 2)
-  investedAmount   Decimal          @map("invested_amount") @db.Decimal(10, 2)
-  isSample         Boolean          @default(false) @map("is_sample")
-  pendingRewards   Decimal          @map("pending_rewards") @db.Decimal(10, 2)
-  stakedAmount     Decimal          @map("staked_amount") @db.Decimal(10, 2)
-  tokenAmount      Decimal          @map("token_amount") @db.Decimal(18, 8)
-  blockchainStatus String?          @default("PENDING")
-  blockchainTxHash String?          @map("blockchain_tx_hash")
-  deletedAt        DateTime?        @map("deleted_at")
+  id               String            @id @default(uuid())
+  userId           String            @map("user_id")
+  hotelAssetId     String            @map("hotel_asset_id")
+  transactionHash  String?           @map("transaction_hash")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  status           InvestmentStatus  @default(PENDING)
+  amount           Decimal?          @map("amount") @db.Decimal(10, 2)
+  createdBy        String?           @map("created_by")
+  createdById      String?           @map("created_by_id")
+  earnedRewards    Decimal           @map("earned_rewards") @db.Decimal(10, 2)
+  investedAmount   Decimal           @map("invested_amount") @db.Decimal(10, 2)
+  isSample         Boolean           @default(false) @map("is_sample")
+  pendingRewards   Decimal           @map("pending_rewards") @db.Decimal(10, 2)
+  stakedAmount     Decimal           @map("staked_amount") @db.Decimal(10, 2)
+  tokenAmount      Decimal           @map("token_amount") @db.Decimal(18, 8)
+  blockchainStatus String?           @default("PENDING")
+  blockchainTxHash String?           @map("blockchain_tx_hash")
+  deletedAt        DateTime?         @map("deleted_at")
   walletAddress    String?
   blockchainError  String?
-  platformFee      Decimal          @default(0) @map("platform_fee") @db.Decimal(10, 2)
-  hotelAsset       HotelAsset       @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformFee      Decimal           @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  hotelAsset       HotelAsset        @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investor_yields  investor_yields[]
 
   @@index([userId])
   @@index([hotelAssetId])
@@ -159,28 +164,32 @@ model Investment {
 }
 
 model Booking {
-  id              String        @id @default(uuid())
-  userId          String        @map("user_id")
-  hotelAssetId    String        @map("hotel_asset_id")
-  checkInDate     DateTime      @map("check_in_date")
-  checkOutDate    DateTime      @map("check_out_date")
-  guests          Int
-  roomType        String        @map("room_type")
-  totalPrice      Decimal       @map("total_price") @db.Decimal(10, 2)
-  status          BookingStatus @default(PENDING)
-  specialRequests String?       @map("special_requests")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-  bookingCode     String?       @unique @map("booking_code")
-  discountApplied Int?          @map("discount_applied")
-  paymentMethod   String?       @map("payment_method")
-  paymentStatus   String?  @map("payment_status")
-  paymentToken    String?  @map("payment_token")
-  platformFee     Decimal? @map("platform_fee") @db.Decimal(10, 2)
-  txHash          String?  @map("tx_hash")
-  walletAddress   String?  @map("wallet_address")
-  hotelAsset      HotelAsset    @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String                @id @default(uuid()) @db.Uuid
+  userId              String                @map("user_id")
+  hotelAssetId        String                @map("hotel_asset_id")
+  checkInDate         DateTime              @map("check_in_date")
+  checkOutDate        DateTime              @map("check_out_date")
+  guests              Int
+  roomType            String                @map("room_type")
+  totalPrice          Decimal               @map("total_price") @db.Decimal(10, 2)
+  status              BookingStatus         @default(PENDING)
+  specialRequests     String?               @map("special_requests")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  bookingCode         String?               @unique @map("booking_code")
+  discountApplied     Int?                  @map("discount_applied")
+  paymentMethod       String?               @map("payment_method")
+  paymentStatus       String?               @map("payment_status")
+  paymentToken        String?               @map("payment_token")
+  platformFee         Decimal?              @map("platform_fee") @db.Decimal(10, 2)
+  txHash              String?               @map("tx_hash")
+  walletAddress       String?               @map("wallet_address")
+  qloOrderId          String?               @unique
+  hotelAsset          HotelAsset            @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment             payment[]
+  settlements         Settlement[]
+  yield_distributions yield_distributions[]
 
   @@index([userId])
   @@index([hotelAssetId])
@@ -268,6 +277,65 @@ model EsgReward {
   status        ESGRewardStatus @default(pending)
   created_date  DateTime        @default(now())
   updated_at    DateTime        @updatedAt
+}
+
+model investor_yields {
+  id                    String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  yield_distribution_id String
+  user_id               String
+  investment_id         String?
+  amount                Decimal             @db.Decimal(18, 8)
+  status                String?             @default("PENDING") @db.VarChar(50)
+  tx_hash               String?
+  created_at            DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at            DateTime?           @default(now()) @db.Timestamp(6)
+  investments           Investment?         @relation(fields: [investment_id], references: [id], onUpdate: NoAction, map: "fk_investment_optional")
+  users                 User                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_investor_user")
+  yield_distributions   yield_distributions @relation(fields: [yield_distribution_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_investor_yield_distribution")
+}
+
+model yield_distributions {
+  id                String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  booking_id        String            @db.Uuid
+  hotel_asset_id    String
+  total_amount      Decimal           @db.Decimal(18, 8)
+  distribution_date DateTime?         @default(now()) @db.Timestamp(6)
+  created_at        DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?         @default(now()) @db.Timestamp(6)
+  investor_yields   investor_yields[]
+  hotel_assets      HotelAsset        @relation(fields: [hotel_asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_yield_asset")
+  bookings          Booking           @relation(fields: [booking_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_yield_booking")
+}
+
+model payment {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String    @db.Uuid
+  amount    Float
+  currency  String
+  status    String
+  txHash    String?
+  signature String?
+  receiver  String?
+  expiresAt DateTime? @db.Timestamp(6)
+  message   String?
+  createdAt DateTime  @default(now()) @db.Timestamp(6)
+  bookings  Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "payment_booking_fkey")
+}
+
+model Settlement {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId    String     @map("booking_id") @db.Uuid
+  hotelAssetId String     @map("hotel_asset_id")
+  hotelWallet  String     @map("hotel_wallet")
+  amount       Decimal    @db.Decimal(10, 2)
+  currency     String
+  status       String
+  txHash       String?    @map("tx_hash")
+  createdAt    DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
+  booking      Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_settlement_booking")
+  hotelAsset   HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_settlement_hotel")
+
+  @@map("settlements")
 }
 
 enum ESGRewardStatus {

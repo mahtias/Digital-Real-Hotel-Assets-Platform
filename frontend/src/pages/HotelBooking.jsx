@@ -67,8 +67,8 @@ const [bookingInfo, setBookingInfo] = useState(null);
   const hotel = hotels.find((h) => String(h.id) === String(hotelId));
 
   // -------- Pricing --------
-  const roomPrices = { standard: 25, deluxe: 50, suite: 100 };
-  const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
+  const roomPrices = { standard: 2.5, deluxe: 5, executive: 7, suite: 10 };
+  const nights = checkIn && checkOut ? Math.max(1, differenceInDays(checkOut, checkIn)): 0;
   const basePrice = nights * roomPrices[roomType];
 
   // Discount logic
@@ -76,77 +76,106 @@ const [bookingInfo, setBookingInfo] = useState(null);
   const totalPrice = basePrice - discount;
 
 // -------- Booking Payment --------
-  const handleBookingPayment = async () => {
-    if (!user) return;
+const handleBookingPayment = async () => {
+  if (!user) return;
 
-    if (!isConnected || !address) {
-      toast.error("Wallet not connected.");
-      return;
-    }
+  if (!isConnected || !address) {
+    toast.error("Wallet not connected.");
+    return;
+  }
 
-    if (address.toLowerCase() !== user.walletAddress.toLowerCase()) {
-      toast.error("Please connect your registered wallet");
-      return;
-    }
+  if (address.toLowerCase() !== user.walletAddress.toLowerCase()) {
+    toast.error("Please connect your registered wallet");
+    return;
+  }
 
-    if (!checkIn || !checkOut) {
-      toast.error("Select dates first");
-      return;
-    }
+  if (!checkIn || !checkOut) {
+    toast.error("Select dates first");
+    return;
+  }
 
-    setIsPaying(true);
+  if (paymentMethod !== "usdc") {
+    toast.error("Only USDC supported for now");
+    return;
+  }
 
-    try {
-      const createRes = await authFetch(`${API_URL}/api/v1/bookings`, {
-        method: "POST",
-        body: JSON.stringify({
-          userId: user.id,
-          hotelAssetId: hotelId,
-          checkInDate: checkIn.toISOString(),
-          checkOutDate: checkOut.toISOString(),
-          totalPrice,
-          roomType,
-          guests,
-          paymentMethod,
-          discountApplied: discount,
-        }),
-      });
+  setIsPaying(true);
 
-      if (!createRes.ok) throw new Error("Booking creation failed");
-
-      const bookingData = await createRes.json();
-      const bookingId = bookingData.data.id;
-
-      const paymentAmount =
-        import.meta.env.VITE_NODE_ENV === "development" ? 1 : totalPrice;
-
-      await web3Service.payBookingUSDC(
-        bookingId,
-        paymentAmount,
-        import.meta.env.VITE_TREASURY_ADDRESS,
-        user.walletAddress
-      );
-
-      // ✅ SET BOOKING INFO HERE
-      setBookingInfo({
-        name: user?.name || user?.email || "Guest",
-        hotel: hotel?.name,
+  try {
+    // 1️⃣ Create booking
+    const createRes = await authFetch(`${API_URL}/api/v1/bookings`, {
+      method: "POST",
+      body: JSON.stringify({
+        userId: user.id,
+        hotelAssetId: hotelId,
+        checkInDate: checkIn.toISOString(),
+        checkOutDate: checkOut.toISOString(),
+        totalPrice,
         roomType,
         guests,
-        checkIn,
-        checkOut,
-        totalPaid: totalPrice.toFixed(2),
-      });
+        paymentMethod,
+        discountApplied: discount,
+      }),
+    });
 
-      setBookingSuccess(true);
-      toast.success("Booking confirmed!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Booking failed");
-    } finally {
-      setIsPaying(false);
+    if (!createRes.ok) throw new Error("Booking creation failed");
+
+    const bookingData = await createRes.json();
+    const bookingId = bookingData.data.id;
+
+    // 2️⃣ Payment intent
+    const intentRes = await authFetch(`${API_URL}/api/v1/payments/intent`, {
+      method: "POST",
+      body: JSON.stringify({ bookingId }),
+    });
+
+    if (!intentRes.ok) throw new Error("Failed to create payment intent");
+
+    const intent = await intentRes.json();
+
+    if (!intent.success) {
+      throw new Error("Invalid payment intent");
     }
-  };
+
+    const { intentId, amount, receiver, expiresAt } = intent;
+
+    // ⏱ Expiry check
+    if (new Date(expiresAt) < new Date()) {
+      throw new Error("Payment session expired. Try again.");
+    }
+
+    // 3️⃣ Send USDC
+    const txHash = await web3Service.sendUSDC(receiver, amount);
+
+    // 4️⃣ Confirm
+    const confirmRes = await authFetch(`${API_URL}/api/v1/payments/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ intentId, txHash }),
+    });
+
+    if (!confirmRes.ok) throw new Error("Payment confirmation failed");
+
+    // 5️⃣ UI success
+    setBookingInfo({
+      name: user?.name || user?.email || "Guest",
+      hotel: hotel?.name,
+      roomType,
+      guests,
+      checkIn,
+      checkOut,
+      totalPaid: amount.toFixed(2),
+    });
+
+    setBookingSuccess(true);
+    toast.success("Booking confirmed!");
+
+  } catch (err) {
+    console.error(err);
+    toast.error(err.message || "Booking failed");
+  } finally {
+    setIsPaying(false);
+  }
+};
   
   
     // -------- SUCCESS SCREEN --------
@@ -282,9 +311,10 @@ const [bookingInfo, setBookingInfo] = useState(null);
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 text-white">
-                <SelectItem value="standard">Standard - $25/night</SelectItem>
-                <SelectItem value="deluxe">Deluxe - $50/night</SelectItem>
-                <SelectItem value="suite">Suite - $100/night</SelectItem>
+                <SelectItem value="standard">Standard - $2.5/night</SelectItem>
+                <SelectItem value="deluxe">Deluxe - $5/night</SelectItem>
+                <SelectItem value="executive">Executive - $7/night</SelectItem>
+                <SelectItem value="suite">Suite - $10/night</SelectItem>
               </SelectContent>
             </Select>
 

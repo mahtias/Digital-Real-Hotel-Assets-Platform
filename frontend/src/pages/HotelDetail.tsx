@@ -149,6 +149,15 @@ console.log('🔐 KYC Status:', {
     query: { enabled: !!hotelTokenAddress }
   });
 
+  const { data: decimals } = useReadContract({
+  address: hotelTokenAddress,
+  abi: HOTEL_TOKEN_ABI,
+  functionName: 'decimals',
+});
+console.log("Decimals:", decimals);
+
+
+
   // Symbol
   const { data: hotelSymbol } = useReadContract({
     address: hotelTokenAddress,
@@ -346,20 +355,59 @@ const handleRetryBlockchainKyc = async () => {
   }
 }; 
 
-  // ===================================
-  // 📊 CALCULATE DERIVED DATA
-  // ===================================
+// ===================================
+// 🔢 DERIVED DATA / FORMATTING (SAFE)
+// ===================================
 
-  const tokenPriceFormatted = tokenPriceUSD ? Number(formatUnits(tokenPriceUSD, 6)).toFixed(2) : "0.00";
-  const maxSupplyFormatted = maxSupply ? Number(formatUnits(maxSupply, 18)).toLocaleString() : "0";
-  const totalSupplyFormatted = totalSupply ? Number(formatUnits(totalSupply, 18)).toLocaleString() : "0";
-  const soldPercentage = maxSupply && totalSupply
-  ? (Number(formatUnits(totalSupply, 18)) / Number(formatUnits(maxSupply, 18))) * 100
+// 1️⃣ Token decimals (from blockchain, fallback to 18)
+const tokenDecimalsSafe = decimals !== undefined ? Number(decimals) : 18;
+
+// 2️⃣ Token price formatted in USD (assume 6 decimals from contract)
+const tokenPriceFormatted = tokenPriceUSD
+  ? Number(formatUnits(tokenPriceUSD, 6)).toFixed(2)
+  : "0.00";
+
+// 3️⃣ Max and total supply as BigInt
+const maxSupplyBN = maxSupply ? BigInt(maxSupply) : 0n;
+const totalSupplyBN = totalSupply ? BigInt(totalSupply) : 0n;
+
+// 4️⃣ Scale BigInt to human-readable numbers using decimals
+const maxSupplyScaled = maxSupplyBN > 0n
+  ? Number(formatUnits(maxSupplyBN, tokenDecimalsSafe))
   : 0;
-  const apyFormatted = expectedAPY ? Number(expectedAPY) / 100 : 0;
-  const userBalanceFormatted = userTokenBalance ? Number(formatUnits(userTokenBalance, 18)).toFixed(4) : "0.00";
-  const userHatBalanceFormatted = userHatBalance ? Number(formatUnits(userHatBalance, 18)).toFixed(2) : "0.00";
 
+const totalSupplyScaled = totalSupplyBN > 0n
+  ? Number(formatUnits(totalSupplyBN, tokenDecimalsSafe))
+  : 0;
+
+// 5️⃣ Format for display
+const maxSupplyFormatted = maxSupplyScaled.toLocaleString(undefined, { maximumFractionDigits: 0 });
+const totalSupplyFormatted = totalSupplyScaled.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+// 6️⃣ Sold percentage (safe and human-readable)
+const soldPercentage = maxSupplyScaled > 0
+  ? (totalSupplyScaled / maxSupplyScaled) * 100
+  : 0;
+
+// 7️⃣ APY
+const apyFormatted = expectedAPY ? Number(expectedAPY) / 100 : 0;
+
+// 8️⃣ User balances (safe formatting)
+const userBalanceFormatted = userTokenBalance
+  ? Number(formatUnits(userTokenBalance, tokenDecimalsSafe)).toFixed(4)
+  : "0.0000";
+
+const userHatBalanceFormatted = userHatBalance
+  ? Number(formatUnits(userHatBalance, 18)).toFixed(2) // HAT token assumed 18 decimals
+  : "0.00";
+
+// ✅ DEBUG LOGS
+console.log("Decimals:", tokenDecimalsSafe);
+console.log("Max Supply BN:", maxSupplyBN.toString(), "Scaled:", maxSupplyScaled, "Formatted:", maxSupplyFormatted);
+console.log("Total Supply BN:", totalSupplyBN.toString(), "Scaled:", totalSupplyScaled, "Formatted:", totalSupplyFormatted);
+console.log("Sold %:", soldPercentage.toFixed(6)); // shows up to 6 decimals
+console.log("User Token Balance:", userBalanceFormatted);
+console.log("User HAT Balance:", userHatBalanceFormatted);
   // ===================================
   //  LOADING & ERROR STATES
   // ===================================

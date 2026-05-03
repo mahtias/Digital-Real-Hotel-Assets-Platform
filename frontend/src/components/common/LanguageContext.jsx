@@ -699,6 +699,9 @@ const translations = {
 // @ts-ignore
 const LanguageContext = createContext();
 
+/**
+ * @param {{ children: React.ReactNode }} props
+ */
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -711,14 +714,16 @@ export function LanguageProvider({ children }) {
     localStorage.setItem('language', language);
   }, [language]);
 
+  // @ts-ignore
   const t = (key) => {
     const keys = key.split('.');
+    // @ts-ignore
     let value = translations[language];
     for (const k of keys) {
       value = value?.[k];
     }
     return value || key;
-  };
+  };   
 
   const toggleLanguage = () => {
     setLanguage(prev => prev === 'zh' ? 'en' : 'zh');

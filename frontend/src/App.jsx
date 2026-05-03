@@ -25,6 +25,7 @@ import KYCReviewDetails from '@/components/Admin/KYCReviewDetails';
 import AdminDashboard from "@/components/Admin/AdminDashboard";
 import AdminKYCStatusList from '@/components/Admin/AdminKYCStatusList';
 import AdminKYCStatusDetail from '@/components/Admin/AdminKYCStatusDetail';
+import AdminSettlements from '@/components/Admin/AdminSettlements';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
 import VerifyEmailSent from '@/pages/auth/VerifyEmailSent';
@@ -32,6 +33,7 @@ import VerifyEmail from '@/pages/auth/VerifyEmail';
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import { useAuthModal } from "@/context/AuthModalContext";
 import AuthModal from "@/components/AuthModal";
+
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -111,6 +113,7 @@ function App() {
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/admin/kyc/status" element={<AdminKYCStatusList />} />
                     <Route path="/admin/kyc/status/:kycId" element={<AdminKYCStatusDetail />} />
+                    <Route path="/admin/settlements" element={<AdminSettlements />} />
 
                     {/* Dynamic Pages */}
                     {Object.entries(Pages).map(([path, Page]) => {
