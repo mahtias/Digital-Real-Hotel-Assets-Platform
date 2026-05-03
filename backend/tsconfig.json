@@ -19,7 +19,7 @@
       "emitDecoratorMetadata": true,
       "useDefineForClassFields": false,
 
-      "types": ["node"],
+      "types": ["node","xml2js"],
       "typeRoots": ["./src/types", "./node_modules/@types"],
 
       "baseUrl": "./",
