@@ -37,7 +37,7 @@ export const settlementService = {
         booking.totalPrice instanceof Prisma.Decimal
           ? booking.totalPrice.toNumber()
           : Number(booking.totalPrice);
-
+          
       const settlement = await prisma.settlement.create({
         data: {
           hotelWallet,
