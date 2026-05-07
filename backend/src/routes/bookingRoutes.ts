@@ -33,4 +33,5 @@ router.put("/:id/status", updateBookingStatus);
 router.put("/:id/cancel", cancelBooking);
 router.delete("/:id", deleteBooking);
 
+
 export default router;

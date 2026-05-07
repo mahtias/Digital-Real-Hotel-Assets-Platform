@@ -26,6 +26,13 @@ import AdminDashboard from "@/components/Admin/AdminDashboard";
 import AdminKYCStatusList from '@/components/Admin/AdminKYCStatusList';
 import AdminKYCStatusDetail from '@/components/Admin/AdminKYCStatusDetail';
 import AdminSettlements from '@/components/Admin/AdminSettlements';
+import RevenueDashboard from '@/components/Admin/RevenueDashboard';
+import BookingDashboard from '@/components/Admin/BookingDashboard';
+import SettlementHistory from '@/components/Admin/SettlementHistory';
+
+
+
+
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
 import VerifyEmailSent from '@/pages/auth/VerifyEmailSent';
@@ -114,6 +121,11 @@ function App() {
                     <Route path="/admin/kyc/status" element={<AdminKYCStatusList />} />
                     <Route path="/admin/kyc/status/:kycId" element={<AdminKYCStatusDetail />} />
                     <Route path="/admin/settlements" element={<AdminSettlements />} />
+                    <Route path="/admin/revenue" element={<RevenueDashboard />} />
+                    <Route path="/admin/bookings" element={<BookingDashboard />} />
+                    <Route path="/admin/settlements/history" element={<SettlementHistory />} />
+                      
+                    
 
                     {/* Dynamic Pages */}
                     {Object.entries(Pages).map(([path, Page]) => {

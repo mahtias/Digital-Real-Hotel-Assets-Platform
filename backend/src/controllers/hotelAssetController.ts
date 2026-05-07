@@ -17,6 +17,7 @@ export const getHotels = async (req: Request, res: Response) => {
         id: true,
         blockchainId: true,
         name: true,
+        walletAddress: true,
         location: true,
         country: true,
         imageUrl: true,

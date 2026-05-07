@@ -12,6 +12,8 @@ import qloRoutes  from './qloRoutes'
 import settlementRoutes from './settlementRoutes';
 // import portfolioRoutes from './portfolioRoutes';
 import paymentRoutes from './paymentRoutes';
+import revenueRoutes from './revenueRoutes'
+import adminRoutes from './adminRoutes';
 
 const router = Router();
 
@@ -37,7 +39,9 @@ router.use('/staking', stakingRoutes);
 router.use('/esgreward', esgRewardRoutes);
 router.use('/webhook', qloRoutes)
 router.use('/payments', paymentRoutes);
-router.use('/settlements', settlementRoutes);
+router.use('/settlements', settlementRoutes); 
+router.use('/admin/revenue', revenueRoutes);
+router.use('/admin', adminRoutes);
 // router.use('/portfolios', portfolioRoutes); 
 
 

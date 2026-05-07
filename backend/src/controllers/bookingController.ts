@@ -498,3 +498,61 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
     });
   }
 };
+
+// ========================================
+// 🧾 ADMIN: GET ALL BOOKINGS (WITH DETAILS)
+// ========================================
+// ========================================
+// 🧾 ADMIN: GET ALL BOOKINGS
+// ========================================
+
+export const getAllBookingsAdmin = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+
+    const bookings = await prisma.booking.findMany({
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      include: {
+
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            walletAddress: true,
+          },
+        },
+
+        hotelAsset: {
+          select: {
+            id: true,
+            name: true,
+            location: true,
+          },
+        },
+
+        settlements: true,
+
+      },
+
+    });
+
+    return res.json(bookings);
+
+  } catch (err: any) {
+
+    console.error("Admin Bookings Error:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
+
+  }
+};

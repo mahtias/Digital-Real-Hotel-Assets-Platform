@@ -63,7 +63,7 @@ export const settlementService = {
       return settlement;
 
     } catch (err) {
-      console.error("❌ Settlement creation error:", err);
+      console.error(" Settlement creation error:", err);
       throw err;
     }
   },
