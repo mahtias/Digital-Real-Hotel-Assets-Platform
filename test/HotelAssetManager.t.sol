@@ -37,7 +37,7 @@ contract HotelAssetManagerTest is Test {
     string constant IMAGE = "ipfs://...";
     string constant SYMBOL = "HAT-HIL";
     uint256 constant TOTAL_SHARES = 1000e18;
-   uint256 constant PRICE_PER_SHARE = 200;
+    uint256 constant PRICE_PER_SHARE = 200;
     uint256 constant MIN_INVESTMENT = 1000e6;
     uint256 constant FUNDING_DURATION = 30 days;
 
@@ -217,15 +217,15 @@ contract HotelAssetManagerTest is Test {
         uint256 shares = manager.previewShares(hotelId, investmentAmount);
 
         assertEq(shares, expectedShares);
-        
+
         //assertEq(shares, 10e18); // Should cleanly yield exactly 10 full 18-decimal tokens
     }
 
     function test_PreviewShares_200USD() public view {
-    uint256 shares = manager.previewShares(hotelId, 200e6);
+        uint256 shares = manager.previewShares(hotelId, 200e6);
 
-    assertEq(shares, 1e18);
-}
+        assertEq(shares, 1e18);
+    }
 
     function test_PreviewShares_294USD() public view {
         uint256 shares = manager.previewShares(hotelId, 2940000);

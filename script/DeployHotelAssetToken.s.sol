@@ -58,7 +58,7 @@ contract DeployHotelAssetTokens is Script {
                 "HAT-RCB",
                 200000,
                 400,
-                IKYCRegistry.KYCLevel.BASIC     
+                IKYCRegistry.KYCLevel.BASIC
             ),
             Hotel(
                 "e009ef84-23bc-473e-b5d8-6c9a7498c784",

@@ -398,8 +398,8 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
             return 0;
         }
 
-     uint256 usdcInWei = usdcAmount * 1e12;
-     shares = usdcInWei / hotel.pricePerShare;
+        uint256 usdcInWei = usdcAmount * 1e12;
+        shares = usdcInWei / hotel.pricePerShare;
     }
 
     /**
