@@ -1,39 +1,48 @@
   // backend/src/jobs/kycSyncJob.ts
 
   import cron from 'node-cron';
-  import { Web3Service } from '../services/web3Service';
+  import { web3Service } from "../services/web3Service";
 
-  const web3Service = new Web3Service();
+
 
   /**
    * 🔄 Run every hour: Sync pending KYCs to blockchain
    */
-  export function startKycSyncJob() {
-    // Run at minute 0 of every hour
-    cron.schedule('0 * * * *', async () => {
-      console.log('\n🔄 [CRON] Starting hourly KYC sync job...');
-      console.log(`📅 Time: ${new Date().toISOString()}`);
+let isKycSyncRunning = false;
 
-      try {
-        const result = await web3Service.syncAllPendingKycs();
+export function startKycSyncJob() {
+  cron.schedule("0 * * * *", async () => {
+    if (isKycSyncRunning) {
+      console.warn("[CRON] KYC sync already running, skipping");
+      return;
+    }
 
-        console.log('✅ [CRON] KYC sync job completed');
-        console.log(`   ✓ Synced: ${result.synced}`);
-        console.log(`   ✗ Failed: ${result.failed}`);
+    isKycSyncRunning = true;
 
-        if (result.failed > 0) {
-          console.warn(`⚠️ [CRON] ${result.failed} user(s) failed to sync to blockchain`);
-        }
+    console.log("\n[CRON] Starting hourly KYC sync job...");
+    console.log(`Time: ${new Date().toISOString()}`);
 
-      } catch (error: any) {
-        console.error('❌ [CRON] KYC sync job failed:', error.message);
-        console.error('Stack:', error.stack);
+    try {
+      const result = await web3Service.syncAllPendingKycs();
+
+      console.log("[CRON] KYC sync job completed");
+      console.log(`Synced: ${result.synced}`);
+      console.log(`Failed: ${result.failed}`);
+
+      if (result.failed > 0) {
+        console.warn(`[CRON] ${result.failed} user(s) failed to sync`);
       }
-    });
+    } catch (error: any) {
+      console.error("[CRON] KYC sync job failed:", error.message);
+      console.error("Stack:", error.stack);
+    } finally {
+      isKycSyncRunning = false;
+    }
+  });
 
-    console.log('✅ KYC sync job scheduled (runs every hour at :00)');
-    console.log('⏰ Next run:', getNextCronRun());
-  }
+  console.log("KYC sync job scheduled (runs every hour at :00)");
+  console.log("Next run:", getNextCronRun());
+}
 
   /**
    * 🧪 Manual trigger for testing

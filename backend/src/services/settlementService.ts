@@ -1,150 +1,546 @@
+// backend/src/services/settlementService.ts
+
 import prisma from "../config/database";
 import { Prisma } from "@prisma/client";
 import { ethers } from "ethers";
 
-// ========================================
-// 🌐 WEB3 SETUP (BASE SEPOLIA)
-// ========================================
+import { StablecoinService } from "./stablecoinService";
 
-const provider = new ethers.JsonRpcProvider(process.env.BASE_SEPOLIA_RPC);
-const signer = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+import { Stablecoin } from "../config/stablecoinRegistry";
 
-const USDC_ABI = [
-  "function transfer(address to, uint256 amount) returns (bool)",
-  "function balanceOf(address) view returns (uint256)"
-];
+// ============================================================
+// 🌐 WEB3 SETUP
+// ============================================================
 
-const usdc = new ethers.Contract(
-  process.env.USDC_ADDRESS!,
-  USDC_ABI,
-  signer
+const provider = new ethers.JsonRpcProvider(
+  process.env.BASE_SEPOLIA_RPC
 );
 
-export const settlementService = {
+const signer = new ethers.Wallet(
+  process.env.PRIVATE_KEY!,
+  provider
+);
 
-  // ========================================
-  // 🏨 STEP 1: CREATE SETTLEMENT (ON BOOKING)
-  // ========================================
-  async createSettlement(booking: any) {
+// ============================================================
+// 🪙 ERC20 ABI
+// ============================================================
+
+const ERC20_ABI = [
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function balanceOf(address owner) view returns (uint256)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
+];
+
+// ============================================================
+// ⚙️ CONFIG
+// ============================================================
+
+const SETTLEMENT_CONFIG = {
+  MAX_RETRIES: 3,
+  MIN_CONFIRMATIONS: 1,
+} as const;
+
+// ============================================================
+// 🏦 SETTLEMENT SERVICE
+// ============================================================
+
+export const settlementService = {
+  // ==========================================================
+  // 🪙 GET TOKEN CONTRACT
+  // ==========================================================
+
+  getTokenContract(stablecoin: Stablecoin) {
+    return new ethers.Contract(
+      stablecoin.address,
+      ERC20_ABI,
+      signer
+    );
+  },
+
+  // ==========================================================
+  // 🏨 STEP 1: CREATE SETTLEMENT
+  // ==========================================================
+
+  async createSettlement(
+    booking: any,
+    currency: string = "USDC"
+  ) {
     try {
-      const hotelWallet = booking.hotelAsset.walletAddress;
+      // ======================================================
+      // ✅ VALIDATE STABLECOIN
+      // ======================================================
+
+      StablecoinService.validateToken(currency, "BOOKING");
+
+      const stablecoin =
+        StablecoinService.getStablecoin(currency);
+
+      // ======================================================
+      // ✅ HOTEL WALLET CHECK
+      // ======================================================
+
+     let hotelWallet = booking.hotelAsset?.walletAddress;
+
+      if (!hotelWallet) {
+        const hotelAsset = await prisma.hotelAsset.findUnique({
+          where: {
+            id: booking.hotelAssetId,
+          },
+          select: {
+            walletAddress: true,
+          },
+        });
+
+        hotelWallet = hotelAsset?.walletAddress;
+      }
 
       if (!hotelWallet) {
         throw new Error("Hotel wallet not found");
       }
 
+      hotelWallet = hotelWallet.trim();
+
+      // ======================================================
+      // ✅ SAFE AMOUNT CONVERSION
+      // ======================================================
+
       const amount =
         booking.totalPrice instanceof Prisma.Decimal
           ? booking.totalPrice.toNumber()
           : Number(booking.totalPrice);
-          
+
+      if (amount <= 0) {
+        throw new Error("Invalid settlement amount");
+      }
+
+      // ======================================================
+      // ✅ IDEMPOTENCY CHECK
+      // Prevent duplicate settlement creation
+      // ======================================================
+
+      const existingSettlement =
+        await prisma.settlement.findFirst({
+          where: {
+            bookingId: booking.id,
+          },
+        });
+
+      if (existingSettlement) {
+        console.log(
+          "⚠️ Settlement already exists:",
+          existingSettlement.id
+        );
+
+        return existingSettlement;
+      }
+
+      // ======================================================
+      // ✅ CREATE SETTLEMENT
+      // ======================================================
+
       const settlement = await prisma.settlement.create({
         data: {
           hotelWallet,
           amount: new Prisma.Decimal(amount),
-          currency: "USDC",
+
+          currency: stablecoin.symbol,
+
           status: "PENDING",
+           stablecoinSymbol: stablecoin.symbol,
+            stablecoinAddress: stablecoin.address,
+            chainId: stablecoin.chainId,
+          retryCount: 0,
 
           booking: {
-            connect: { id: booking.id },
+            connect: {
+              id: booking.id,
+            },
           },
+
           hotelAsset: {
-            connect: { id: booking.hotelAssetId },
+            connect: {
+              id: booking.hotelAssetId,
+            },
           },
         },
       });
 
-      console.log("🧾 Settlement created:", {
-        bookingId: booking.id,
-        amount,
-        hotelWallet,
-      });
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🧾 SETTLEMENT CREATED");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Booking:", booking.id);
+      console.log("Hotel:", booking.hotelAssetId);
+      console.log("Currency:", stablecoin.symbol);
+      console.log("Amount:", amount);
+      console.log("Wallet:", hotelWallet);
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       return settlement;
+    } catch (err: any) {
+      console.error(
+        "❌ Settlement creation error:",
+        err.message
+      );
 
-    } catch (err) {
-      console.error(" Settlement creation error:", err);
       throw err;
     }
   },
 
-  // ========================================
-  // 💸 STEP 2: PROCESS HOTEL PAYOUT (REAL)
-  // ========================================
-  async processHotelPayout(hotelAssetId: string) {
-    try {
+  // ==========================================================
+  // 💸 STEP 2: PROCESS HOTEL PAYOUT
+  // ==========================================================
 
-      // 1️ Get all pending settlements
-      const settlements = await prisma.settlement.findMany({
-        where: {
-          hotelAssetId,
-          status: "PENDING",
-        },
-      });
+  async processHotelPayout(
+    hotelAssetId: string,
+    currency: string = "USDC"
+  ) {
+    try {
+      // ======================================================
+      // ✅ VALIDATE STABLECOIN
+      // ======================================================
+
+      StablecoinService.validateToken(
+        currency,
+        "BOOKING"
+      );
+
+      const stablecoin =
+        StablecoinService.getStablecoin(currency);
+
+      const tokenContract =
+        this.getTokenContract(stablecoin);
+
+      // ======================================================
+      // ✅ GET PENDING SETTLEMENTS
+      // ======================================================
+
+      const settlements =
+        await prisma.settlement.findMany({
+          where: {
+            hotelAssetId,
+
+            currency: stablecoin.symbol,
+
+            status: "PENDING",
+          },
+
+          orderBy: {
+            createdAt: "asc",
+          },
+        });
 
       if (settlements.length === 0) {
-        console.log("No pending settlements");
-        return { message: "No pending settlements" };
+        console.log(
+          `No pending ${stablecoin.symbol} settlements`
+        );
+
+        return {
+          success: true,
+          message: "No pending settlements",
+        };
       }
 
-      // 2️ Calculate total payout
-      const totalAmount = settlements.reduce((sum, s) => {
-        return sum + Number(s.amount);
-      }, 0);
+      // ======================================================
+      // ✅ CALCULATE TOTAL PAYOUT
+      // ======================================================
+
+      const totalAmount = settlements.reduce(
+        (sum, settlement) => {
+          return sum + Number(settlement.amount);
+        },
+        0
+      );
+
+      if (totalAmount <= 0) {
+        throw new Error("Invalid payout amount");
+      }
 
       const hotelWallet = settlements[0].hotelWallet;
 
-      console.log("💰 Processing REAL payout:", {
-        hotelAssetId,
-        totalAmount,
-        hotelWallet,
-      });
+      // ======================================================
+      // ✅ WALLET VALIDATION
+      // ======================================================
 
-      // ========================================
-      // 3️ REAL BLOCKCHAIN TRANSFER (BASE SEPOLIA)
-      // ========================================
+      if (!ethers.isAddress(hotelWallet)) {
+        throw new Error("Invalid hotel wallet address");
+      }
 
-      const amountWei = ethers.parseUnits(totalAmount.toString(), 6);
+      // ======================================================
+      // ✅ CONVERT TO TOKEN UNITS
+      // ======================================================
 
-      console.log("🔄 Sending USDC transfer...");
+      const amountWei = ethers.parseUnits(
+        totalAmount.toFixed(stablecoin.decimals),
+        stablecoin.decimals
+      );
 
-      const tx = await usdc.transfer(hotelWallet, amountWei);
-      const receipt = await tx.wait();
+      // ======================================================
+      // ✅ TREASURY BALANCE CHECK
+      // ======================================================
 
-      const realTxHash = receipt.hash;
+      const treasuryBalance =
+        await tokenContract.balanceOf(signer.address);
 
-      console.log("✅ Blockchain payout successful:", realTxHash);
+      if (treasuryBalance < amountWei) {
+        throw new Error(
+          `Insufficient ${stablecoin.symbol} treasury balance`
+        );
+      }
 
-      // ========================================
-      // 4️ UPDATE DB
-      // ========================================
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("💸 PROCESSING HOTEL PAYOUT");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("Hotel:", hotelAssetId);
+      console.log("Currency:", stablecoin.symbol);
+      console.log("Settlements:", settlements.length);
+      console.log("Total:", totalAmount);
+      console.log("Wallet:", hotelWallet);
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+      // ======================================================
+      // 🔒 MARK AS PROCESSING
+      // Prevent double payout
+      // ======================================================
 
       await prisma.settlement.updateMany({
         where: {
-          hotelAssetId,
-          status: "PENDING",
+          id: {
+            in: settlements.map((s) => s.id),
+          },
         },
+
+        data: {
+          status: "PROCESSING",
+        },
+      });
+
+      // ======================================================
+      // 🔄 EXECUTE BLOCKCHAIN TRANSFER
+      // ======================================================
+
+      console.log(
+        `🔄 Sending ${stablecoin.symbol} transfer...`
+      );
+
+      const tx = await tokenContract.transfer(
+        hotelWallet,
+        amountWei
+      );
+
+      console.log("📤 Transaction sent:", tx.hash);
+
+      // ======================================================
+      // ⛓️ WAIT FOR CONFIRMATION
+      // ======================================================
+
+      const receipt = await tx.wait(
+        SETTLEMENT_CONFIG.MIN_CONFIRMATIONS
+      );
+
+      if (!receipt) {
+        throw new Error("Transaction receipt missing");
+      }
+
+      if (receipt.status !== 1) {
+        throw new Error("Blockchain transaction failed");
+      }
+
+      const txHash = receipt.hash;
+
+      console.log("✅ Blockchain payout confirmed");
+      console.log("TX:", txHash);
+
+      // ======================================================
+      // ✅ FINALIZE DB
+      // ======================================================
+
+      await prisma.settlement.updateMany({
+        where: {
+          id: {
+            in: settlements.map((s) => s.id),
+          },
+        },
+
         data: {
           status: "COMPLETED",
-          txHash: realTxHash,
+          txHash,
+          processedAt: new Date(),
+          failureReason: null,
         },
       });
 
-      console.log("✅ Payout completed:", {
-        totalAmount,
-        hotelWallet,
-        txHash: realTxHash,
-      });
+      // ======================================================
+      // ✅ RETURN SUCCESS
+      // ======================================================
 
       return {
-        totalAmount,
-        hotelWallet,
-        txHash: realTxHash,
-      };
+        success: true,
 
-    } catch (err) {
-      console.error("❌ Payout processing error:", err);
+        hotelAssetId,
+
+        currency: stablecoin.symbol,
+
+        totalAmount,
+
+        txHash,
+
+        settlementCount: settlements.length,
+
+        hotelWallet,
+      };
+    } catch (err: any) {
+      console.error(
+        "❌ Payout processing error:",
+        err.message
+      );
+
+      // ======================================================
+      // ❌ UPDATE FAILED SETTLEMENTS
+      // ======================================================
+
+      try {
+        await prisma.settlement.updateMany({
+          where: {
+            hotelAssetId,
+
+            currency,
+
+            status: "PROCESSING",
+          },
+
+          data: {
+            status: "FAILED",
+
+            retryCount: {
+              increment: 1,
+            },
+
+            failureReason:
+              err.message || "Unknown payout failure",
+          },
+        });
+      } catch (dbErr) {
+        console.error(
+          "❌ Failed updating settlement failure state:",
+          dbErr
+        );
+      }
+
       throw err;
     }
   },
+
+  // ==========================================================
+  // 🔁 RETRY FAILED PAYOUTS
+  // ==========================================================
+
+  async retryFailedPayouts() {
+    try {
+      const failedSettlements =
+        await prisma.settlement.findMany({
+          where: {
+            status: "FAILED",
+
+            retryCount: {
+              lt: SETTLEMENT_CONFIG.MAX_RETRIES,
+            },
+          },
+
+          select: {
+            hotelAssetId: true,
+            currency: true,
+          },
+
+          distinct: ["hotelAssetId", "currency"],
+        });
+
+      console.log(
+        `🔁 Retrying ${failedSettlements.length} payout groups`
+      );
+
+      for (const item of failedSettlements) {
+        try {
+          await this.processHotelPayout(
+            item.hotelAssetId,
+            item.currency
+          );
+        } catch (err: any) {
+          console.error(
+            `Retry failed for ${item.hotelAssetId}:`,
+            err.message
+          );
+        }
+      }
+
+      return {
+        success: true,
+        retried: failedSettlements.length,
+      };
+    } catch (err: any) {
+      console.error(
+        "❌ Retry payouts failed:",
+        err.message
+      );
+
+      throw err;
+    }
+  },
+
+  // ==========================================================
+  // 📊 GET TREASURY BALANCE
+  // ==========================================================
+
+  async getTreasuryBalance(
+    currency: string = "USDC"
+  ) {
+    StablecoinService.validateToken(
+      currency,
+      "BOOKING"
+    );
+
+    const stablecoin =
+      StablecoinService.getStablecoin(currency);
+
+    const tokenContract =
+      this.getTokenContract(stablecoin);
+
+    const balance =
+      await tokenContract.balanceOf(signer.address);
+
+    return {
+      currency: stablecoin.symbol,
+
+      wallet: signer.address,
+
+      balance: ethers.formatUnits(
+        balance,
+        stablecoin.decimals
+      ),
+    };
+  },
+
+  // --------------------------------------------------
+// 🔁 BATCH: PROCESS ALL PENDING HOTEL PAYOUTS
+// --------------------------------------------------
+async processAllPendingPayouts() {
+  console.log("🔄 Processing all pending hotel payouts...");
+
+  // Fetch hotel assets that have pending settlements
+  const hotelAssetsWithPending = await prisma.settlement.findMany({
+    where: { status: "PENDING" },
+    select: { hotelAssetId: true, currency: true },
+    distinct: ["hotelAssetId", "currency"],
+  });
+
+  for (const item of hotelAssetsWithPending) {
+    try {
+      await this.processHotelPayout(item.hotelAssetId, item.currency);
+      console.log(`✅ Payout processed for hotel ${item.hotelAssetId}`);
+    } catch (err) {
+      console.error(`❌ Payout failed for hotel ${item.hotelAssetId}:`, err);
+    }
+  }
+
+  console.log("🔄 All pending hotel payouts processed.");
+}
 };

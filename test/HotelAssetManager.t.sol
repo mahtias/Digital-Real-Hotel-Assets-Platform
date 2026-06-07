@@ -37,7 +37,7 @@ contract HotelAssetManagerTest is Test {
     string constant IMAGE = "ipfs://...";
     string constant SYMBOL = "HAT-HIL";
     uint256 constant TOTAL_SHARES = 1000e18;
-    uint256 constant PRICE_PER_SHARE = 500e6;
+   uint256 constant PRICE_PER_SHARE = 200;
     uint256 constant MIN_INVESTMENT = 1000e6;
     uint256 constant FUNDING_DURATION = 30 days;
 
@@ -56,8 +56,11 @@ contract HotelAssetManagerTest is Test {
 
         manager = new HotelAssetManager(address(kycRegistry), address(this));
 
+        address[] memory stablecoins = new address[](1);
+        stablecoins[0] = address(usdc);
+
         investment =
-            new HotelInvestment(address(usdc), address(kycRegistry), address(manager), treasury);
+            new HotelInvestment(address(kycRegistry), address(manager), treasury, stablecoins);
 
         manager.setInvestmentContract(address(investment));
 
@@ -206,13 +209,28 @@ contract HotelAssetManagerTest is Test {
      * @dev Test previewing shares calculation
      */
     function test_PreviewShares() public view {
-        uint256 investmentAmount = 5000e6; // $5,000
-        uint256 expectedShares = (investmentAmount * 1e18) / PRICE_PER_SHARE;
+        uint256 investmentAmount = 5000e6; // $5,000 (6 decimals)
+
+        // ✅ Match the dynamic dynamic scaling logic
+        uint256 expectedShares = (investmentAmount * 1e12) / PRICE_PER_SHARE;
 
         uint256 shares = manager.previewShares(hotelId, investmentAmount);
 
         assertEq(shares, expectedShares);
-        assertEq(shares, 10e18); // 10 shares at $500 each
+        
+        //assertEq(shares, 10e18); // Should cleanly yield exactly 10 full 18-decimal tokens
+    }
+
+    function test_PreviewShares_200USD() public view {
+    uint256 shares = manager.previewShares(hotelId, 200e6);
+
+    assertEq(shares, 1e18);
+}
+
+    function test_PreviewShares_294USD() public view {
+        uint256 shares = manager.previewShares(hotelId, 2940000);
+
+        assertEq(shares, 14700000000000000);
     }
 
     /**

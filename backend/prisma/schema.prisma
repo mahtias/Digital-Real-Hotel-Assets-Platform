@@ -118,11 +118,14 @@ model HotelAsset {
   tokenAddress        String?               @unique(map: "unique_token_address") @map("token_address")
   blockchainId        Int?                  @unique @map("blockchain_id")
   walletAddress       String?               @map("wallet_address")
+  stablecoinAddress   String?
+  qloHotelId          Int?                  @map("qlo_hotel_id")
   bookings            Booking[]
   createdByUser       User                  @relation("CreatedAssets", fields: [createdById], references: [id])
   investments         Investment[]
   proposals           Proposal[]
   settlements         Settlement[]
+  treasury            Treasury[]
   yield_distributions yield_distributions[]
 
   @@map("hotel_assets")
@@ -289,6 +292,10 @@ model investor_yields {
   tx_hash               String?
   created_at            DateTime?           @default(now()) @db.Timestamp(6)
   updated_at            DateTime?           @default(now()) @db.Timestamp(6)
+  failure_reason        String?
+  paid_at               DateTime?
+  stablecoin_symbol     String?
+  wallet_address        String?
   investments           Investment?         @relation(fields: [investment_id], references: [id], onUpdate: NoAction, map: "fk_investment_optional")
   users                 User                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_investor_user")
   yield_distributions   yield_distributions @relation(fields: [yield_distribution_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_investor_yield_distribution")
@@ -302,6 +309,10 @@ model yield_distributions {
   distribution_date DateTime?         @default(now()) @db.Timestamp(6)
   created_at        DateTime?         @default(now()) @db.Timestamp(6)
   updated_at        DateTime?         @default(now()) @db.Timestamp(6)
+  distributed_by    String?
+  stablecoin_symbol String?
+  status            String?           @default("PENDING")
+  tx_hash           String?
   investor_yields   investor_yields[]
   hotel_assets      HotelAsset        @relation(fields: [hotel_asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_yield_asset")
   bookings          Booking           @relation(fields: [booking_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_yield_booking")
@@ -323,19 +334,37 @@ model payment {
 }
 
 model Settlement {
-  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId    String     @map("booking_id") @db.Uuid
-  hotelAssetId String     @map("hotel_asset_id")
-  hotelWallet  String     @map("hotel_wallet")
-  amount       Decimal    @db.Decimal(10, 2)
-  currency     String
-  status       String
-  txHash       String?    @map("tx_hash")
-  createdAt    DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
-  booking      Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_settlement_booking")
-  hotelAsset   HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_settlement_hotel")
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId         String     @map("booking_id") @db.Uuid
+  hotelAssetId      String     @map("hotel_asset_id")
+  hotelWallet       String     @map("hotel_wallet")
+  amount            Decimal    @db.Decimal(10, 2)
+  currency          String
+  status            String
+  txHash            String?    @map("tx_hash")
+  createdAt         DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
+  chainId           Int?
+  failureReason     String?
+  processedAt       DateTime?
+  stablecoinAddress String?    @map("stablecoin_address")
+  stablecoinSymbol  String?    @map("stablecoin_symbol")
+  retryCount        Int        @default(0) @map("retry_count")
+  booking           Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_settlement_booking")
+  hotelAsset        HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_settlement_hotel")
 
   @@map("settlements")
+}
+
+model Treasury {
+  id           String     @id @default(uuid())
+  hotelAssetId String
+  amount       Float
+  type         String
+  status       String
+  createdAt    DateTime   @default(now())
+  hotelAsset   HotelAsset @relation(fields: [hotelAssetId], references: [id])
+
+  @@map("treasury")
 }
 
 enum ESGRewardStatus {

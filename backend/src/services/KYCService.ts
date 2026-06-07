@@ -5,7 +5,8 @@ import { KycStatus, UserRole } from '@prisma/client';
 import { keccak256 } from "ethers"; 
 import { ethers } from "ethers";
 import kycRegistryAbi from "../../../out/KYCRegistry.sol/KYCRegistry.json";
-
+import dotenv from "dotenv";
+dotenv.config();
 // -------------------------
 // Types
 // -------------------------

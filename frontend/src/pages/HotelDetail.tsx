@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits, formatUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { web3Service } from "@/services/web3Service";
 import { useWalletClient  } from "wagmi";
 
+import { STABLECOIN_REGISTRY } from "@/config/stablecoinRegistry";
 import { useEffect } from "react";
 import { ethers, BrowserProvider } from "ethers";
 import { 
@@ -37,6 +38,8 @@ export default function HotelDetail() {
 
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [hatAmount, setHatAmount] = useState('');
+    const [selectedStablecoin, setSelectedStablecoin] = useState("USDC");
+  const stablecoin = STABLECOIN_REGISTRY[selectedStablecoin];
   const [isInvesting, setIsInvesting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(0);
@@ -45,17 +48,13 @@ export default function HotelDetail() {
   console.log(" Wallet Address:", address);
 
 
+
 useEffect(() => {
   if (!walletClient) return;
 
-  (async () => {
+  const initSigner = async () => {
     try {
-      const { BrowserProvider } = await import("ethers");
-
-      const provider = new BrowserProvider(
-        walletClient.transport as any
-      );
-
+      const provider = new BrowserProvider(walletClient.transport as any);
       const signer = await provider.getSigner();
 
       await web3Service.setSigner(signer);
@@ -64,7 +63,9 @@ useEffect(() => {
     } catch (error) {
       console.error("Signer error:", error);
     }
-  })();
+  };
+
+  initSigner();
 }, [walletClient]);
 
 
@@ -123,13 +124,14 @@ const { data: isHotelAvailable, isLoading: isLoadingHotelOnChain } = useReadCont
 });
 
 // Hotel fundraising status
+const isOnChain = !!hotelTokenAddress;
+
 const isActive = hotel?.status === "FUNDRAISING";
 
-// Final invest permission
-const canInvest = isActive && Boolean(isHotelAvailable) && isFullyKycApproved;
+const canInvest = isActive && isOnChain && isFullyKycApproved;
 
 console.log("Hotel DB status:", hotel?.status);
-console.log("Hotel OnChain:", isHotelAvailable);
+console.log("Hotel OnChain:", isOnChain);
 console.log("Final Can Invest:", canInvest);
 console.log('🔐 KYC Status:', {
   backendKycApproved,
@@ -167,12 +169,7 @@ console.log("Decimals:", decimals);
   });
 
   // Token Price in USD
-  const { data: tokenPriceUSD } = useReadContract({
-    address: hotelTokenAddress,
-    abi: HOTEL_TOKEN_ABI,
-    functionName: 'tokenPriceUSD',
-    query: { enabled: !!hotelTokenAddress }
-  });
+  const tokenPriceUSD = hotel?.tokenPrice;
 
   // Max Supply
   const { data: maxSupply } = useReadContract({
@@ -250,65 +247,87 @@ const handleInvest = async () => {
     return;
   }
 
-  try {
-    setIsInvesting(true);
-    setLoading(true);
-
-    // 1️⃣ Setup signer
-    const provider = new BrowserProvider(walletClient.transport as any);
-    const signer = await provider.getSigner();
-    await web3Service.setSigner(signer);
-    const walletAddress = await signer.getAddress();
-
-    console.log("Using wallet:", walletAddress);
-
-    // 2️ Invest on blockchain
-    const numericAmount = Number(investmentAmount);
-    const txReceipt = await web3Service.investOnBlockchain(
-      hotel.blockchainId,
-      hotel.id,
-      numericAmount
-    );
-
-    console.log("Investment TX:", txReceipt.hash);
-    toast.success("🎉 Investment successful on blockchain!");
-
-    // 3️ Save investment to backend
-    const backendPayload = {
-      hotelId: hotel.id,
-      blockchainId: hotel.blockchainId,
-      walletAddress,
-      amount: numericAmount,
-      userId: user?.id,
-      txHash: txReceipt.hash,
-      tokenAmount: numericAmount / Number(tokenPriceFormatted),
-    };
-
-    // const res = await authFetch('/api/v1/investments', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(backendPayload),
-    // });
-
-    // if (!res.ok) {
-    //   const err = await res.json();
-    //   throw new Error(err.message || "Failed to save investment to backend");
-    // }
-
-    toast.success(`Investment recorded in backend!`);
-
-    // Reset form & redirect
-    setInvestmentAmount('');
-    setHatAmount('');
-    setTimeout(() => navigate("/portfolio"), 1500);
-
-  } catch (error: any) {
-    console.error(error);
-    toast.error(error.response?.data?.error || error.message || "Investment failed");
-  } finally {
-    setLoading(false);
-    setIsInvesting(false);
+  if (!stablecoin?.address) {
+    toast.error("Stablecoin not configured");
+    return;
   }
+
+  try {
+  setIsInvesting(true);
+  setLoading(true);
+
+  //
+  // STEP 1 CREATE PENDING RECORD
+  //
+
+  const createRes = await authFetch(
+    `${API_URL}/api/v1/investments`,
+    {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+          hotelId:hotel.id,
+          amount:Number(investmentAmount)
+      })
+    }
+  );
+
+  const createData =
+      await createRes.json();
+
+  if(!createRes.ok){
+      throw new Error(
+         createData.message
+      );
+  }
+
+  const investmentId =
+      createData.investment.id;
+
+  console.log(
+      "Pending Investment:",
+      investmentId
+  );
+
+  //
+  // STEP 2 BLOCKCHAIN
+  //
+
+  const txReceipt = await web3Service.investOnBlockchain( investmentId,
+          hotel.blockchainId,
+          hotel.id,
+          Number(investmentAmount),
+          stablecoin
+      );
+
+  console.log(
+      "Blockchain tx:",
+      txReceipt.hash
+  );
+
+ toast.success(
+   "🎉 Investment successful!"
+ );
+
+ navigate("/portfolio");
+
+}
+catch(error:any){
+
+   console.error(error);
+
+   toast.error(
+      error.message ||
+      "Investment failed"
+   );
+
+}
+finally{
+   setLoading(false);
+   setIsInvesting(false);
+}
 };
 
 
@@ -322,11 +341,6 @@ const handleRetryBlockchainKyc = async () => {
 
   try {
     setIsSubmittingKyc(true);
-
-    // 1️ Setup signer
-    const provider = new BrowserProvider(walletClient.transport as any);
-    const signer = await provider.getSigner();
-    await web3Service.setSigner(signer);
 
     toast.info("Submitting blockchain KYC...");
 
@@ -364,7 +378,7 @@ const tokenDecimalsSafe = decimals !== undefined ? Number(decimals) : 18;
 
 // 2️⃣ Token price formatted in USD (assume 6 decimals from contract)
 const tokenPriceFormatted = tokenPriceUSD
-  ? Number(formatUnits(tokenPriceUSD, 6)).toFixed(2)
+  ? Number(tokenPriceUSD).toFixed(2)
   : "0.00";
 
 // 3️⃣ Max and total supply as BigInt
@@ -382,7 +396,7 @@ const totalSupplyScaled = totalSupplyBN > 0n
 
 // 5️⃣ Format for display
 const maxSupplyFormatted = maxSupplyScaled.toLocaleString(undefined, { maximumFractionDigits: 0 });
-const totalSupplyFormatted = totalSupplyScaled.toLocaleString(undefined, { maximumFractionDigits: 0 });
+const totalSupplyFormatted = totalSupplyScaled.toLocaleString(undefined, { maximumFractionDigits: 4 });
 
 // 6️⃣ Sold percentage (safe and human-readable)
 const soldPercentage = maxSupplyScaled > 0
@@ -394,8 +408,8 @@ const apyFormatted = expectedAPY ? Number(expectedAPY) / 100 : 0;
 
 // 8️⃣ User balances (safe formatting)
 const userBalanceFormatted = userTokenBalance
-  ? Number(formatUnits(userTokenBalance, tokenDecimalsSafe)).toFixed(4)
-  : "0.0000";
+  ? Number(formatUnits(userTokenBalance, 18))
+  : 0;
 
 const userHatBalanceFormatted = userHatBalance
   ? Number(formatUnits(userHatBalance, 18)).toFixed(2) // HAT token assumed 18 decimals
@@ -525,9 +539,9 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
             {/* 📊 FUNDING PROGRESS */}
             <Card className="bg-slate-900/50 border-slate-800 p-6">
               <h3 className="text-white font-bold text-lg mb-4">Funding Progress</h3>
-              <Progress value={soldPercentage} className="h-3 mb-3" />
+              <Progress value={soldPercentage} className="h-3 mb-3 bg-slate-700 [&>div]:bg-white" />
               <div className="flex justify-between text-sm text-slate-300">
-                <span>{totalSupplyFormatted} / {maxSupplyFormatted} Tokens</span>
+                <span>{totalSupplyFormatted} / {maxSupplyFormatted} {hotel.tokenSymbol} Tokens</span>
                 <span className="font-bold">{soldPercentage.toFixed(1)}%</span>
               </div>
             </Card>
@@ -625,10 +639,32 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                       </div> */}
 
                       {/* 💵 INVESTMENT FORM */}
-   <div className="space-y-4 mb-6">
+<div className="space-y-4 mb-6">
+
+  {/* Stablecoin Selector */}
   <div>
     <label className="text-slate-400 text-sm mb-2 block">
-      Investment Amount (USD)
+      Payment Currency
+    </label>
+
+    <select
+    
+      value={selectedStablecoin}
+      onChange={(e) => setSelectedStablecoin(e.target.value)}
+      className="bg-slate-800 border border-slate-700 text-white h-12 w-full rounded-md px-3"
+    >
+      <option value="USDC">USDC</option>
+      <option value="USDT">USDT</option>
+      <option value="HKD_STABLECOIN_HSBC">HKD-HSBC</option>
+      <option value="HKD_STABLECOIN_SC">HKD-SC</option>
+      
+    </select>
+  </div>
+
+  {/* Amount */}
+  <div>
+    <label className="text-slate-400 text-sm mb-2 block">
+      Investment Amount ({selectedStablecoin})
     </label>
 
     <input
@@ -660,12 +696,12 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
   )}
 </Button>
 
-{!isHotelAvailable && !isLoadingHotelOnChain && (
-  <div className="mt-4 p-3 bg-amber-500/20 border border-amber-500 rounded-lg text-amber-400 text-sm">
-     This hotel is not yet verified on-chain. Investment unavailable.
-  </div>
-)}
-                    </>
+    {!isOnChain && !isLoadingHotelOnChain && (
+      <div className="mt-4 p-3 bg-amber-500/20 border border-amber-500 rounded-lg text-amber-400 text-sm">
+        This hotel is not yet deployed on-chain.
+      </div>
+    )}
+                        </>
                   ) : (
                     <div className="text-center py-8">
                       <Shield className="w-12 h-12 text-amber-400 mx-auto mb-4" />

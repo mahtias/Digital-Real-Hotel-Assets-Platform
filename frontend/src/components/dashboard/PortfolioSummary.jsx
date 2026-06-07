@@ -66,32 +66,70 @@ export default function PortfolioSummary({
   </div>
 </div>
 
-      {/* 🔥 INVESTMENT LIST */}
-      {investments && investments.length > 0 ? (
-        <div className="space-y-3">
-          {investments.slice(0, 3).map((inv, idx) => (
-            <div key={idx} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-all">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg flex items-center justify-center">
-                  🏨
-                </div>
-                <div>
-                  <p className="text-white font-medium text-sm">{inv.hotelAsset?.name || 'HAT Hotel'}</p>
-                  <p className="text-slate-20 text-white">
-                    {Number(inv.tokenAmount || 0).toLocaleString()} HAT
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-white font-bold"> ${Number(inv.amount || 0).toLocaleString()}</p>
-                <p className="text-emerald-20 text-white">
-                  +{((Number(inv.pendingRewards || 0) / Number(inv.amount || 1)) * 100).toFixed(1)}%
-                </p>
-              </div>
+ {/* 🔥 INVESTMENT LIST */}
+{investments && investments.length > 0 ? (
+  <div className="space-y-3">
+    {investments.slice(0, 3).map((inv, idx) => {
+
+      const hotel =
+        inv.hotel ||
+        inv.hotelAsset || {
+          name: "Unknown Hotel"
+        };
+
+      const amount =
+        Number(inv.amount ?? 0);
+
+      const tokenAmount =
+        Number(inv.tokenAmount ?? 0);
+
+      const pendingRewards =
+        Number(inv.pendingRewards ?? 0);
+
+      return (
+        <div
+          key={inv.id || idx}
+          className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-all"
+        >
+          <div className="flex items-center gap-3">
+
+            <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg flex items-center justify-center">
+              🏨
             </div>
-          ))}
+
+            <div>
+              <p className="text-white font-medium text-sm">
+                {hotel.name}
+              </p>
+
+              <p className="text-sm text-slate-400">
+                {tokenAmount.toFixed(2)} HAT
+              </p>
+            </div>
+
+          </div>
+
+          <div className="text-right">
+
+            <p className="text-white font-bold">
+              ${amount.toFixed(2)}
+            </p>
+
+            <p className="text-emerald-400 text-sm">
+              +{(
+                (pendingRewards /
+                  (amount || 1)) *
+                100
+              ).toFixed(1)}
+              %
+            </p>
+
+          </div>
         </div>
-      ) : (
+      );
+    })}
+  </div>
+    ) : (
         <div className="text-center py-8">
           <p className="text-slate-400 mb-4">{t('portfolio.noInvestments')}</p>
           <Link to={createPageUrl('Marketplace')}>

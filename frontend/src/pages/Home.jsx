@@ -46,18 +46,7 @@ export default function Home() {
   });
 
   //  INVESTMENTS
-//   const { data: investments = [] } = useQuery({
-//   queryKey: ["user-investments"],
-//   queryFn: async () => {
-//     if (!user) return [];
-//     const res = await authFetch(`/api/v1/investments?email=${user.email}`);
-//     if (!res.ok) return [];
-//     const json = await res.json();
-//     //  Make sure to return the array inside the response
-//     return Array.isArray(json?.data) ? json.data : [];
-//   },
-//   enabled: !!user,
-// });
+
 
 const { data: investments = [] } = useQuery({
   queryKey: ["investments"],
@@ -82,15 +71,7 @@ const { data: investments = [] } = useQuery({
   },
   enabled: !!localStorage.getItem("authToken"),
 });
-// const normalizedInvestments = useMemo(() => {
-//   return investments.map((inv) => ({
-//     ...inv,
-//     amount: Number(inv.amount ?? inv.invested_amount ?? inv.investedAmount ?? 0),
-//     tokenAmount: Number(inv.tokenAmount ?? inv.tokens ?? 0),
-//     pendingRewards: Number(inv.pendingRewards ?? inv.rewards_earned ?? 0),
-//     hotel: inv.hotel ?? { name: "HAT Hotel" }
-//   }));
-// }, [investments]);
+
 
   //  BUILD CONTRACTS ARRAY FOR BATCH READ
   const contracts = useMemo(() => {

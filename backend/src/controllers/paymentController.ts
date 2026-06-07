@@ -119,12 +119,16 @@ export const confirmPayment = async (req: Request, res: Response) => {
     }
 
     // 🔗 Verify blockchain payment
-    const result = await web3Service.verifyUSDCTransfer(
-      txHash,
-      ethers.parseUnits(payment.amount.toString(), 6),
-      payment.receiver,
-      process.env.USDC_ADDRESS!
-    );
+    const result = await web3Service.verifyStablecoinTransfer(
+  txHash,
+  ethers.parseUnits(payment.amount.toString(), 6),
+  payment.receiver,
+  {
+    symbol: "USDC",
+    address: process.env.USDC_ADDRESS!.trim(),
+    decimals: 6,
+  }
+);
 
     if (!result) {
       return res.status(400).json({ error: "Invalid or unverified transaction" });

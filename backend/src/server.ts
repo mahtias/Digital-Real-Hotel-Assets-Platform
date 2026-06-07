@@ -11,6 +11,7 @@ import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import path from "path";
 import { startKycSyncJob, startKycSyncJobTest } from './jobs/kycSyncJob';
+import { startRevenueJob } from './jobs/revenueJob'; 
 
 // --------------------------
 // Express app & port
@@ -72,9 +73,11 @@ app.use((req, res) => {
 if (process.env.NODE_ENV === 'production') {
   console.log('Starting PRODUCTION cron jobs...');
   startKycSyncJob(); // every hour
+  startRevenueJob(); 
 } else if (process.env.ENABLE_TEST_CRON === 'true') {
   console.log('Starting TEST cron jobs...');
   startKycSyncJobTest(); // every minute
+  startRevenueJob();  
 } else {
   console.log('Cron jobs disabled in development');
 }

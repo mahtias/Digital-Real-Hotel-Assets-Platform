@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+
 import { useQuery } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 
@@ -38,9 +38,8 @@ export default function Marketplace() {
 
   const statusCounts = {
     all: hotels.length,
+     UPCOMING: hotels.filter(h => h.status === 'UPCOMING').length,
      FUNDRAISING: hotels.filter(h => h.status === 'FUNDRAISING').length,
-    ACTIVE: hotels.filter(h => h.status === 'ACTIVE').length,
-    UPCOMING: hotels.filter(h => h.status === 'UPCOMING').length,
     SOLD_OUT: hotels.filter(h => h.status === 'SOLD_OUT').length,
   };
 
@@ -78,8 +77,8 @@ export default function Marketplace() {
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
                   <SelectItem value="all">{t('marketplace.allStatus')} ({statusCounts.all})</SelectItem>
-                  <SelectItem value="FUNDRAISING">{t('marketplace.fundraising')} ({statusCounts.FUNDRAISING})</SelectItem>
                   <SelectItem value="UPCOMING">{t('marketplace.upcoming')} ({statusCounts.UPCOMING})</SelectItem>
+                  <SelectItem value="FUNDRAISING">{t('marketplace.fundraising')} ({statusCounts.FUNDRAISING})</SelectItem>
                   < SelectItem value="SOLD_OUT">{t('marketplace.soldOut')} ({statusCounts.SOLD_OUT})</SelectItem>
                 </SelectContent>
               </Select>
@@ -103,8 +102,8 @@ export default function Marketplace() {
           <div className="flex flex-wrap gap-2 mt-4">
             {[
               { key: 'all', label: t('common.all') },
+               { key: 'UPCOMING', label: t('marketplace.upcoming') },
               { key: 'FUNDRAISING', label: t('marketplace.fundraising') },
-              { key: 'UPCOMING', label: t('marketplace.upcoming') },
               { key: 'SOLD_OUT', label: t('marketplace.soldOut') },
             ].map((status) => (
               <Badge

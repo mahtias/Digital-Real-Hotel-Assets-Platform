@@ -6,26 +6,8 @@ import { Prisma } from "@prisma/client";
 import { ethers } from "ethers";
 import { qloService } from "../services/qloService";
 import { settlementService } from "../services/settlementService";
-
-// ========================================
-// 🔗 QLOAPPS MAPPING (REQUIRED)
-// ========================================
-
-const ROOM_TYPE_MAP: Record<string, number> = {
-  standard: 1,   // General Rooms
-  deluxe: 2,     // Delux Rooms
-  executive: 3,  // Executive Rooms (optional)
-  suite: 4,      // Luxury Rooms
-};
-
-const HOTEL_MAP: Record<string, number> = {
-  "4a0ef4cc-d255-4cbb-bffa-c4e8a7df1722": 1, // My Hotel Name
-  "25c38d85-6b08-48f3-8d67-3795a32a9fbf": 1, // Marina Bay Sands
-  "09c1fdb9-c592-4240-bcec-1c7a729074a7": 1, // Ritz Carlton Bali
-  "e009ef84-23bc-473e-b5d8-6c9a7498c784": 1, // Grand Plaza Hotel
-  "d7c94dc9-6e97-4b8d-ac9a-3abf1a7985ce": 1, // Waldorf Astoria
-  "12a04eed-c00f-4374-9261-2842ffcee58d": 1, // Mountain View Lodge
-};
+import { StablecoinService } from "../services/stablecoinService";
+import { yieldService } from "../services/yieldService";
 
 // ========================================
 // 🔑 HELPERS
@@ -56,7 +38,7 @@ export const createBooking = async (req: Request, res: Response) => {
       roomType,
     } = req.body;
 
-    if (!userId || !hotelAssetId || !checkInDate || !checkOutDate || !totalPrice) {
+    if ( !userId ||!hotelAssetId || !checkInDate ||!checkOutDate || totalPrice === undefined || totalPrice === null) {
       return res.status(400).json({
         success: false,
         message: "Missing required booking fields",
@@ -302,7 +284,7 @@ export const deleteBooking = async (req: Request, res: Response) => {
 
 export const confirmBookingPayment = async (req: Request, res: Response) => {
   try {
-    const { bookingId, txHash } = req.body;
+    const { bookingId, txHash, paymentToken = "USDC" } = req.body;
 
     if (!bookingId || !txHash) {
       return res.status(400).json({
@@ -311,7 +293,7 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // 🔍 Get booking
+    // 1️⃣ FETCH BOOKING WITH RELATIONS
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: { user: true, hotelAsset: true },
@@ -328,7 +310,7 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // Prevent TX reuse
+    // Prevent duplicate transaction usage
     const existingTx = await prisma.booking.findFirst({ where: { txHash } });
     if (existingTx) {
       return res.status(400).json({
@@ -337,104 +319,86 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       });
     }
 
-    //  Verify payment
-    const expectedAmount = ethers.parseUnits(booking.totalPrice.toString(), 6);
+    // 2️⃣ VERIFY PAYMENT ON BLOCKCHAIN
+    const stablecoin = StablecoinService.getStablecoin(paymentToken);
+    StablecoinService.validateToken(paymentToken, "BOOKING");
 
-    const payment = await web3Service.verifyUSDCTransfer(
+    const expectedAmount = ethers.parseUnits(
+      booking.totalPrice.toString(),
+      stablecoin.decimals
+    );
+
+    const paymentValid = await web3Service.verifyStablecoinTransfer(
       txHash,
       expectedAmount,
       process.env.TREASURY_ADDRESS!,
-      process.env.USDC_ADDRESS!
+      stablecoin
     );
 
-    if (!payment) throw new Error("Payment verification failed");
+    if (!paymentValid) {
+      return res.status(400).json({ success: false, message: "Payment verification failed" });
+    }
 
-    // ========================================
-    // 🔥 ATOMIC TRANSACTION (BOOKING + YIELD)
-    // ========================================
-
+    // 3️⃣ ATOMIC TRANSACTION: UPDATE BOOKING + YIELD + SETTLEMENT
     const result = await prisma.$transaction(async (tx) => {
-      // ✅ Convert amount
-      const paymentAmount =
-        booking.totalPrice instanceof Prisma.Decimal
-          ? booking.totalPrice.toNumber()
-          : Number(booking.totalPrice);
+      // Convert total price
+      const paymentAmount = booking.totalPrice instanceof Prisma.Decimal
+        ? booking.totalPrice.toNumber()
+        : Number(booking.totalPrice);
 
-      // ✅ 10% yield pool
-      const totalYield = paymentAmount * 0.10;
+      // Platform fee example (10%)
+      const platformFee = Number((paymentAmount * 0.10).toFixed(2));
 
-      // ✅ Update booking
+      // Update booking status + payment details
       const updatedBooking = await tx.booking.update({
         where: { id: bookingId },
         data: {
           status: "PAID",
           txHash,
-          walletAddress: payment.sender,
-          paymentToken: "USDC",
+          walletAddress: paymentValid.sender,
+          paymentToken: stablecoin.symbol,
           paymentStatus: "SUCCESS",
+          platformFee,
         },
       });
 
-      // ✅ Fetch investors INSIDE transaction
-      const investments = await tx.investment.findMany({
-        where: {
-          hotelAssetId: booking.hotelAssetId,
-          status: "ACTIVE",
-        },
+      // 3a️⃣ DISTRIBUTE YIELD (20% of booking)
+      const totalYield = paymentAmount * 0.20;
+      await yieldService.distributeFromBooking(updatedBooking.id, totalYield);
+
+      // 3b️⃣ CREATE SETTLEMENT FOR HOTEL (70% of booking)
+      const hotelShare = paymentAmount * 0.70;
+      await settlementService.createSettlement({
+        ...updatedBooking,
+        hotelAsset: booking.hotelAsset,
+        totalPrice: hotelShare, // override totalPrice for settlement
       });
-
-      if (investments.length > 0) {
-        const totalInvested = investments.reduce((sum, inv) => {
-          return sum + Number(inv.investedAmount);
-        }, 0);
-
-        for (const inv of investments) {
-          if (totalInvested === 0) continue;
-
-          const invested = Number(inv.investedAmount);
-          const userShare = invested / totalInvested;
-          const userYield = Number((totalYield * userShare).toFixed(6));
-
-          await tx.investment.update({
-            where: { id: inv.id },
-            data: {
-              pendingRewards: {
-                increment: userYield,
-              },
-            },
-          });
-        }
-      }
-
-      // OPTIONAL audit field
-      // await tx.booking.update({
-      //   where: { id: booking.id },
-      //   data: { yieldGenerated: totalYield },
-      // });
 
       return { updatedBooking };
     });
 
-    // ========================================
-    // 🔗 STEP 2: SYNC TO QLOAPPS (OUTSIDE TX)
-    // ========================================
-
+    // 4️⃣ SYNC TO PMS (QloApps)
     let pmsOrderDetails = null;
-
     try {
       const amountNumber =
         booking.totalPrice instanceof Prisma.Decimal
           ? booking.totalPrice.toNumber()
           : Number(booking.totalPrice);
 
+      const ROOM_TYPE_MAP: Record<string, number> = {
+        standard: 1,
+        deluxe: 2,
+        executive: 3,
+        suite: 4,
+      };
+
+      const qloHotelId = booking.hotelAsset?.qloHotelId;
+      
       const roomTypeId = ROOM_TYPE_MAP[booking.roomType];
-      const qloHotelId = HOTEL_MAP[booking.hotelAssetId];
 
-      if (!roomTypeId || !qloHotelId) {
-        throw new Error("Missing QloApps mapping");
-      }
+      if (!roomTypeId || !qloHotelId) throw new Error("Missing QloApps mapping");
 
-      pmsOrderDetails = await qloService.createBookingInPMS({
+     pmsOrderDetails = await qloService.createBookingInPMS({
         email: booking.user.email,
         firstName: booking.user.firstName || "Web3",
         lastName: booking.user.lastName || "Investor",
@@ -445,23 +409,37 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
         dateTo: booking.checkOutDate.toISOString().split("T")[0],
       });
 
-      console.log("✅ PMS Sync Success");
-      await prisma.booking.update({
+      console.log("Qlo PMS response:", JSON.stringify(pmsOrderDetails, null, 2));
+
+      const qloOrderId =
+      typeof pmsOrderDetails === "string" || typeof pmsOrderDetails === "number"
+        ? pmsOrderDetails
+        : pmsOrderDetails?.id ||
+          pmsOrderDetails?.id_order ||
+          pmsOrderDetails?.idOrder ||
+          pmsOrderDetails?.order_id ||
+          pmsOrderDetails?.orderId ||
+          pmsOrderDetails?.data?.id ||
+          pmsOrderDetails?.data?.id_order ||
+          pmsOrderDetails?.data?.idOrder ||
+          pmsOrderDetails?.data?.order_id ||
+          pmsOrderDetails?.data?.orderId ||
+          null;
+
+    console.log("Extracted Qlo order id:", qloOrderId);
+
+    await prisma.booking.update({
       where: { id: bookingId },
       data: {
-        qloOrderId: pmsOrderDetails?.id || pmsOrderDetails,
+        qloOrderId: qloOrderId ? String(qloOrderId) : null,
       },
     });
-      // 🏨 CREATE SETTLEMENT
-      await settlementService.createSettlement(booking);
+
     } catch (err) {
       console.error("❌ PMS Sync Failed:", err);
     }
 
-    // ========================================
-    // 📧 STEP 3: EMAIL (ASYNC)
-    // ========================================
-
+    // 5️⃣ SEND EMAIL (ASYNC)
     (async () => {
       try {
         await sendBookingEmail({

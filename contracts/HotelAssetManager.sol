@@ -35,7 +35,7 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
         string location;
         string imageUrl;
         address propertyOwner;
-        address tokenContract; // ✅ NEW: ERC-20 token address
+        address tokenContract;
         uint256 totalShares;
         uint256 pricePerShare; // In USD cents
         uint256 minimumInvestment;
@@ -72,6 +72,7 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
     event RevenueWithdrawn(uint256 indexed hotelIndex, address indexed investor, uint256 amount);
     event InvestmentContractSet(address indexed investmentContract);
     event TokenRoleGranted(string indexed hotelId, bytes32 indexed role, address indexed account);
+
     // ============ ERRORS ============
     error NotInvestment();
     error HotelNotVerified();
@@ -87,7 +88,6 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
     error HotelNotFound();
     // ============ MODIFIERS ============
 
-    //  FIXED: Simplified modifier
     modifier onlyInvestment() {
         _onlyInvestment();
         _;
@@ -115,6 +115,19 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
         require(_investment != address(0), "Invalid address");
         investmentContract = _investment;
         emit InvestmentContractSet(_investment);
+    }
+
+    function updateMinimumInvestment(uint256 hotelIndex, uint256 newMinimum)
+        external
+        onlyRole(ASSET_MANAGER_ROLE)
+    {
+        Hotel storage hotel = hotels[hotelIndex];
+
+        if (hotel.tokenContract == address(0)) {
+            revert InvalidHotel();
+        }
+
+        hotel.minimumInvestment = newMinimum;
     }
 
     /**
@@ -376,11 +389,17 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
         returns (uint256 shares)
     {
         Hotel memory hotel = hotels[hotelIndex];
-        if (hotel.pricePerShare == 0) return 0;
 
-        // USDC has 6 decimals, shares have 18 decimals
-        // usdcAmount is in cents (already * 100)
-        shares = (usdcAmount * 1e18) / hotel.pricePerShare;
+        if (hotel.tokenContract == address(0)) {
+            return 0;
+        }
+
+        if (hotel.pricePerShare == 0) {
+            return 0;
+        }
+
+     uint256 usdcInWei = usdcAmount * 1e12;
+     shares = usdcInWei / hotel.pricePerShare;
     }
 
     /**

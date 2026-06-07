@@ -34,7 +34,14 @@ const sumDecimals = (values: (Prisma.Decimal | number | null | undefined)[]): nu
 export const createInvestment = async (req: AuthRequest, res: Response) => {
   console.log("🔥 CREATE INVESTMENT FUNCTION HIT");
   try {
-    const { hotelId, amount } = req.body;
+    const { hotelId } = req.body;
+    const amount = Number(req.body.amount);
+
+    if (isNaN(amount)) {
+      return res.status(400).json({
+        message:"Invalid amount"
+      });
+    }
 
     if (!req.user?.userId) {
       return res.status(401).json({ message: 'Unauthorized' });
@@ -54,9 +61,9 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       });
     }
 
-    if (amount < 100) {
+    if (amount < 1) {
       return res.status(400).json({ 
-        message: 'Minimum investment is $100' 
+        message: 'Minimum investment is $1' 
       });
     }
 
@@ -123,7 +130,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
         tokensSold: true,
         status: true,
         tokenSymbol: true,
-        tokenId: true,
+        blockchainId: true,
       }
     });
 
@@ -131,11 +138,14 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       return res.status(404).json({ message: 'Hotel asset not found' });
     }
 
-    if (hotelAsset.status !== 'ACTIVE') {
-      return res.status(400).json({ 
-        message: 'This hotel is not available for investment' 
-      });
-    }
+        if (
+      hotelAsset.status !== "FUNDRAISING"
+      ){
+        return res.status(400).json({
+            message:
+            "This hotel is not available for investment"
+        });
+      }
 
     if (!hotelAsset.tokenPrice) {
       return res.status(500).json({ 
@@ -179,57 +189,6 @@ if (totalTokens && newTokensSold > totalTokens) {
       }
     });
 
-    //  UPDATE HOTEL TOKENS SOLD
-    // await prisma.hotelAsset.update({
-    //   where: { id: hotelId },
-    //   data: { tokensSold: newTokensSold }
-    // });
-
-    // //  WEB3 MINT (BACKGROUND)
-    // (async () => {
-    //   try {
-    //     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    //     console.log(' MINTING TOKENS ON BLOCKCHAIN');
-    //     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    //     console.log('Investment ID:', investment.id);
-    //     console.log('Hotel Asset:', hotelAsset.name);
-    //     console.log('Token ID:', hotelAsset.tokenId);
-    //     console.log('Recipient:', walletAddress);
-    //     console.log('Amount:', tokenAmount);
-
-    //     const txHash = await web3Service.processInvestment(
-          
-    //     hotelId,
-    //     walletAddress,
-    //     amount.toString()
-    //   );
-        
-    //     await prisma.investment.update({
-    //       where: { id: investment.id },
-    //       data: { 
-    //         blockchainTxHash: txHash,
-    //         blockchainStatus: "MINTED",
-    //         status: "CONFIRMED"
-    //       }
-    //     });
-
-    //     console.log(' Investment minted! TX:', txHash);
-    //     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-    //   } catch (error: any) {
-    //     console.error(' Minting failed:', error);
-
-    //     await prisma.investment.update({
-    //       where: { id: investment.id },
-    //       data: { 
-    //         blockchainStatus: "MINT_FAILED",
-    //         status: "FAILED",
-    //         blockchainError: error.message
-    //       }
-    //     });
-    //   }
-    // })();
-
     //  RETURN SUCCESS
     return res.status(201).json({
   message: "Investment created. Please confirm the transaction in your wallet.",
@@ -265,26 +224,56 @@ export const confirmInvestment = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { hotelId, amount, blockchainTxHash } = req.body;
+   const { investmentId,hotelId,amount,blockchainTxHash} = req.body;
 
-    if (!hotelId || !amount || !blockchainTxHash) {
-      return res.status(400).json({
-        error: "hotelId, amount and blockchainTxHash are required",
-      });
-    }
+    if (!investmentId || !hotelId || !amount || !blockchainTxHash){
+   return res.status(400).json({
+      error:"investmentId, hotelId, amount and blockchainTxHash are required"
+   });
+}
 
-    // ✅ Verify blockchain transaction
+   
+   // ✅ Verify blockchain transaction
     const txReceipt = await verifyTransaction(blockchainTxHash);
 
-    const existing = await prisma.investment.findFirst({
-      where: { blockchainTxHash },
-    });
-
-    if (existing) {
+    if (!txReceipt || txReceipt.status !== 1) {
       return res.status(400).json({
-        error: "Transaction already used",
+          error:"Transaction failed on blockchain"
       });
     }
+
+    // ✅ Get user's wallet
+    const user = await prisma.user.findUnique({
+      where:{ id:userId },
+      select:{ walletAddress:true }
+    });
+
+    if (!user?.walletAddress) {
+      return res.status(403).json({
+          error:"Wallet not found"
+      });
+    }
+
+    // ✅ Verify tx belongs to current user
+    if (
+      txReceipt.from?.toLowerCase() !==
+      user.walletAddress.toLowerCase()
+    ){
+      return res.status(403).json({
+          error:"Transaction does not belong to this wallet"
+      });
+    }
+
+    // ✅ Prevent tx hash reuse
+    const existing = await prisma.investment.findFirst({
+      where:{ blockchainTxHash }
+    });
+
+        if (existing) {
+          return res.status(400).json({
+            error: "Transaction already used",
+          });
+        }
 
     // ✅ Fetch hotel asset
     const hotelAsset = await prisma.hotelAsset.findUnique({
@@ -317,29 +306,57 @@ export const confirmInvestment = async (req: AuthRequest, res: Response) => {
     }
 
     //  Transaction: create investment + update hotel asset
-    const [investment] = await prisma.$transaction([
-      prisma.investment.create({
-        data: {
-          userId,
-          hotelAssetId: hotelId,
-          amount: investmentAmount,       // gross amount
-          investedAmount: netInvestedAmount, // net after fee
-          platformFee,
-          tokenAmount,
-          earnedRewards: 0,
-          pendingRewards: 0,
-          stakedAmount: 0,
-          blockchainTxHash,
-          status: "ACTIVE",
-          blockchainStatus: "MINTED",
-        },
-      }),
-      
-      prisma.hotelAsset.update({
-        where: { id: hotelId },
-        data: { tokensSold: newTokensSold },
-      }),
-    ]);
+  // find pending investment
+const pendingInvestment =
+   await prisma.investment.findFirst({
+      where:{
+         id: investmentId,
+         userId,
+         hotelAssetId: hotelId,
+         blockchainStatus:"AWAITING_USER_TX",
+         status:"PENDING"
+      }
+   });
+
+if (!pendingInvestment) {
+  return res.status(404).json({
+    error: "Pending investment not found"
+  });
+}
+if (
+   Number(pendingInvestment.amount) !==
+   Number(amount)
+){
+   return res.status(400).json({
+      error:"Investment amount mismatch"
+   });
+}
+const [investment] = await prisma.$transaction([
+
+  prisma.investment.update({
+    where: {
+      id: pendingInvestment.id
+    },
+    data: {
+      investedAmount: netInvestedAmount,
+      platformFee,
+      tokenAmount,
+      blockchainTxHash,
+      status: "CONFIRMED",
+      blockchainStatus: "MINTED"
+    }
+  }),
+
+  prisma.hotelAsset.update({
+    where: {
+      id: hotelId
+    },
+    data: {
+      tokensSold: newTokensSold
+    }
+  })
+
+]);
 
     return res.json({
       success: true,
@@ -455,7 +472,7 @@ export const getInvestmentById = async (req: AuthRequest, res: Response) => {
             location: true,
             apy: true,
             status: true,
-            tokenId: true,
+            blockchainId: true,
             totalTokens: true,
             tokensSold: true,
           }
@@ -743,10 +760,10 @@ export const updateInvestment = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (newAmount < 100) {
+    if (newAmount < 1) {
       return res.status(400).json({ 
         success: false, 
-        error: "Minimum investment is $100" 
+        error: "Minimum investment is $1" 
       });
     }
 

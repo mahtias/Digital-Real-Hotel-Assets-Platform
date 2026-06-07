@@ -1,7 +1,0 @@
-id,user_id,hotel_asset_id,transaction_hash,created_at,updated_at,status,amount,created_by,created_by_id,earned_rewards,invested_amount,is_sample,pending_rewards,staked_amount,token_amount
-"6939659c03bb62259e189f7c","692bf61c278f72b74d27f374","692bf7e5e51d3a2d1ee44f6c",\N,"2025-12-10T12:20:44.434","2025-12-10T12:20:44.434","ACTIVE",100,"dengdi1989@hotmail.com","692bf61c278f72b74d27f374",0,100,false,0,0,10
-"69392f678417e28fd99419f4","692bf61c278f72b74d27f374","692bf7e5e51d3a2d1ee44f6a",\N,"2025-12-10T08:29:27.194","2025-12-10T08:29:27.194","ACTIVE",100,"dengdi1989@hotmail.com","692bf61c278f72b74d27f374",0,100,false,0,0,10
-"6939143231d6db4e73fc6a25","692bf61c278f72b74d27f374","692bf7e5e51d3a2d1ee44f6b",\N,"2025-12-10T06:33:22.989","2025-12-10T06:33:22.989","ACTIVE",1000,"dengdi1989@hotmail.com","692bf61c278f72b74d27f374",0,1000,false,0,0,100
-"692ee8c51b5615e02c073ed4","692bf61c278f72b74d27f374","692bf7e5e51d3a2d1ee44f6b",\N,"2025-12-02T13:25:25.096","2025-12-02T13:25:25.096","ACTIVE",100,"dengdi1989@hotmail.com","692bf61c278f72b74d27f374",0,100,false,0,0,10
-"692c65b99c56b80c5c3f0693","692bf61c278f72b74d27f374","692bf7e5e51d3a2d1ee44f6a",\N,"2025-11-30T15:41:45.824","2025-11-30T15:41:45.824","ACTIVE",500,"dengdi1989@hotmail.com","692bf61c278f72b74d27f374",0,500,false,0,0,50
-"692bfb14ada7512f25ef5202","692bf61c278f72b74d27f374","692bf7e5e51d3a2d1ee44f6a",\N,"2025-11-30T08:06:44.449","2025-11-30T08:06:44.449","ACTIVE",500,"dengdi1989@hotmail.com","692bf61c278f72b74d27f374",0,500,false,0,0,50

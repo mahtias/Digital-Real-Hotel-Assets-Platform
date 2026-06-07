@@ -1,2 +1,0 @@
-user_email,staked_amount,lock_period_days,stake_start_date,stake_end_date,apy_rate,earned_rewards,claimed_rewards,voting_power_multiplier,status,id,created_date,updated_date,created_by_id,created_by,is_sample
-"dengdi1989@hotmail.com","1000","90","2025-12-05T06:38:36.402Z","2026-03-05T06:38:36.402Z","12","0","0","1.5","active","69327dedb42a6d12d196303d","2025-12-05T06:38:37.035000","2025-12-05T06:38:37.035000","692bf61c278f72b74d27f374","dengdi1989@hotmail.com","false"

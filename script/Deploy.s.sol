@@ -1,11 +1,10 @@
-// script/Deploy.s.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
+
 import "../contracts/HotelInvestment.sol";
 import "../contracts/HotelAssetManager.sol";
-import "../contracts/HotelAssetToken.sol";
 import "../contracts/KYCRegistry.sol";
 
 contract DeployScript is Script {
@@ -16,64 +15,104 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Get real USDC address based on network
-        address usdcAddress = getUSDCAddress();
+        // =========================
+        // 🌐 STABLECOINS
+        // =========================
+        address usdc = getUSDCAddress();
+        address usdt = getUSDTAddress();
+        address hkdHSBC = getHSBCAddress();
+        address hkdSC = getSCAddress();
 
-        // Deploy KYCRegistry with deployer as initial admin
+        // =========================
+        // 📜 KYC
+        // =========================
         KYCRegistry kycRegistry = new KYCRegistry(deployer);
-        console.log("KYCRegistry deployed:", address(kycRegistry));
-        console.log("KYC Admin:", deployer);
 
-        //  FIXED: Use deployer instead of address(this)
+        console.log("KYCRegistry:", address(kycRegistry));
+
+        // =========================
+        // 🏨 ASSET MANAGER
+        // =========================
         HotelAssetManager assetManager = new HotelAssetManager(address(kycRegistry), deployer);
-        console.log("HotelAssetManager deployed:", address(assetManager));
 
-        // Deploy HotelInvestment
-        HotelInvestment hotelInvestment = new HotelInvestment(
-            usdcAddress, address(kycRegistry), address(assetManager), treasury
+        console.log("AssetManager:", address(assetManager));
+
+        // =========================
+        // 🪙 STABLECOIN ARRAY
+        // =========================
+        address[] memory stablecoins = new address[](4);
+
+        stablecoins[0] = usdc;
+        stablecoins[1] = usdt;
+        stablecoins[2] = hkdHSBC;
+        stablecoins[3] = hkdSC;
+
+        // =========================
+        // 💰 INVESTMENT CONTRACT
+        // =========================
+        HotelInvestment investment = new HotelInvestment(
+            address(kycRegistry), address(assetManager), treasury, stablecoins
         );
-        console.log("HotelInvestment deployed:", address(hotelInvestment));
 
-        // Set investment contract in asset manager
-        assetManager.setInvestmentContract(address(hotelInvestment));
-        console.log("Investment contract set in AssetManager");
+        console.log("Investment:", address(investment));
+
+        // link
+        assetManager.setInvestmentContract(address(investment));
+
+        console.log("Linked successfully");
 
         vm.stopBroadcast();
 
-        // Summary
-        console.log("\n=== DEPLOYMENT SUMMARY ===");
-        console.log("Network Chain ID:", block.chainid);
+        // =========================
+        // SUMMARY
+        // =========================
+        console.log("\n=== DEPLOYMENT ===");
         console.log("Deployer:", deployer);
         console.log("Treasury:", treasury);
-        console.log("USDC:", usdcAddress);
-        console.log("\nContracts:");
-        console.log("  KYCRegistry:", address(kycRegistry));
-        console.log("  HotelAssetManager:", address(assetManager));
-        console.log("  HotelInvestment:", address(hotelInvestment));
-        console.log("========================\n");
 
-        // Security reminders
-        console.log("NEXT STEPS:");
-        console.log("1. Verify contracts on Basescan");
-        console.log("2. Transfer ownership if needed");
-        console.log("3. Set up additional KYC managers");
-        console.log("4. Configure revenue distribution");
+        console.log("\nStablecoins:");
+        console.log("USDC:", usdc);
+        console.log("USDT:", usdt);
+        console.log("HSBC HKD:", hkdHSBC);
+        console.log("SC HKD:", hkdSC);
+
+        console.log("\nContracts:");
+        console.log("KYC:", address(kycRegistry));
+        console.log("Asset:", address(assetManager));
+        console.log("Investment:", address(investment));
+        console.log("==================");
     }
 
+    // =========================
+    // 🪙 REAL USDC (Base)
+    // =========================
     function getUSDCAddress() internal view returns (address) {
-        // Base Mainnet
         if (block.chainid == 8453) {
-            return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+            return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // Base USDC
+        } else if (block.chainid == 84532) {
+            return 0x036CbD53842c5426634e7929541eC2318f3dCF7e; // Base Sepolia USDC
         }
-        // Base Sepolia
-        else if (block.chainid == 84532) {
-            return 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-        }
-        // Localhost/Anvil - revert with message
-        else {
-            revert(
-                "Unsupported network for production USDC. Use DeployLocal.s.sol for local testing."
-            );
-        }
+        revert("Unsupported network");
+    }
+
+    // =========================
+    // 🪙 USDT (TEMP MOCK)
+    // =========================
+    function getUSDTAddress() internal pure returns (address) {
+        return 0x029dEe78786039Ad6153772ba8c9493E9858c050;
+    }
+
+    // =========================
+    // 🏦 HSBC HKD MOCK
+    // =========================
+    function getHSBCAddress() internal pure returns (address) {
+        return 0xFD9c50987ccCa1D141bE0b75105fefBAD8fF44c1;
+    }
+
+    // =========================
+    // 🏦 SC HKD MOCK
+    // =========================
+    function getSCAddress() internal pure returns (address) {
+        return 0xDd0446b25C837A6647066657f60a71153D09E5E7;
     }
 }

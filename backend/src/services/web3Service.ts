@@ -1,11 +1,13 @@
 // backend/src/services/web3Service.ts
 
-import { ethers, getBytes } from "ethers";
+import { ethers } from "ethers";
 import prisma from "../config/database";
 import kycRegistryAbi from "../../../out/KYCRegistry.sol/KYCRegistry.json";
 import hotelAssetManagerAbi from "../../../out/HotelAssetManager.sol/HotelAssetManager.json";
 import hotelInvestmentAbi from "../../../out/HotelInvestment.sol/HotelInvestment.json";
 import hotelAssetTokenAbi from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
+//import { Stablecoin } from "../config/stablecoinRegistry";
+import { StablecoinService } from "./stablecoinService";
 // ============================================================
 //  CONSTANTS & CONFIG
 // ============================================================
@@ -395,16 +397,16 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
     try {
       const hotel = await prisma.hotelAsset.findUnique({
         where: { id: hotelId },
-        select: { tokenId: true, name: true }
+        select: { blockchainId: true, name: true }
       });
 
-      if (!hotel?.tokenId) {
+      if (!hotel?.blockchainId) {
         throw new Error(`Hotel ${hotelId} not found or not tokenized`);
       }
 
       // Get hotel data from blockchain
-      const hotelData = await this.hotelAssetManager.getHotel(hotel.tokenId);
-      const tokenAddress = hotelData.assetToken;
+      const hotelData = await this.hotelAssetManager.getHotel(hotel.blockchainId);
+      const tokenAddress = hotelData.tokenContract;
 
       if (tokenAddress === ethers.ZeroAddress) {
         throw new Error(`Hotel ${hotel.name} has no asset token deployed`);
@@ -449,13 +451,14 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
    *  Process investment with tiered KYC verification
    * @param hotelId - MongoDB ObjectId string
    * @param userAddress - Investor's wallet address
-   * @param usdcAmount - Amount in USDC (e.g., "100" for $100)
+   * @param stableAmount - Amount in USDC (e.g., "100" for $100)
    * @returns Transaction hash
    */
   async processInvestment(
     hotelId: string,
     userAddress: string,
-    usdcAmount: string
+    stableAmount: string,
+    paymentToken: string = "USDC"
   ): Promise<string> {
     try {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -469,17 +472,17 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
         where: { id: hotelId },
         select: {
           id: true,
-          tokenId: true,
+          blockchainId: true,
           name: true,
           tokenPrice: true
         }
       });
 
-      if (!hotel?.tokenId) {
+      if (!hotel?.blockchainId) {
         throw new Error(`Hotel ${hotelId} not found`);
       }
 
-      const amountUSD = parseFloat(usdcAmount);
+      const amountUSD = parseFloat(stableAmount);
       console.log(` Hotel: ${hotel.name}`);
       console.log(` Investment: $${amountUSD} USDC`);
 
@@ -522,16 +525,32 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
       console.log('✅ KYC verification passed');
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      //  Convert USDC Amount (6 decimals)
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      const usdcAmountWei = ethers.parseUnits(usdcAmount, 6);
-      console.log(` USDC (wei): ${usdcAmountWei.toString()}`);
-
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       //  Calculate Expected Tokens
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       const tokenAmount = amountUSD / Number(hotel.tokenPrice);
       console.log(` Expected tokens: ${tokenAmount.toFixed(2)}`);
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // 🏦 STABLECOIN INVESTMENT VALIDATION (STEP 2D-C)
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          StablecoinService.validateToken( paymentToken, "INVESTMENT");
+          const stablecoin = StablecoinService.getStablecoin(paymentToken);
+
+        const amountWei = ethers.parseUnits(stableAmount, stablecoin.decimals);
+
+         console.log(` USDC (wei): ${amountWei.toString()}`);
+
+          // 🔐 extra investment restriction check
+          if (!stablecoin.allowInvestments) {
+            throw new Error(`${stablecoin.symbol} is not allowed for investments`);
+          }
+
+          // 🏦 bank-grade restriction logic (important for HKMA future)
+          if (stablecoin.complianceTier === "BANK_GRADE") {
+            console.log("🏦 Bank-grade investment detected:", stablecoin.symbol);
+          }
+
+          console.log(" Stablecoin approved:", stablecoin.symbol);
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       //  Execute Investment Transaction
@@ -539,8 +558,8 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
       console.log(' Calling HotelInvestment.invest()...');
 
       const tx = await this.hotelInvestment.invest(
-        hotel.tokenId,
-        usdcAmountWei,
+        hotel.blockchainId,
+        amountWei,
         { gasLimit: GAS_LIMITS.INVESTMENT }
       );
 
@@ -557,7 +576,7 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
       console.log(' Gas Used:', receipt.gasUsed.toString());
       console.log(' Investor:', userAddress);
       console.log(' Hotel:', hotel.name);
-      console.log(' USDC Invested:', usdcAmount);
+      console.log(' USDC Invested:', stableAmount);
       console.log(' Tokens Minted:', tokenAmount.toFixed(2));
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -627,11 +646,11 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
     try {
       // Get all tokenized hotels
       const hotels = await prisma.hotelAsset.findMany({
-        where: { tokenId: { gt: 0 } },
+        where: { blockchainId: { gt: 0 } },
         select: {
           id: true,
           name: true,
-          tokenId: true
+          blockchainId: true
         }
       });
 
@@ -701,11 +720,15 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
 
   ///verification trasanction hash for booking ///
 
-public async verifyUSDCTransfer(
-  txHash: string,
+public async verifyStablecoinTransfer(
+    txHash: string,
   expectedAmount: bigint,
   expectedReceiver: string,
-  usdcAddress: string
+  stablecoin: {
+    address: string;
+    symbol: string;
+    decimals: number;
+  }
 ) {
   const receipt = await this.getReceiptWithRetry(txHash);
 
@@ -719,16 +742,16 @@ public async verifyUSDCTransfer(
     throw new Error("Transaction failed on-chain");
   }
 
-  const usdcInterface = new ethers.Interface(USDC_ABI);
+  const stablecoinInterface  = new ethers.Interface(USDC_ABI);
 
   let foundAnyTransfer = false;
   let foundMatchingReceiver = false;
 
   for (const log of receipt.logs) {
-    if (!log.address || log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
+    if (!log.address || log.address.toLowerCase() !== stablecoin.address.toLowerCase()) continue;
 
     try {
-      const parsed = usdcInterface.parseLog(log);
+      const parsed = stablecoinInterface.parseLog(log);
       if (!parsed || parsed.name !== "Transfer") continue;
 
       const from = parsed.args.from;
@@ -737,7 +760,7 @@ public async verifyUSDCTransfer(
 
       foundAnyTransfer = true;
 
-      console.log("USDC Transfer Found:", {
+      console.log(`${stablecoin.symbol} Transfer Found:`, {
         from,
         to,
         value: value.toString(),
@@ -751,7 +774,7 @@ public async verifyUSDCTransfer(
       // ✅ Skip full amount check in development for testing
       if (process.env.NODE_ENV !== "development" && value < expectedAmount) {
         throw new Error(
-          `Insufficient USDC payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`
+          `Insufficient ${stablecoin.symbol} payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`
         );
       }
 
@@ -768,23 +791,24 @@ public async verifyUSDCTransfer(
   }
 
   if (!foundAnyTransfer) {
-    console.error("No USDC Transfer events found at all in receipt logs");
-    throw new Error("No USDC Transfer events found in transaction");
+   console.error(`No ${stablecoin.symbol} Transfer events found`);
+   throw new Error( `No ${stablecoin.symbol} Transfer events found in transaction`);
   }
 
   if (!foundMatchingReceiver) {
-    console.error("USDC Transfer exists but not to expected receiver", {
+    console.error(`${stablecoin.symbol} Transfer exists but not to expected receiver`, {
       expectedReceiver,
       logs: receipt.logs,
     });
-    throw new Error("USDC Transfer found, but not sent to expected receiver");
+    throw new Error(`${stablecoin.symbol} Transfer found, but not sent to expected receiver`);
   }
   
-  throw new Error("USDC transfer verification failed");
+  throw new Error(`${stablecoin.symbol} transfer verification failed`);
 }
 
 
 }
+
 
 // ============================================================
 //  EXPORT SINGLETON

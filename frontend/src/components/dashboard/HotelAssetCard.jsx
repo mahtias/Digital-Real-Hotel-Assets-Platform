@@ -7,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { createPageUrl } from "@/utils";
 import { Link } from "react-router-dom";
 import { Star, MapPin, Leaf, TrendingUp, DollarSign } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; 
 import { useLanguage } from '@/components/common/LanguageContext';
+
 
 export default function HotelAssetCard({ hotel, refetchHotels, refetchPortfolio }) {
   const { t } = useLanguage();
@@ -18,10 +19,36 @@ export default function HotelAssetCard({ hotel, refetchHotels, refetchPortfolio 
   const image = hotel.imageUrl || hotel.image || 
     "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600";
 
-  // 📊 Progress calculation
-  const soldPercentage = hotel.tokensSold && hotel.totalTokens
-    ? (hotel.tokensSold / hotel.totalTokens) * 100
+  // 📊 Progress calculation (same logic as HotelDetail)
+
+// token decimals from blockchain (fallback 18)
+const tokenDecimals = Number(hotel.decimals ?? 18);
+
+// max supply from blockchain or DB fallback
+const maxSupplyScaled =
+  hotel.maxSupply
+    ? Number(hotel.maxSupply) / Math.pow(10, tokenDecimals)
+    : Number(hotel.totalTokens ?? 0);
+
+// total sold from blockchain supply
+const totalSupplyScaled =
+  hotel.totalSupply
+    ? Number(hotel.totalSupply) / Math.pow(10, tokenDecimals)
+    : Number(hotel.tokensSold ?? 0);
+
+// exact same formula as HotelDetail
+const soldPercentage =
+  maxSupplyScaled > 0
+    ? (totalSupplyScaled / maxSupplyScaled) * 100
     : 0;
+
+console.log({
+  hotel: hotel.name,
+  tokenDecimals,
+  maxSupplyScaled,
+  totalSupplyScaled,
+  soldPercentage
+});
 
   const getStatusLabel = (status) => {
     switch (status) {
@@ -107,56 +134,52 @@ export default function HotelAssetCard({ hotel, refetchHotels, refetchPortfolio 
         </div>
 
         {/* 💰 STATS */}
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="text-center p-2 bg-slate-800/50 rounded-lg">
-            <DollarSign className="w-3 h-3 mx-auto mb-1 text-emerald-400" />
-            <div className="font-mono text-emerald-400 font-bold">${hotel.tokenPrice?.toLocaleString()}</div>
-            <div className="text-slate-400 mt-1">{t('hotelCard.tokenPrice')}</div>
+       {/* 💰 STATS */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="text-center p-2 bg-slate-800/50 rounded-lg">
+          <DollarSign className="w-3 h-3 mx-auto mb-1 text-emerald-400" />
+          <div className="font-mono text-emerald-400 font-bold">
+           {hotel.tokenPrice?.toLocaleString() || "-"}
           </div>
-
-          <div className="text-center p-2 bg-slate-800/50 rounded-lg">
-            <TrendingUp className="w-3 h-3 mx-auto mb-1 text-amber-400" />
-            <div className="font-mono text-amber-400 font-bold">{hotel.apy || '12'}%</div>
-            <div className="text-slate-400 mt-1">{t('hotelCard.apy')}</div>
-          </div>
-
-          <div className="text-center p-2 bg-slate-800/50 rounded-lg">
-            <DollarSign className="w-3 h-3 mx-auto mb-1 text-white" />
-            <div className="font-mono text-white font-bold">${hotel.targetFunding?.toLocaleString()}</div>
-            <div className="text-slate-400 mt-1">{t('hotelCard.target')}</div>
-          </div>
+          <div className="text-slate-400 mt-1">{t('hotelCard.tokenPrice')}</div>
         </div>
+
+        <div className="text-center p-2 bg-slate-800/50 rounded-lg">
+          <TrendingUp className="w-3 h-3 mx-auto mb-1 text-amber-400" />
+          <div className="font-mono text-amber-400 font-bold">{hotel.apy || '12'}%</div>
+          <div className="text-slate-400 mt-1">{t('hotelCard.apy')}</div>
+        </div>
+
+        <div className="text-center p-2 bg-slate-800/50 rounded-lg">
+          
+          <div className="font-mono text-white font-bold">
+             {totalSupplyScaled.toLocaleString()}
+          </div>
+          <div className="text-slate-400 mt-1">Total sold</div>
+        </div>
+      </div>
 
         {/* 📊 PROGRESS */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className="text-slate-400 uppercase tracking-wider font-medium">Progress</span>
-            <span className="text-white font-mono font-bold">{soldPercentage.toFixed(1)}%</span>
-          </div>
-          <Progress 
-            value={Math.min(soldPercentage, 100)}
-            className="h-1.5 bg-slate-800 [&>div]:bg-white"
-          />
-          <p className="text-xs text-slate-400 font-mono"> 
-            {hotel.tokensSold?.toLocaleString() || 0} / {hotel.totalTokens?.toLocaleString() || 0} Tokens
-          </p>
-        </div>
+       <div className="space-y-2">
+  <div className="flex justify-between text-xs">
+    <span className="text-slate-400 uppercase tracking-wider font-medium">
+      Progress
+    </span>
 
+    <span className="text-white font-mono font-bold">
+      {soldPercentage.toFixed(1)}%
+    </span>
+  </div>
+
+  <Progress
+    value={Math.min(soldPercentage,100)}
+    className="h-1.5 bg-slate-800 [&>div]:bg-white"/>
+  <p className="text-xs text-slate-400 font-mono">
+  {totalSupplyScaled.toLocaleString()} /  {maxSupplyScaled.toLocaleString()} {hotel.tokenSymbol} Tokens </p> 
+</div>
+ 
         {/* 🚀 INVEST BUTTON */}
 
-         {/* 🚀 INVEST BUTTON → UNTOUCHED */}
-        {/* <Link to={`/hotel-detail/${hotel.id}`}>
-  <Button className="w-full h-12 ...">
-    {soldPercentage >= 100 ? "🎉 Sold Out" : "Invest Now"}
-  </Button>
-</Link> */}
-
-        {/* 👁️ VIEW DETAILS → UNTOUCHED */}
-       {/* <Link to={`/hotel-detail/${hotel.id}`}>
-  <Button className="w-full bg-gradient-to-r from-amber-500 to-amber-600 ...">
-    {t('hotelCard.viewDetails') || 'View Details'}
-  </Button>
-</Link> */}
         <Button 
           onClick={handleViewDetails}
           className="w-full h-12 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 
@@ -172,8 +195,10 @@ export default function HotelAssetCard({ hotel, refetchHotels, refetchPortfolio 
         <Button 
           onClick={handleViewDetails}
           className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-semibold"
+            disabled={soldPercentage >= 100}
         >
-          {t('hotelCard.viewDetails') || 'View Details'}
+          {t('hotelCard.viewDetails') || 'View Details' }
+            {soldPercentage >= 100 ? "🎉 Sold Out" : ""}
         </Button>
       </div>
     </Card>

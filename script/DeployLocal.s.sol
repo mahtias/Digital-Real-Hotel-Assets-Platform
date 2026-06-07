@@ -29,8 +29,19 @@ contract DeployLocalScript is Script {
         console.log("HotelAssetManager deployed:", address(assetManager));
 
         // Deploy HotelInvestment
+        // ========================================
+        // 💰 INITIAL STABLECOINS
+        // ========================================
+        address[] memory initialStablecoins = new address[](1);
+
+        // Local testing only uses MockUSDC
+        initialStablecoins[0] = address(usdc);
+
+        // ========================================
+        // 🏦 HOTEL INVESTMENT
+        // ========================================
         HotelInvestment hotelInvestment = new HotelInvestment(
-            address(usdc), address(kycRegistry), address(assetManager), treasury
+            address(kycRegistry), address(assetManager), treasury, initialStablecoins
         );
         console.log("HotelInvestment deployed:", address(hotelInvestment));
 

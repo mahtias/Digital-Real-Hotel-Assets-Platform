@@ -65,9 +65,18 @@ const [bookingInfo, setBookingInfo] = useState(null);
   });
 
   const hotel = hotels.find((h) => String(h.id) === String(hotelId));
+  //const stablecoin = hotel?.stablecoin || null;
+  const stablecoin = {
+  address:
+    hotel?.stablecoin?.address ||
+    hotel?.stablecoinAddress ||
+    hotel?.stablecoin_address,
+  decimals: hotel?.stablecoin?.decimals || 6,
+  symbol: hotel?.stablecoin?.symbol || "USDC",
+};
 
   // -------- Pricing --------
-  const roomPrices = { standard: 2.5, deluxe: 5, executive: 7, suite: 10 };
+  const roomPrices = { standard: 0.5, deluxe: 1, executive: 1.5, suite: 2 };
   const nights = checkIn && checkOut ? Math.max(1, differenceInDays(checkOut, checkIn)): 0;
   const basePrice = nights * roomPrices[roomType];
 
@@ -94,10 +103,16 @@ const handleBookingPayment = async () => {
     return;
   }
 
-  if (paymentMethod !== "usdc") {
-    toast.error("Only USDC supported for now");
-    return;
-  }
+  if (!stablecoin.address) {
+  console.log("Hotel data:", hotel);
+  toast.error("Stablecoin address missing for this hotel");
+  return;
+}
+  // if (paymentMethod !== "usdc") {
+  //   toast.error("Only USDC supported for now");
+  //   return;
+  // }
+  
 
   setIsPaying(true);
 
@@ -113,12 +128,19 @@ const handleBookingPayment = async () => {
         totalPrice,
         roomType,
         guests,
-        paymentMethod,
+        //paymentMethod,
         discountApplied: discount,
       }),
     });
 
-    if (!createRes.ok) throw new Error("Booking creation failed");
+    if (!createRes.ok) {
+  const errorData = await createRes.json().catch(() => null);
+  throw new Error(
+    errorData?.message ||
+    errorData?.error ||
+    `Booking creation failed (${createRes.status})`
+  );
+}
 
     const bookingData = await createRes.json();
     const bookingId = bookingData.data.id;
@@ -144,8 +166,20 @@ const handleBookingPayment = async () => {
       throw new Error("Payment session expired. Try again.");
     }
 
+    if (!stablecoin.address) {
+  toast.error("Stablecoin address missing for this hotel");
+  return;
+}
+
     // 3️⃣ Send USDC
-    const txHash = await web3Service.sendUSDC(receiver, amount);
+  const txHash = await web3Service.sendStablecoin(
+  receiver,
+  Number(amount),
+  {
+    address: stablecoin.address,
+    decimals: stablecoin.decimals,
+  }
+);
 
     // 4️⃣ Confirm
     const confirmRes = await authFetch(`${API_URL}/api/v1/payments/confirm`, {
@@ -311,10 +345,10 @@ const handleBookingPayment = async () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 text-white">
-                <SelectItem value="standard">Standard - $2.5/night</SelectItem>
-                <SelectItem value="deluxe">Deluxe - $5/night</SelectItem>
-                <SelectItem value="executive">Executive - $7/night</SelectItem>
-                <SelectItem value="suite">Suite - $10/night</SelectItem>
+                <SelectItem value="standard">Standard - $0.5/night</SelectItem>
+                <SelectItem value="deluxe">Deluxe - $1/night</SelectItem>
+                <SelectItem value="executive">Executive - $1.5/night</SelectItem>
+                <SelectItem value="suite">Suite - $2/night</SelectItem>
               </SelectContent>
             </Select>
 
@@ -331,27 +365,27 @@ const handleBookingPayment = async () => {
             </Select>
 
             {/* Payment Method */}
-            <label className="text-white/80 mt-2">Payment Method</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: "usdc", label: "USDC", desc: "Stablecoin Payment" },
-                { value: "hat_token", label: "HAT", desc: "Hotel Asset Token" },
-                { value: "dra_token", label: "DRA", desc: "5% Discount" },
-              ].map((method) => (
-                <div
-                  key={method.value}
-                  className={`p-2 rounded border-2 cursor-pointer ${
-                    paymentMethod === method.value
-                      ? "bg-amber-500/10 border-amber-500"
-                      : "bg-slate-800 border-slate-700 hover:border-slate-600"
-                  }`}
-                  onClick={() => setPaymentMethod(method.value)}
-                >
-                  <p className="text-white font-semibold">{method.label}</p>
-                  <p className="text-white/70 text-xs">{method.desc}</p>
-                </div>
-              ))}
+            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+            <p className="text-sm text-slate-400 mb-1">
+              Payment Currency
+            </p>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-semibold text-lg">
+                  {hotel?.stablecoin?.symbol || "USDC"}
+                </p>
+
+                <p className="text-xs text-slate-500">
+                  Accepted payment token for this hotel
+                </p>
+              </div>
+
+              <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                Stablecoin
+              </div>
             </div>
+          </div>
           </Card>
 
           {/* Order Summary */}

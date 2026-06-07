@@ -1,6 +1,7 @@
 // frontend/services/web3Service.ts
 import { BrowserProvider, Contract, ethers, JsonRpcSigner, Signer } from "ethers";
 import HotelInvestmentJSON from "../contracts/ABI/HotelInvestment.json";
+import HotelAssetManagerJSON from "../contracts/ABI/HotelAssetManager.json";
 //import KYCRegistryJSON from "../contracts/ABI/KYCRegistry.json";
 
 //import axios from "axios";
@@ -9,6 +10,7 @@ import { globalEvent } from '@/utils/events';
 //const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 
 const HotelInvestmentABI = HotelInvestmentJSON.abi;
+const HotelAssetManagerABI = HotelAssetManagerJSON.abi;
 //const KYC_ABI = KYCRegistryJSON.abi;
 export const KYC_ABI = [
   {
@@ -48,6 +50,8 @@ const ERC20_ABI = [
 const HOTEL_INVESTMENT_ADDRESS =
   import.meta.env.VITE_HOTEL_INVESTMENT_CONTRACT_ADDRESS ?? "";
 const KYC_CONTRACT_ADDRESS = import.meta.env.VITE_KYC_CONTRACT_ADDRESS ?? "";
+const HOTEL_ASSET_MANAGER_ADDRESS =
+  import.meta.env.VITE_HOTEL_ASSET_MANAGER_ADDRESS ?? "";
 
 class Web3Service {
   private provider: BrowserProvider | null = null;
@@ -58,10 +62,50 @@ class Web3Service {
     if (this.isMetaMaskInstalled()) this.setupListeners();
   }
   
+  getAssetManagerContract() {
+  if (!this.signer) throw new Error("Wallet not connected.");
+  if (!HOTEL_ASSET_MANAGER_ADDRESS) throw new Error("Missing AssetManager address");
+  return new Contract(
+    HOTEL_ASSET_MANAGER_ADDRESS,
+    HotelAssetManagerABI,
+    this.signer
+  );
+}
+
+async getHotel(hotelId: number) {
+  const contract = this.getAssetManagerContract();
+
+  const hotel = await contract.getHotel(hotelId);
+  return {
+    hotelId: Number(hotel.hotelId),
+    name: hotel.name,
+    location: hotel.location,
+    imageUrl: hotel.imageUrl,
+    propertyOwner: hotel.propertyOwner,
+    tokenContract: hotel.tokenContract,
+    totalShares: hotel.totalShares.toString(),
+    pricePerShare: hotel.pricePerShare.toString(),
+    minimumInvestment: hotel.minimumInvestment.toString(),
+    fundingDeadline: Number(hotel.fundingDeadline),
+    status: Number(hotel.status),
+    isVerified: hotel.isVerified,
+    createdAt: Number(hotel.createdAt)
+  };
+}
+
+async previewShares(hotelId: number, amount: number) {
+  const contract = this.getAssetManagerContract();
+const amountWei = ethers.parseUnits(amount.toString(), 6);
+
+  const shares = await contract.previewShares(hotelId, amountWei);
+
+  return shares.toString();
+}
   // -------------------
   // WALLET & PROVIDER  
   // -------------------
 
+  
   isMetaMaskInstalled(): boolean {
     return typeof window !== "undefined" && window.ethereum?.isMetaMask === true;
   }
@@ -70,7 +114,7 @@ class Web3Service {
     if (!window.ethereum) throw new Error("MetaMask not installed.");
     return window.ethereum;
   }
-
+   
   private setupListeners() {
     if (!window.ethereum) return;
 
@@ -145,21 +189,24 @@ class Web3Service {
   }
 
   // -------------------
-  // HOTEL INVESTMENT
+  // HOTEL INVESTMENT WITH STABLECOIN
   // -------------------
 async investOnBlockchain(
+   investmentId: string,
   blockchainId: number,
   dbHotelId: string,
-  usdcAmount: number
+  amount: number,
+  stablecoin: {
+    address: string;
+    decimals: number;
+  }
 ) {
   if (!this.signer) throw new Error("Wallet not connected.");
 
   const userAddress = await this.signer.getAddress();
 
-  const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
-
-  if (!USDC_ADDRESS) {
-    throw new Error("USDC address not configured");
+  if (!stablecoin?.address) {
+    throw new Error("Stablecoin address not provided");
   }
 
   const hotelContract = new Contract(
@@ -168,31 +215,36 @@ async investOnBlockchain(
     this.signer
   );
 
-  const usdcContract = new Contract(
-    USDC_ADDRESS,
+  // 🧠 DYNAMIC TOKEN (NO MORE USDC HARDCODE)
+  const tokenContract = new Contract(
+    stablecoin.address,
     ERC20_ABI,
     this.signer
   );
 
-  // Convert to 6 decimals
-  const usdcAmountWei = ethers.parseUnits(usdcAmount.toString(), 6);
+  // 💱 Convert using dynamic decimals
+  const amountWei = ethers.parseUnits(
+    amount.toString(),
+    stablecoin.decimals
+  );
 
   console.log("User:", userAddress);
-  console.log("Amount:", usdcAmountWei.toString());
+  console.log("Token:", stablecoin.address);
+  console.log("Amount:", amountWei.toString());
 
   // -----------------------------
-  // 1️ CHECK BALANCE
+  // 1️⃣ CHECK BALANCE
   // -----------------------------
-  const balance = await usdcContract.balanceOf(userAddress);
+  const balance = await tokenContract.balanceOf(userAddress);
 
-  if (balance < usdcAmountWei) {
-    throw new Error("Insufficient USDC balance");
+  if (BigInt(balance) < BigInt(amountWei)) {
+    throw new Error("Insufficient token balance");
   }
 
   // -----------------------------
-  // 2️ CHECK ALLOWANCE
+  // 2️⃣ CHECK ALLOWANCE
   // -----------------------------
-  const allowance = await usdcContract.allowance(
+  const allowance = await tokenContract.allowance(
     userAddress,
     HOTEL_INVESTMENT_ADDRESS
   );
@@ -200,32 +252,74 @@ async investOnBlockchain(
   console.log("Current allowance:", allowance.toString());
 
   // -----------------------------
-  // 3️ APPROVE IF NEEDED
+  // 3️⃣ APPROVE IF NEEDED
   // -----------------------------
-  if (allowance < usdcAmountWei) {
-    console.log("Approving USDC...");
+  if (allowance < amountWei) {
+    console.log("Approving token...");
 
-    const approveTx = await usdcContract.approve(
+    const approveTx = await tokenContract.approve(
       HOTEL_INVESTMENT_ADDRESS,
-      usdcAmountWei
+      amountWei
     );
 
     console.log("Approve tx:", approveTx.hash);
 
     await approveTx.wait();
 
-    console.log("USDC approved");
+    console.log("Token approved");
   }
 
   // -----------------------------
-  // 4️ INVEST
+  // 4️⃣ INVEST
   // -----------------------------
-  console.log("Sending invest transaction...");
+const supported = await hotelContract.supportedStablecoins(
+   stablecoin.address
+);
 
-  const tx = await hotelContract.invest(
-    blockchainId,
-    usdcAmountWei
-  );
+console.log(
+   "Stablecoin supported:",
+   stablecoin.address,
+   supported
+);
+
+const canInvest = await hotelContract.canUserInvest(
+   userAddress,
+   blockchainId
+);
+
+console.log("Can invest:", canInvest);
+
+console.log("blockchainId:", blockchainId);
+console.log("dbHotelId:", dbHotelId);
+
+const assetManager = new Contract(
+  HOTEL_ASSET_MANAGER_ADDRESS,
+  HotelAssetManagerABI,
+  this.signer
+);
+
+try {
+  const hotel = await assetManager.getHotel(blockchainId);
+
+  console.log("ONCHAIN HOTEL:", {
+    owner: hotel.propertyOwner,
+    tokenContract: hotel.tokenContract,
+    totalShares: hotel.totalShares?.toString(),
+    pricePerShare: hotel.pricePerShare?.toString(),
+    minimumInvestment: hotel.minimumInvestment?.toString(),
+    verified: hotel.isVerified
+  });
+} catch (err) {
+  console.error("FAILED TO LOAD HOTEL:", err);
+}
+
+console.log("Sending invest transaction...");
+
+const tx = await hotelContract.invest(
+   blockchainId,
+   stablecoin.address,
+   amountWei
+);
 
   console.log("Invest tx:", tx.hash);
 
@@ -234,20 +328,23 @@ async investOnBlockchain(
   console.log("Investment confirmed:", receipt.hash);
 
   // -----------------------------
-  // 5️ BACKEND CONFIRMATION
+  // 5️⃣ BACKEND CONFIRMATION
   // -----------------------------
-  await apiClient.post("/investments/confirm", {
-    hotelId: dbHotelId,
-    amount: usdcAmount,
-    blockchainTxHash: receipt.hash
-  });
+ await apiClient.post("/investments/confirm", {
+  investmentId,
+  hotelId: dbHotelId,
+  amount,
+  tokenAddress: stablecoin.address,
+  blockchainTxHash: receipt.hash
+});
 
   // -----------------------------
-  // 6️ FRONTEND EVENT
+  // 6️⃣ FRONTEND EVENT
   // -----------------------------
   globalEvent.emit("investmentAdded", {
     hotelId: dbHotelId,
-    amount: usdcAmount
+    amount,
+    token: stablecoin.address
   });
 
   return receipt;
@@ -256,47 +353,85 @@ async investOnBlockchain(
 // -------------------
 // HOTEL BOOKING PAYMENT WITH STABLECOIN LIKE USDC// 
 // -------------------
-async payBookingUSDC(
+async payBooking(
   bookingId: string,
   amount: number,
   receiver: string,
+  stablecoin: {
+    address: string;
+    decimals: number;
+  },
   registeredWallet?: string
 ) {
   if (!this.signer) throw new Error("Wallet not connected.");
 
   const userAddress = (await this.signer.getAddress()).toLowerCase();
 
-  // Check if connected wallet matches registered wallet
+  // -----------------------------
+  // WALLET CHECK
+  // -----------------------------
   if (registeredWallet && userAddress !== registeredWallet.toLowerCase()) {
     throw new Error(
       `Connected wallet (${userAddress}) does not match registered wallet (${registeredWallet})`
     );
   }
 
-  const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
-  if (!USDC_ADDRESS) throw new Error("USDC address not configured");
+  if (!stablecoin?.address) {
+    throw new Error("Stablecoin not provided");
+  }
 
-  const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, this.signer);
-  const amountWei = ethers.parseUnits(amount.toString(), 6);
+  const tokenContract = new Contract(
+    stablecoin.address,
+    ERC20_ABI,
+    this.signer
+  );
+
+  const amountWei = ethers.parseUnits(
+    amount.toString(),
+    stablecoin.decimals
+  );
 
   console.log("Booking payment");
   console.log("User:", userAddress);
-  console.log("Amount (in USDC smallest units):", amountWei.toString());
+  console.log("Token:", stablecoin.address);
+  console.log("Amount:", amountWei.toString());
 
   // -----------------------------
   // CHECK BALANCE
   // -----------------------------
-  const balance = await usdcContract.balanceOf(userAddress);
-  if (balance < amountWei) throw new Error("Insufficient USDC balance");
+  const balance = await tokenContract.balanceOf(userAddress);
+
+  if (balance < amountWei) {
+    throw new Error("Insufficient token balance");
+  }
+
+  // -----------------------------
+  // CHECK ALLOWANCE
+  // -----------------------------
+  const allowance = await tokenContract.allowance(
+    userAddress,
+    receiver
+  );
+
+  console.log("Allowance:", allowance.toString());
+
+  // ⚠️ Booking uses direct transfer → no approve needed
+  // (ERC20 transfer does NOT require allowance)
 
   // -----------------------------
   // SEND PAYMENT
   // -----------------------------
-  console.log("Sending USDC payment...");
-  const tx = await usdcContract.transfer(receiver, amountWei);
+  console.log("Sending payment...");
+
+  const tx = await tokenContract.transfer(
+    receiver,
+    amountWei
+  );
+
   console.log("Payment tx:", tx.hash);
 
   const receipt = await tx.wait();
+
   console.log("Payment confirmed:", receipt.hash);
 
   // -----------------------------
@@ -305,6 +440,8 @@ async payBookingUSDC(
   await apiClient.post("/bookings/confirm-payment", {
     bookingId,
     txHash: receipt.hash,
+    tokenAddress: stablecoin.address,
+    amount
   });
 
   return receipt;
@@ -313,123 +450,65 @@ async payBookingUSDC(
 // -----------------------------
 // SEND USDC (x402 - PURE TRANSFER ONLY)
 // -----------------------------
-async sendUSDC(receiver: string, amount: number): Promise<string> {
+async sendStablecoin(
+  receiver: string,
+  amount: number,
+  stablecoin: {
+    address: string;
+    decimals: number;
+  }
+): Promise<string> {
   if (!this.signer) throw new Error("Wallet not connected.");
 
   const userAddress = await this.signer.getAddress();
 
-  const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
-  if (!USDC_ADDRESS) throw new Error("USDC address not configured");
+  if (!stablecoin?.address) {
+    throw new Error("Stablecoin not provided");
+  }
 
-  const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, this.signer);
+  const tokenContract = new Contract(
+    stablecoin.address,
+    ERC20_ABI,
+    this.signer
+  );
 
-  // Convert to 6 decimals (USDC)
-  const amountWei = ethers.parseUnits(amount.toString(), 6);
+  const amountWei = ethers.parseUnits(
+    amount.toString(),
+    stablecoin.decimals
+  );
 
-  console.log("Sending USDC...");
+  console.log("Sending token...");
   console.log("From:", userAddress);
   console.log("To:", receiver);
+  console.log("Token:", stablecoin.address);
   console.log("Amount:", amountWei.toString());
 
   // -----------------------------
   // CHECK BALANCE
   // -----------------------------
-  const balance = await usdcContract.balanceOf(userAddress);
-  if (balance < amountWei) {
-    throw new Error("Insufficient USDC balance");
+  const balance = await tokenContract.balanceOf(userAddress);
+
+  if (BigInt(balance) < BigInt(amountWei)) {
+    throw new Error("Insufficient token balance");
   }
 
   // -----------------------------
-  // SEND TRANSACTION
+  // SEND TRANSFER
   // -----------------------------
-  const tx = await usdcContract.transfer(receiver, amountWei);
+  const tx = await tokenContract.transfer(
+    receiver,
+    amountWei
+  );
+
   console.log("TX sent:", tx.hash);
 
   const receipt = await tx.wait();
+
   console.log("TX confirmed:", receipt.hash);
 
-  return receipt.hash; 
+  return receipt.hash;
 }
 
-/// HOTEL BOOKING PAYMENT WITH HAT TOKEN /////
-
-// async payBookingToken(
-//   bookingId: string,
-//   amount: number,
-//   receiver: string,
-//   tokenAddress: string,
-//   decimals: number,
-//   registeredWallet?: string
-// ) {
-//   if (!this.signer) throw new Error("Wallet not connected.");
-
-//   const userAddress = (await this.signer.getAddress()).toLowerCase();
-
-//   // Wallet check
-//   if (registeredWallet && userAddress !== registeredWallet.toLowerCase()) {
-//     throw new Error(
-//       `Connected wallet (${userAddress}) does not match registered wallet (${registeredWallet})`
-//     );
-//   }
-
-//   const tokenContract = new Contract(tokenAddress, ERC20_ABI, this.signer);
-
-//   const amountWei = ethers.parseUnits(amount.toString(), decimals);
-
-//   console.log("Token Booking Payment");
-//   console.log("Token:", tokenAddress);
-//   console.log("User:", userAddress);
-//   console.log("Amount:", amountWei.toString());
-
-//   // -----------------------------
-//   // CHECK BALANCE
-//   // -----------------------------
-//   const balance = await tokenContract.balanceOf(userAddress);
-//   if (balance < amountWei) {
-//     throw new Error("Insufficient token balance");
-//   }
-
-//   // -----------------------------
-//   // SEND PAYMENT
-//   // -----------------------------
-//   const tx = await tokenContract.transfer(receiver, amountWei);
-//   console.log("Payment tx:", tx.hash);
-
-//   const receipt = await tx.wait();
-//   console.log("Payment confirmed:", receipt.hash);
-
-//   // -----------------------------
-//   // CONFIRM BACKEND
-//   // -----------------------------
-//   await apiClient.post("/bookings/confirm-payment", {
-//     bookingId,
-//     txHash: receipt.hash,
-//   });
-
-//   return receipt;
-// }
-
-// async payBookingHAT(
-//   bookingId: string,
-//   amount: number,
-//   receiver: string,
-//   registeredWallet?: string
-// ) {
-//   const HAT_ADDRESS = import.meta.env.VITE_HAT_TOKEN_ADDRESS;
-
-//   if (!HAT_ADDRESS) {
-//     throw new Error("HAT token address not configured");
-//   }
-
-//   return this.payBookingToken(
-//     bookingId,
-//     amount,
-//     receiver,
-//     HAT_ADDRESS,
-//     18, //  confirm your token decimals
-//     registeredWallet
-//   );
-// }
 
 }
 

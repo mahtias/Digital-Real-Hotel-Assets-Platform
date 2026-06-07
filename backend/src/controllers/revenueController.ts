@@ -7,22 +7,34 @@ export const getHotelRevenue = async (
 ) => {
   try {
 
-    const data = await prisma.settlement.groupBy({
+    // GROUP BY HOTEL
+    const data = await prisma.booking.groupBy({
+
       by: ["hotelAssetId"],
-      _sum: {
-        amount: true,
+
+      where: {
+        status: "PAID",
       },
+
+      _sum: {
+        totalPrice: true,
+        platformFee: true,
+      },
+
     });
 
     const enriched = await Promise.all(
+
       data.map(async (item) => {
 
+        // HOTEL INFO
         const hotel = await prisma.hotelAsset.findUnique({
           where: {
             id: item.hotelAssetId,
           },
         });
 
+        // PENDING SETTLEMENTS
         const pending = await prisma.settlement.aggregate({
           where: {
             hotelAssetId: item.hotelAssetId,
@@ -33,6 +45,7 @@ export const getHotelRevenue = async (
           },
         });
 
+        // COMPLETED SETTLEMENTS
         const completed = await prisma.settlement.aggregate({
           where: {
             hotelAssetId: item.hotelAssetId,
@@ -43,19 +56,41 @@ export const getHotelRevenue = async (
           },
         });
 
-        return {
-          hotelId: item.hotelAssetId,
-          hotelName: hotel?.name || "Unknown Hotel",
+        // TOTAL REVENUE
+        const totalRevenue =
+          Number(item._sum.totalPrice || 0);
 
-          totalRevenue:
-            Number(item._sum.amount || 0),
+        // PLATFORM FEES
+        const platformFees =
+          Number(item._sum.platformFee || 0);
 
-          pending:
-            Number(pending._sum.amount || 0),
+        // INVESTOR YIELD (10%)
+        const investorYield =
+          totalRevenue * 0.10;
 
-          paid:
-            Number(completed._sum.amount || 0),
-        };
+        // HOTEL NET REVENUE
+        const hotelNetRevenue =
+          totalRevenue -
+          platformFees -
+          investorYield;
+
+       return {
+              hotelId: item.hotelAssetId,
+              hotelName: hotel?.name || "Unknown Hotel",
+
+              totalRevenue,
+
+              platformFees,
+              platformFeeRate: 0.05, // 5% example (DEFINE YOUR RULE)
+
+              investorYield,
+              investorYieldRate: 0.10, // 10%
+
+              hotelNetRevenue,
+
+              pending: Number(pending._sum.amount || 0),
+              paid: Number(completed._sum.amount || 0),
+            };
       })
     );
 

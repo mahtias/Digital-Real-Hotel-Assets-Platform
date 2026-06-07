@@ -45,8 +45,15 @@ contract HotelInvestmentTest is Test {
         vm.prank(owner);
         manager = new HotelAssetManager(address(kycRegistry), owner);
 
+        address[] memory stablecoins = new address[](4);
+
+        stablecoins[0] = address(usdc);
+        stablecoins[1] = makeAddr("usdt"); // or real address later
+        stablecoins[2] = makeAddr("hkd_hsbc");
+        stablecoins[3] = makeAddr("hkd_sc");
+
         investment =
-            new HotelInvestment(address(usdc), address(kycRegistry), address(manager), treasury);
+            new HotelInvestment(address(kycRegistry), address(manager), treasury, stablecoins);
 
         // ✅ Get role hash BEFORE prank
         bytes32 assetManagerRole = manager.ASSET_MANAGER_ROLE();
@@ -107,7 +114,7 @@ contract HotelInvestmentTest is Test {
 
         vm.startPrank(investor);
         usdc.approve(address(investment), investAmount);
-        uint256 sharesMinted = investment.invest(hotelId, investAmount);
+        uint256 sharesMinted = investment.invest(hotelId, address(usdc), investAmount);
         vm.stopPrank();
 
         assertGt(sharesMinted, 0);
@@ -120,9 +127,10 @@ contract HotelInvestmentTest is Test {
         vm.startPrank(investor);
         usdc.approve(address(investment), tooSmall);
 
-        // ✅ FIX: Expect custom error instead of string
         vm.expectRevert(abi.encodeWithSignature("InvestmentTooSmall()"));
-        investment.invest(hotelId, tooSmall);
+
+        investment.invest(hotelId, address(usdc), tooSmall);
+
         vm.stopPrank();
     }
 
@@ -133,25 +141,26 @@ contract HotelInvestmentTest is Test {
         vm.startPrank(nonKycUser);
         usdc.approve(address(investment), 1000e6);
 
-        // ✅ FIX: Expect custom error instead of string
         vm.expectRevert(abi.encodeWithSignature("NotKYCApproved()"));
-        investment.invest(hotelId, 1000e6);
+        investment.invest(hotelId, address(usdc), 1000e6);
+
         vm.stopPrank();
     }
 
     function test_get_investment_stats() public {
-        uint256 investAmount = 1000e6; // 1000 USDC
+        uint256 investAmount = 1000e6;
 
         vm.startPrank(investor);
+
         usdc.approve(address(investment), investAmount);
-        investment.invest(hotelId, investAmount);
+
+        investment.invest(hotelId, address(usdc), investAmount);
+
         vm.stopPrank();
 
-        // ✅ FIX: Pass the INVESTOR address, not tokenAddress!
         (uint256 totalInvested, uint256 totalShares, uint256 investmentCount) =
-            investment.getInvestmentStats(investor); // ← investor address!
+            investment.getInvestmentStats(investor);
 
-        // Verify the stats
         assertEq(totalInvested, investAmount, "Total invested should be 1000 USDC");
         assertGt(totalShares, 0, "Should have shares");
         assertEq(investmentCount, 1, "Should have 1 investment");
@@ -161,12 +170,17 @@ contract HotelInvestmentTest is Test {
         uint256 investAmount = 1000e6;
 
         vm.startPrank(investor);
+
         usdc.approve(address(investment), investAmount);
-        investment.invest(hotelId, investAmount);
+
+        investment.invest(hotelId, address(usdc), investAmount);
+
         vm.stopPrank();
 
         uint256 treasuryBalanceBefore = usdc.balanceOf(treasury);
-        investment.withdrawFees();
+
+        investment.withdrawFees(address(usdc));
+
         uint256 treasuryBalanceAfter = usdc.balanceOf(treasury);
 
         assertGt(treasuryBalanceAfter, treasuryBalanceBefore);
