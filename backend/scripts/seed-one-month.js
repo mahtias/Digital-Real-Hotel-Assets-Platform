@@ -143,6 +143,7 @@ async function runWeightedSeeder() {
     }
   }
 
+  
   console.log("\n====================================================");
   console.log(`🎉 COMPLETED: ${successfulBookings} weighted bookings populated successfully for June!`);
   console.log("====================================================");
