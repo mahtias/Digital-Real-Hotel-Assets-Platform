@@ -3,7 +3,6 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
-
 const API_URL = process.env.API_URL || "http://localhost:5000"; 
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
 const USDC_CONTRACT_ADDRESS = process.env.USDC_ADDRESS || "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; 
@@ -133,7 +132,7 @@ async function runWeightedSeeder() {
       } else {
         console.error(` Saved in DB, but QloApps tracking rejected it: ${confirmResult.message}`);
       }
-
+      
       // Keep RPC infrastructure connections cool
       await sleep(1500);
 
@@ -143,7 +142,7 @@ async function runWeightedSeeder() {
     }
   }
 
-  
+
   console.log("\n====================================================");
   console.log(`🎉 COMPLETED: ${successfulBookings} weighted bookings populated successfully for June!`);
   console.log("====================================================");
