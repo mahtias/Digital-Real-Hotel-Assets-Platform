@@ -132,7 +132,7 @@ async function runWeightedSeeder() {
       } else {
         console.error(` Saved in DB, but QloApps tracking rejected it: ${confirmResult.message}`);
       }
-      
+
       // Keep RPC infrastructure connections cool
       await sleep(1500);
 
@@ -141,7 +141,6 @@ async function runWeightedSeeder() {
       await sleep(4000); // Breathe space for network error cooling
     }
   }
-
 
   console.log("\n====================================================");
   console.log(`🎉 COMPLETED: ${successfulBookings} weighted bookings populated successfully for June!`);
