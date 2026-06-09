@@ -19,6 +19,7 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
 // 👥 Sourcing verified users via environment private keys
