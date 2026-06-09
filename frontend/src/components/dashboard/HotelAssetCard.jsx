@@ -21,6 +21,24 @@ export default function HotelAssetCard({ hotel, refetchHotels, refetchPortfolio 
 
   // 📊 Progress calculation (same logic as HotelDetail)
 
+// const maxSupplyScaled = Number(hotel.totalTokens ?? 0);
+
+// // Total sold from DB, not on-chain totalSupply
+// const totalSupplyScaled = Number(hotel.tokensSold ?? 0);
+
+// // exact same formula as HotelDetail
+// const soldPercentage =
+//   maxSupplyScaled > 0
+//     ? (totalSupplyScaled / maxSupplyScaled) * 100
+//     : 0;
+
+// console.log({
+//   hotel: hotel.name,
+//   maxSupplyFromDb: maxSupplyScaled,
+//   totalSoldFromDb: totalSupplyScaled,
+//   soldPercentage,
+// });
+
 // token decimals from blockchain (fallback 18)
 const tokenDecimals = Number(hotel.decimals ?? 18);
 

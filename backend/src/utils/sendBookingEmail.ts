@@ -1,4 +1,5 @@
-import { mailer } from "../utils/mailer";
+//import { mailer } from "../utils/mailer";
+import { sendResendEmail } from "../utils/resendEmail";
 import PDFDocument from "pdfkit";
 import streamBuffers from "stream-buffers";
 import QRCode from "qrcode";
@@ -113,31 +114,39 @@ export async function sendBookingEmail({
     // ----------------------------
     // Send Email
     // ----------------------------
-    await mailer.sendMail({
-      from: process.env.EMAIL_FROM,
-      to,
-      bcc: process.env.SMTP_USER, // admin copy
-      subject: "Booking Confirmed ",
-      html: `
-        <div style="font-family: 'Arial', sans-serif; background:#0f1117; color:#fff; padding:20px; border-radius:10px;">
-          <h2 style="color:#D4AF37; text-align:center;">Booking Successful!</h2>
-          <div style="background:#1e1f29; padding:20px; border-radius:10px; margin-top:10px;">
-            <p style="color:#fbbf24;"><strong>Confirmation Code:</strong> ${bookingCode}</p>
-            <p><strong>Hotel:</strong> ${hotelName}</p>
-            ${hotelLocation ? `<p><strong>Location:</strong> ${hotelLocation}</p>` : ''}
-            ${hotelDescription ? `<p style="font-style:italic; opacity:0.85;">${hotelDescription}</p>` : ''}
-            <p><strong>Check-in:</strong> ${checkIn}</p>
-            <p><strong>Check-out:</strong> ${checkOut}</p>
-            <p><strong>Total:</strong> $${total}</p>
-            <p><strong>Transaction:</strong></p>
-            <p style="word-break:break-all;"><a href="https://etherscan.io/tx/${txHash}" style="color:#D4AF37;">${txHash}</a></p>
-          </div>
-          <br/>
-          <p style="text-align:center; color:#ccc;">Thank you for booking with DigiRealAssets.</p>
-        </div>
-      `,
-      attachments
-    });
+  await sendResendEmail({
+  to,
+  subject: "Booking Confirmed",
+  html: `
+    <div style="font-family:Arial,sans-serif;background:#0f1117;color:#fff;padding:20px;border-radius:10px;">
+      <h2 style="color:#D4AF37;text-align:center;">
+        Booking Successful!
+      </h2>
+
+      <div style="background:#1e1f29;padding:20px;border-radius:10px;margin-top:10px;">
+        <p><strong>Confirmation Code:</strong> ${bookingCode}</p>
+        <p><strong>Hotel:</strong> ${hotelName}</p>
+        ${hotelLocation ? `<p><strong>Location:</strong> ${hotelLocation}</p>` : ""}
+        ${hotelDescription ? `<p><em>${hotelDescription}</em></p>` : ""}
+        <p><strong>Check In:</strong> ${checkIn}</p>
+        <p><strong>Check Out:</strong> ${checkOut}</p>
+        <p><strong>Total:</strong> $${total}</p>
+
+        <p>
+          <strong>Transaction:</strong><br/>
+          <a href="https://sepolia.etherscan.io/tx/${txHash}">
+            ${txHash}
+          </a>
+        </p>
+      </div>
+
+      <p style="text-align:center;color:#ccc;">
+        Thank you for booking with DigiRealAssets.
+      </p>
+    </div>
+  `,
+  attachments,
+});
 
     console.log("Booking email sent to:", to, "and BCC to admin");
   } catch (err) {

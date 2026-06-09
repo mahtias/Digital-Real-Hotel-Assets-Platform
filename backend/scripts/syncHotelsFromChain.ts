@@ -5,7 +5,7 @@ dotenv.config();
 
 const HOTEL_ASSET_MANAGER_ADDRESS = process.env.HOTEL_ASSET_MANAGER_ADDRESS!;
 const RPC_URL = process.env.RPC_URL!;
-const PROPERTY_OWNER_ADDRESS = process.env.PROPERTY_USER!;
+const PROPERTY_OWNER_ADDRESS = process.env.TREASURY_ADDRESS!;
 
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
@@ -90,7 +90,7 @@ async function main() {
     blockchainId: i,
 
     walletAddress: PROPERTY_OWNER_ADDRESS,
-    createdById: "85b6e6b2-b96e-4a40-8d2a-95fa16d32159",
+    createdById: "caa158ba-5e09-4176-bce0-369ad9ae4638",
     createdAt: new Date(),
   },
 });

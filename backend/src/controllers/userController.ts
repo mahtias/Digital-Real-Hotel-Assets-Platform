@@ -315,9 +315,12 @@ export const confirmAllInvestments = async (req: AuthRequest, res: Response) => 
 
 export const updateWalletAddress = async (req: Request, res: Response) => {
   try {
+       console.log("=== UPDATE WALLET ===");
+     console.log("req.user:", req.user);
     const { walletAddress } = req.body;
     const userId = req.user?.userId;
-
+     console.log("userId:", userId);
+    console.log("body:", req.body);
     console.log(' Updating wallet for user:', userId);
     console.log(' New wallet address:', walletAddress);
 

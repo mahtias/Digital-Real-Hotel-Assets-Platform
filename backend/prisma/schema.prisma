@@ -111,7 +111,7 @@ model HotelAsset {
   starRating          Int?                  @map("star_rating")
   tokenPrice          Int?                  @map("token_price")
   tokenSymbol         String?               @map("token_symbol")
-  tokensSold          Int?                  @map("tokens_sold")
+  tokensSold          @default(0)           @db.Decimal(65, 18) @map("tokens_sold")
   totalTokens         Int?                  @map("total_tokens")
   totalValue          Int?                  @map("total_value")
   tokenId             Int?                  @unique

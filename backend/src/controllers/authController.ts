@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { UserRole, KycStatus } from '@prisma/client';
 import crypto from 'crypto';
-import { mailer } from '../utils/mailer';
+//import { mailer } from '../utils/mailer';
+import { sendResendEmail } from "../utils/resendEmail";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -57,12 +58,12 @@ export const register = async (req: Request, res: Response) => {
     const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
 
     // Send verification email
-    await mailer.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
-      subject: "Confirm your DIGIREAL account",
-       html: `
-  <div style="background:#f5f5f5;padding:40px;font-family:Arial,sans-serif;">
+
+    try {
+  await sendResendEmail({
+    to: email,
+    subject: "Confirm your DIGIREAL account",
+    html: ` <div style="background:#f5f5f5;padding:40px;font-family:Arial,sans-serif;">
     <div style="
       max-width:520px;
       margin:auto;
@@ -114,10 +115,11 @@ export const register = async (req: Request, res: Response) => {
       </p>
 
     </div>
-  </div>
-`
-    });
-
+  </div>`,
+  });
+} catch (emailError: any) {
+  console.error("Registration email failed:", emailError.message);
+}
     return res.status(201).json({
       message: "Registration successful. Please check your email to verify your account.",
       user
@@ -302,8 +304,7 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
 
     const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${newToken}`;
 
-    await mailer.sendMail({
-      from: process.env.EMAIL_FROM,
+    await sendResendEmail({
       to: email,
       subject: "Resend: Confirm your DIGIREAL account",
      html: `
@@ -443,8 +444,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-    await mailer.sendMail({
-      from: process.env.EMAIL_FROM,
+    await sendResendEmail({
       to: email,
       subject: "Reset your DIGIREAL password",
       html: `
