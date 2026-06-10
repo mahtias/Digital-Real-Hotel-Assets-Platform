@@ -111,17 +111,17 @@ declare class KYCService {
             createdAt: Date;
             updatedAt: Date;
             kycExpiresAt: Date | null;
-            kycBlockchainTxHash: string | null;
-            kycBlockchainSynced: boolean;
-            kycLastVerified: Date | null;
-            kycDocumentHash: string | null;
-            kycSyncAttempts: number;
-            kycSyncError: string | null;
             verificationLevel: import(".prisma/client").$Enums.VerificationLevel | null;
             verificationExpires: Date | null;
             verificationToken: string | null;
             resetPasswordExpires: Date | null;
             resetPasswordToken: string | null;
+            kycBlockchainSynced: boolean;
+            kycBlockchainTxHash: string | null;
+            kycLastVerified: Date | null;
+            kycSyncAttempts: number;
+            kycSyncError: string | null;
+            kycDocumentHash: string | null;
         };
     } & {
         id: string;
@@ -171,17 +171,17 @@ declare class KYCService {
             createdAt: Date;
             updatedAt: Date;
             kycExpiresAt: Date | null;
-            kycBlockchainTxHash: string | null;
-            kycBlockchainSynced: boolean;
-            kycLastVerified: Date | null;
-            kycDocumentHash: string | null;
-            kycSyncAttempts: number;
-            kycSyncError: string | null;
             verificationLevel: import(".prisma/client").$Enums.VerificationLevel | null;
             verificationExpires: Date | null;
             verificationToken: string | null;
             resetPasswordExpires: Date | null;
             resetPasswordToken: string | null;
+            kycBlockchainSynced: boolean;
+            kycBlockchainTxHash: string | null;
+            kycLastVerified: Date | null;
+            kycSyncAttempts: number;
+            kycSyncError: string | null;
+            kycDocumentHash: string | null;
         };
     } & {
         id: string;
@@ -369,7 +369,8 @@ declare class KYCService {
     }>;
     checkAndUpdateExpiredKYC(): Promise<number>;
     isVerified(walletAddress: string): Promise<boolean>;
-    verifyUser(walletAddress: string, level?: number): Promise<string>;
+    submitKYCOnChain(walletAddress: string, documentHash: string, level?: number): Promise<string>;
+    verifyUser(walletAddress: string, level?: number, documentHash?: string): Promise<string>;
 }
 declare const _default: KYCService;
 export default _default;

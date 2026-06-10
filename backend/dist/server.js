@@ -13,8 +13,10 @@ const routes_1 = __importDefault(require("./routes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const path_1 = __importDefault(require("path"));
 const kycSyncJob_1 = require("./jobs/kycSyncJob");
+const revenueJob_1 = require("./jobs/revenueJob");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 const allowedOrigins = [
     process.env.FRONTEND_URL,
     "https://digirealassets.io",
@@ -35,44 +37,35 @@ app.use("/uploads", express_1.default.static(path_1.default.join(__dirname, "../
 app.use('/api/v1', routes_1.default);
 app.use(errorHandler_1.errorHandler);
 app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Route not found'
-    });
+    res.status(404).json({ success: false, message: 'Route not found' });
 });
 if (process.env.NODE_ENV === 'production') {
-    console.log('\n Starting PRODUCTION cron jobs...');
+    console.log('Starting PRODUCTION cron jobs...');
     (0, kycSyncJob_1.startKycSyncJob)();
-    console.log('✅ KYC sync job: Running every hour\n');
+    (0, revenueJob_1.startRevenueJob)();
 }
 else if (process.env.ENABLE_TEST_CRON === 'true') {
-    console.log('\n🧪 Starting TEST cron jobs...');
+    console.log('Starting TEST cron jobs...');
     (0, kycSyncJob_1.startKycSyncJobTest)();
-    console.log(' KYC sync job: Running every minute (TEST MODE)\n');
+    (0, revenueJob_1.startRevenueJob)();
 }
 else {
-    console.log('\n⏸  Cron jobs disabled in development');
-    console.log('💡 To enable test cron (runs every minute):');
-    console.log('   Add ENABLE_TEST_CRON=true to your .env file\n');
-    console.log('💡 To manually trigger KYC sync:');
-    console.log('   POST http://localhost:5000/api/v1/admin/kyc/sync\n');
+    console.log('Cron jobs disabled in development');
 }
 app.listen(PORT, () => {
     console.log('\n' + '='.repeat(60));
     console.log(' Server Started Successfully!');
     console.log('='.repeat(60));
-    console.log(` Port:        ${PORT}`);
-    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔗 URL:         http://localhost:${PORT}`);
-    console.log(`📡 API:         http://localhost:${PORT}/api/v1`);
+    console.log(` PORT:          ${PORT}`);
+    console.log(` ENVIRONMENT:   ${process.env.NODE_ENV || 'development'}`);
+    console.log(` BACKEND_URL:   ${BACKEND_URL}`);
+    console.log(` API BASE:      ${BACKEND_URL}/api/v1`);
     console.log('='.repeat(60));
     if (allowedOrigins.length > 0) {
-        console.log('\n CORS Allowed Origins:');
-        allowedOrigins.forEach(origin => {
-            console.log(`   ✓ ${origin}`);
-        });
+        console.log('\nCORS Allowed Origins:');
+        allowedOrigins.forEach(origin => console.log(`   ✓ ${origin}`));
     }
-    console.log('\n⛓️  Blockchain Configuration:');
+    console.log('\n⛓️ Blockchain Configuration:');
     console.log(`   RPC URL:    ${process.env.RPC_URL || 'Not configured'}`);
     console.log(`   Network:    ${process.env.BLOCCKCHAIN_NETWORK || 'Not specified'}`);
     console.log(`   Admin Key:  ${process.env.PRIVATE_KEY ? '✓ Configured' : '✗ Missing'}`);
@@ -81,18 +74,15 @@ app.listen(PORT, () => {
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 function gracefulShutdown() {
-    console.log('\n\n  Shutdown signal received');
-    console.log(' Closing server gracefully...');
+    console.log('\nShutdown signal received. Closing server gracefully...');
     process.exit(0);
 }
 process.on('uncaughtException', (error) => {
-    console.error('\n UNCAUGHT EXCEPTION:');
-    console.error(error);
-    console.log(' Shutting down...');
+    console.error('UNCAUGHT EXCEPTION:', error);
     process.exit(1);
 });
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('\n UNHANDLED REJECTION:');
+    console.error('UNHANDLED REJECTION:');
     console.error('Promise:', promise);
     console.error('Reason:', reason);
 });

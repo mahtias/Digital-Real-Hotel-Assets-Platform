@@ -9,7 +9,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const database_1 = __importDefault(require("../config/database"));
 const client_1 = require("@prisma/client");
 const crypto_1 = __importDefault(require("crypto"));
-const mailer_1 = require("../utils/mailer");
+const resendEmail_1 = require("../utils/resendEmail");
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const register = async (req, res) => {
     try {
@@ -47,12 +47,11 @@ const register = async (req, res) => {
             }
         });
         const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
-        await mailer_1.mailer.sendMail({
-            from: process.env.EMAIL_FROM,
-            to: email,
-            subject: "Confirm your DIGIREAL account",
-            html: `
-  <div style="background:#f5f5f5;padding:40px;font-family:Arial,sans-serif;">
+        try {
+            await (0, resendEmail_1.sendResendEmail)({
+                to: email,
+                subject: "Confirm your DIGIREAL account",
+                html: ` <div style="background:#f5f5f5;padding:40px;font-family:Arial,sans-serif;">
     <div style="
       max-width:520px;
       margin:auto;
@@ -104,9 +103,12 @@ const register = async (req, res) => {
       </p>
 
     </div>
-  </div>
-`
-        });
+  </div>`,
+            });
+        }
+        catch (emailError) {
+            console.error("Registration email failed:", emailError.message);
+        }
         return res.status(201).json({
             message: "Registration successful. Please check your email to verify your account.",
             user
@@ -226,8 +228,7 @@ const resendVerificationEmail = async (req, res) => {
             }
         });
         const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${newToken}`;
-        await mailer_1.mailer.sendMail({
-            from: process.env.EMAIL_FROM,
+        await (0, resendEmail_1.sendResendEmail)({
             to: email,
             subject: "Resend: Confirm your DIGIREAL account",
             html: `
@@ -352,8 +353,7 @@ const forgotPassword = async (req, res) => {
             }
         });
         const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-        await mailer_1.mailer.sendMail({
-            from: process.env.EMAIL_FROM,
+        await (0, resendEmail_1.sendResendEmail)({
             to: email,
             subject: "Reset your DIGIREAL password",
             html: `

@@ -6,6 +6,7 @@ export declare class Web3Service {
     private hotelInvestment;
     private tokenContractCache;
     constructor();
+    private getReceiptWithRetry;
     private initializeProvider;
     private initializeSigner;
     private initializeKycContract;
@@ -13,7 +14,6 @@ export declare class Web3Service {
     private initializeInvestmentContract;
     isKycVerified(address: string, forceBlockchainCheck?: boolean): Promise<boolean>;
     registerKyc(address: string, hash: string): Promise<string>;
-    private registerKycWithRetry;
     syncAllPendingKycs(): Promise<{
         synced: number;
         failed: number;
@@ -21,7 +21,7 @@ export declare class Web3Service {
     private delay;
     getHotelTokenAddress(hotelId: string): Promise<string>;
     private getHotelTokenContract;
-    processInvestment(hotelId: string, userAddress: string, usdcAmount: string): Promise<string>;
+    processInvestment(hotelId: string, userAddress: string, stableAmount: string, paymentToken?: string): Promise<string>;
     getHotelTokenBalance(userAddress: string, hotelId: string): Promise<string>;
     getAllHotelTokenBalances(userAddress: string): Promise<Record<string, string>>;
     getSignerAddress(): Promise<string>;
@@ -31,6 +31,15 @@ export declare class Web3Service {
         name: string;
     }>;
     clearTokenCache(): void;
+    verifyStablecoinTransfer(txHash: string, expectedAmount: bigint, expectedReceiver: string, stablecoin: {
+        address: string;
+        symbol: string;
+        decimals: number;
+    }): Promise<{
+        sender: any;
+        receiver: any;
+        amount: bigint;
+    }>;
 }
 export declare const web3Service: Web3Service;
 //# sourceMappingURL=web3Service.d.ts.map

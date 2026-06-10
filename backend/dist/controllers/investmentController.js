@@ -21,7 +21,13 @@ const sumDecimals = (values) => {
 const createInvestment = async (req, res) => {
     console.log("🔥 CREATE INVESTMENT FUNCTION HIT");
     try {
-        const { hotelId, amount } = req.body;
+        const { hotelId } = req.body;
+        const amount = Number(req.body.amount);
+        if (isNaN(amount)) {
+            return res.status(400).json({
+                message: "Invalid amount"
+            });
+        }
         if (!req.user?.userId) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
@@ -37,9 +43,9 @@ const createInvestment = async (req, res) => {
                 message: 'Hotel ID and amount are required'
             });
         }
-        if (amount < 100) {
+        if (amount < 1) {
             return res.status(400).json({
-                message: 'Minimum investment is $100'
+                message: 'Minimum investment is $1'
             });
         }
         const user = await database_1.default.user.findUnique({
@@ -93,15 +99,15 @@ const createInvestment = async (req, res) => {
                 tokensSold: true,
                 status: true,
                 tokenSymbol: true,
-                tokenId: true,
+                blockchainId: true,
             }
         });
         if (!hotelAsset) {
             return res.status(404).json({ message: 'Hotel asset not found' });
         }
-        if (hotelAsset.status !== 'ACTIVE') {
+        if (hotelAsset.status !== "FUNDRAISING") {
             return res.status(400).json({
-                message: 'This hotel is not available for investment'
+                message: "This hotel is not available for investment"
             });
         }
         if (!hotelAsset.tokenPrice) {
@@ -167,15 +173,35 @@ const confirmInvestment = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const { hotelId, amount, blockchainTxHash } = req.body;
-        if (!hotelId || !amount || !blockchainTxHash) {
+        const { investmentId, hotelId, amount, blockchainTxHash } = req.body;
+        if (!investmentId || !hotelId || !amount || !blockchainTxHash) {
             return res.status(400).json({
-                error: "hotelId, amount and blockchainTxHash are required",
+                error: "investmentId, hotelId, amount and blockchainTxHash are required"
             });
         }
         const txReceipt = await (0, blockchain_1.verifyTransaction)(blockchainTxHash);
+        if (!txReceipt || txReceipt.status !== 1) {
+            return res.status(400).json({
+                error: "Transaction failed on blockchain"
+            });
+        }
+        const user = await database_1.default.user.findUnique({
+            where: { id: userId },
+            select: { walletAddress: true }
+        });
+        if (!user?.walletAddress) {
+            return res.status(403).json({
+                error: "Wallet not found"
+            });
+        }
+        if (txReceipt.from?.toLowerCase() !==
+            user.walletAddress.toLowerCase()) {
+            return res.status(403).json({
+                error: "Transaction does not belong to this wallet"
+            });
+        }
         const existing = await database_1.default.investment.findFirst({
-            where: { blockchainTxHash },
+            where: { blockchainTxHash }
         });
         if (existing) {
             return res.status(400).json({
@@ -186,51 +212,76 @@ const confirmInvestment = async (req, res) => {
             where: { id: hotelId },
         });
         if (!hotelAsset) {
-            return res.status(404).json({
-                error: "Hotel not found",
-            });
+            return res.status(404).json({ error: "Hotel not found" });
         }
         const tokenPrice = Number(hotelAsset.tokenPrice);
         const investmentAmount = Number(amount);
-        const tokenAmount = Number((investmentAmount / tokenPrice).toFixed(6));
+        const PLATFORM_FEE_PERCENT = 2;
+        const platformFee = Number(((investmentAmount * PLATFORM_FEE_PERCENT) / 100).toFixed(2));
+        const netInvestedAmount = Number((investmentAmount - platformFee).toFixed(2));
+        const tokenAmount = Number((netInvestedAmount / tokenPrice).toFixed(6));
         const newTokensSold = Number(hotelAsset.tokensSold || 0) + tokenAmount;
         if (hotelAsset.totalTokens && newTokensSold > Number(hotelAsset.totalTokens)) {
             return res.status(400).json({
                 message: "Not enough tokens available",
+                available: Number(hotelAsset.totalTokens) - Number(hotelAsset.tokensSold),
+                requested: tokenAmount,
+            });
+        }
+        const pendingInvestment = await database_1.default.investment.findFirst({
+            where: {
+                id: investmentId,
+                userId,
+                hotelAssetId: hotelId,
+                blockchainStatus: "AWAITING_USER_TX",
+                status: "PENDING"
+            }
+        });
+        if (!pendingInvestment) {
+            return res.status(404).json({
+                error: "Pending investment not found"
+            });
+        }
+        if (Number(pendingInvestment.amount) !==
+            Number(amount)) {
+            return res.status(400).json({
+                error: "Investment amount mismatch"
             });
         }
         const [investment] = await database_1.default.$transaction([
-            database_1.default.investment.create({
-                data: {
-                    userId,
-                    hotelAssetId: hotelId,
-                    amount: investmentAmount,
-                    investedAmount: investmentAmount,
-                    tokenAmount,
-                    pendingRewards: 0,
-                    earnedRewards: 0,
-                    stakedAmount: 0,
-                    blockchainTxHash,
-                    status: "ACTIVE",
-                    blockchainStatus: "MINTED",
+            database_1.default.investment.update({
+                where: {
+                    id: pendingInvestment.id
                 },
+                data: {
+                    investedAmount: netInvestedAmount,
+                    platformFee,
+                    tokenAmount,
+                    blockchainTxHash,
+                    status: "CONFIRMED",
+                    blockchainStatus: "MINTED"
+                }
             }),
             database_1.default.hotelAsset.update({
-                where: { id: hotelId },
-                data: {
-                    tokensSold: newTokensSold,
+                where: {
+                    id: hotelId
                 },
-            }),
+                data: {
+                    tokensSold: newTokensSold
+                }
+            })
         ]);
         return res.json({
             success: true,
             investment,
+            message: `Investment confirmed. Platform fee: $${platformFee}, Net invested: $${netInvestedAmount}`,
         });
     }
     catch (error) {
         console.error("confirmInvestment error:", error);
         return res.status(500).json({
             error: "Failed to confirm investment",
+            details: error.message,
         });
     }
 };
@@ -263,7 +314,9 @@ const getUserInvestments = async (req, res) => {
             orderBy: { createdAt: "desc" }
         });
         const stats = {
-            totalInvested: investments.reduce((sum, inv) => sum + Number(inv.amount), 0),
+            totalGrossInvested: investments.reduce((sum, inv) => sum + Number(inv.amount), 0),
+            totalNetInvested: investments.reduce((sum, inv) => sum + Number(inv.investedAmount), 0),
+            totalPlatformFees: investments.reduce((sum, inv) => sum + Number(inv.platformFee || 0), 0),
             totalTokens: investments.reduce((sum, inv) => sum + Number(inv.tokenAmount), 0),
             totalEarned: investments.reduce((sum, inv) => sum + Number(inv.earnedRewards || 0), 0),
             totalPending: investments.reduce((sum, inv) => sum + Number(inv.pendingRewards || 0), 0),
@@ -276,16 +329,21 @@ const getUserInvestments = async (req, res) => {
             pending: investments.filter(inv => inv.blockchainStatus === 'PENDING').length,
             failed: investments.filter(inv => inv.blockchainStatus === 'MINT_FAILED').length,
         };
+        const investmentsWithFee = investments.map(inv => ({
+            ...inv,
+            platformFee: Number(inv.platformFee || 0),
+            netInvested: Number(inv.investedAmount),
+        }));
         res.json({
             success: true,
-            data: investments,
+            data: investmentsWithFee,
             count: investments.length,
             stats,
             blockchainStatus: byStatus
         });
     }
     catch (error) {
-        console.error('❌ Get investments error:', error);
+        console.error('Get investments error:', error);
         res.status(500).json({ success: false, error: "Server error" });
     }
 };
@@ -314,7 +372,7 @@ const getInvestmentById = async (req, res) => {
                         location: true,
                         apy: true,
                         status: true,
-                        tokenId: true,
+                        blockchainId: true,
                         totalTokens: true,
                         tokensSold: true,
                     }
@@ -337,32 +395,38 @@ const getInvestmentById = async (req, res) => {
             });
         }
         const amount = toNumber(investment.amount);
+        const investedAmount = toNumber(investment.investedAmount);
+        const platformFee = toNumber(investment.platformFee || 0);
         const tokenAmount = toNumber(investment.tokenAmount);
         const earnedRewards = toNumber(investment.earnedRewards);
+        const pendingRewards = toNumber(investment.pendingRewards);
         const tokenPrice = toNumber(investment.hotelAsset.tokenPrice);
         const apy = toNumber(investment.hotelAsset.apy);
         const currentValue = tokenAmount * tokenPrice;
-        const profitLoss = earnedRewards - amount;
-        const profitLossPercentage = amount > 0 ? (earnedRewards / amount) * 100 : 0;
+        const profitLoss = earnedRewards - investedAmount;
+        const profitLossPercentage = investedAmount > 0 ? (earnedRewards / investedAmount) * 100 : 0;
         const daysInvested = Math.floor((Date.now() - investment.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-        const estimatedAnnualReturn = amount * (apy / 100);
+        const estimatedAnnualReturn = investedAmount * (apy / 100);
         res.json({
             success: true,
             data: {
                 ...investment,
+                platformFee,
+                netInvested: investedAmount,
                 metrics: {
                     currentValue,
                     profitLoss,
                     profitLossPercentage: profitLossPercentage.toFixed(2),
                     daysInvested,
-                    estimatedAnnualReturn
+                    estimatedAnnualReturn,
+                    pendingRewards
                 },
                 blockchainConfirmed: investment.blockchainStatus === 'MINTED'
             }
         });
     }
     catch (error) {
-        console.error('❌ Get investment error:', error);
+        console.error('Get investment error:', error);
         res.status(500).json({ success: false, error: "Server error" });
     }
 };
@@ -546,10 +610,10 @@ const updateInvestment = async (req, res) => {
                 error: "Valid amount is required"
             });
         }
-        if (newAmount < 100) {
+        if (newAmount < 1) {
             return res.status(400).json({
                 success: false,
-                error: "Minimum investment is $100"
+                error: "Minimum investment is $1"
             });
         }
         if (investment.hotelAsset.status !== 'ACTIVE') {

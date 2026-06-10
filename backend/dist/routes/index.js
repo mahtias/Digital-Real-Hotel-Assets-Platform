@@ -13,6 +13,11 @@ const bookingRoutes_1 = __importDefault(require("./bookingRoutes"));
 const proposalRoutes_1 = __importDefault(require("./proposalRoutes"));
 const stakingRoutes_1 = __importDefault(require("./stakingRoutes"));
 const esgRewardRoutes_1 = __importDefault(require("./esgRewardRoutes"));
+const qloRoutes_1 = __importDefault(require("./qloRoutes"));
+const settlementRoutes_1 = __importDefault(require("./settlementRoutes"));
+const paymentRoutes_1 = __importDefault(require("./paymentRoutes"));
+const revenueRoutes_1 = __importDefault(require("./revenueRoutes"));
+const adminRoutes_1 = __importDefault(require("./adminRoutes"));
 const router = (0, express_1.Router)();
 router.get('/health', (req, res) => {
     res.json({
@@ -27,9 +32,14 @@ router.use('/kyc', kycRoutes_1.default);
 router.use('/user', userRoutes_1.default);
 router.use('/hotels', hotelAssetRoutes_1.default);
 router.use('/investments', investmentRoutes_1.default);
-router.use('/book', bookingRoutes_1.default);
+router.use('/bookings', bookingRoutes_1.default);
 router.use('/proposals', proposalRoutes_1.default);
 router.use('/staking', stakingRoutes_1.default);
 router.use('/esgreward', esgRewardRoutes_1.default);
+router.use('/webhook', qloRoutes_1.default);
+router.use('/payments', paymentRoutes_1.default);
+router.use('/settlements', settlementRoutes_1.default);
+router.use('/admin/revenue', revenueRoutes_1.default);
+router.use('/admin', adminRoutes_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

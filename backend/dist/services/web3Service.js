@@ -10,6 +10,10 @@ const KYCRegistry_json_1 = __importDefault(require("../../../out/KYCRegistry.sol
 const HotelAssetManager_json_1 = __importDefault(require("../../../out/HotelAssetManager.sol/HotelAssetManager.json"));
 const HotelInvestment_json_1 = __importDefault(require("../../../out/HotelInvestment.sol/HotelInvestment.json"));
 const HotelAssetToken_json_1 = __importDefault(require("../../../out/HotelAssetToken.sol/HotelAssetToken.json"));
+const stablecoinService_1 = require("./stablecoinService");
+const USDC_ABI = [
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
 const KYC_CONFIG = {
     LARGE_INVESTMENT_THRESHOLD: 1000,
     BLOCKCHAIN_CACHE_HOURS: 24,
@@ -29,6 +33,16 @@ class Web3Service {
         this.kycContract = this.initializeKycContract();
         this.hotelAssetManager = this.initializeAssetManager();
         this.hotelInvestment = this.initializeInvestmentContract();
+    }
+    async getReceiptWithRetry(txHash, retries = 5, delayMs = 2000) {
+        for (let i = 0; i < retries; i++) {
+            const receipt = await this.provider.getTransactionReceipt(txHash);
+            if (receipt)
+                return receipt;
+            console.log(`Receipt not found yet, retry ${i + 1}/${retries}`);
+            await new Promise((res) => setTimeout(res, delayMs));
+        }
+        return null;
     }
     initializeProvider() {
         const rpc = process.env.BASE_SEPOLIA_RPC || process.env.RPC_URL;
@@ -51,6 +65,11 @@ class Web3Service {
             throw new Error(" Missing KYC_CONTRACT_ADDRESS in .env");
         const contract = new ethers_1.ethers.Contract(address, KYCRegistry_json_1.default.abi, this.signer);
         console.log(' KYC connected:', address);
+        console.log("KYC Contract Functions:", contract.interface.fragments
+            .filter((f) => f.type === "function")
+            .map((f) => f.name));
+        const approveFn = contract.interface.getFunction("approveKYC");
+        console.log("approveKYC signature:", approveFn?.format());
         return contract;
     }
     initializeAssetManager() {
@@ -129,12 +148,23 @@ class Web3Service {
     async registerKyc(address, hash) {
         try {
             console.log(` Registering KYC for ${address}...`);
-            const tx = await this.kycContract.registerUser(address, hash, {
+            const level = 1;
+            const expiresAt = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+            const verifierRole = await this.kycContract.VERIFIER_ROLE();
+            const hasRole = await this.kycContract.hasRole(verifierRole, this.signer.address);
+            const paused = await this.kycContract.paused();
+            console.log("Signer has VERIFIER_ROLE:", hasRole);
+            console.log("KYC contract paused:", paused);
+            if (!hasRole)
+                throw new Error("Signer does not have VERIFIER_ROLE");
+            if (paused)
+                throw new Error("KYC contract is currently paused");
+            const tx = await this.kycContract.approveKYC(address, level, expiresAt, {
                 gasLimit: GAS_LIMITS.KYC_REGISTER
             });
-            console.log('   Tx sent:', tx.hash);
+            console.log(" Tx sent:", tx.hash);
             const receipt = await tx.wait();
-            console.log('  KYC registered:', receipt.hash);
+            console.log(" KYC approved on blockchain:", receipt.hash);
             await database_1.default.user.update({
                 where: { walletAddress: address.toLowerCase() },
                 data: {
@@ -148,7 +178,7 @@ class Web3Service {
             return receipt.hash;
         }
         catch (error) {
-            console.error(' KYC registration failed:', error.message);
+            console.error(" KYC registration failed:", error.message);
             await database_1.default.user.update({
                 where: { walletAddress: address.toLowerCase() },
                 data: {
@@ -159,94 +189,79 @@ class Web3Service {
             throw error;
         }
     }
-    async registerKycWithRetry(userAddress, documentHash, maxRetries = 3) {
-        let lastError = null;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                console.log(` Attempt ${attempt}/${maxRetries}...`);
-                const txHash = await this.registerKyc(userAddress, documentHash);
-                console.log(`   Success on attempt ${attempt}`);
-                return txHash;
-            }
-            catch (error) {
-                lastError = error;
-                console.error(` Attempt ${attempt} failed:`, error.message);
-                if (error.message.includes('already registered') ||
-                    error.message.includes('invalid address') ||
-                    error.message.includes('invalid document hash')) {
-                    console.log(`    Non-retryable error, stopping retries`);
-                    throw error;
-                }
-                if (attempt < maxRetries) {
-                    const delayMs = KYC_CONFIG.SYNC_RETRY_DELAY * attempt;
-                    console.log(`  Waiting ${delayMs}ms before retry...`);
-                    await this.delay(delayMs);
-                }
-            }
-        }
-        throw new Error(`KYC registration failed after ${maxRetries} attempts: ${lastError?.message}`);
-    }
     async syncAllPendingKycs() {
         try {
-            console.log('\n Starting bulk KYC sync to blockchain...');
+            console.log('\nStarting bulk KYC sync to blockchain...');
             const pendingUsers = await database_1.default.user.findMany({
                 where: {
                     kycStatus: 'APPROVED',
                     kycBlockchainSynced: false,
-                    walletAddress: { not: null }
+                    walletAddress: { not: null },
                 },
                 select: {
                     id: true,
                     walletAddress: true,
                     kycDocumentHash: true,
-                    email: true
-                }
+                    email: true,
+                },
             });
             if (pendingUsers.length === 0) {
-                console.log(' No pending KYC syncs needed');
+                console.log('No pending KYC syncs needed');
                 return { synced: 0, failed: 0 };
             }
-            console.log(` Found ${pendingUsers.length} users to sync`);
+            console.log(`Found ${pendingUsers.length} users to sync`);
             let synced = 0;
             let failed = 0;
             for (const user of pendingUsers) {
-                try {
-                    if (!user.walletAddress) {
-                        console.log(` Skipping ${user.email}: No wallet address`);
-                        failed++;
-                        continue;
-                    }
-                    const hash = user.kycDocumentHash || ethers_1.ethers.keccak256(ethers_1.ethers.toUtf8Bytes(`kyc-${user.id}-${Date.now()}`));
-                    console.log(`\n Syncing KYC for: ${user.email}`);
-                    console.log(`   Wallet: ${user.walletAddress}`);
-                    const txHash = await this.registerKycWithRetry(user.walletAddress, hash);
-                    await database_1.default.user.update({
-                        where: { id: user.id },
-                        data: {
-                            kycBlockchainSynced: true,
-                            kycBlockchainTxHash: txHash,
-                            kycLastVerified: new Date(),
-                            kycDocumentHash: hash,
-                            updatedAt: new Date()
-                        }
-                    });
-                    synced++;
-                    console.log(`  Synced successfully (tx: ${txHash.slice(0, 10)}...)`);
-                    await this.delay(2000);
-                }
-                catch (error) {
+                if (!user.walletAddress) {
+                    console.log(`Skipping ${user.email}: No wallet address`);
                     failed++;
-                    console.error(`  Failed to sync ${user.email}:`, error.message);
                     continue;
                 }
+                const hash = user.kycDocumentHash ||
+                    ethers_1.ethers.keccak256(ethers_1.ethers.toUtf8Bytes(`kyc-${user.id}-${Date.now()}`));
+                console.log(`\nSyncing KYC for: ${user.email}`);
+                console.log(`   Wallet: ${user.walletAddress}`);
+                let attempts = 0;
+                let txHash = null;
+                while (attempts < 3 && !txHash) {
+                    attempts++;
+                    try {
+                        txHash = await this.registerKyc(user.walletAddress, hash);
+                    }
+                    catch (error) {
+                        console.warn(`Attempt ${attempts} failed for ${user.email}: ${error.message}`);
+                        if (attempts < 3) {
+                            await this.delay(2000);
+                        }
+                    }
+                }
+                if (!txHash) {
+                    console.error(`Failed to sync ${user.email} after 3 attempts`);
+                    failed++;
+                    continue;
+                }
+                await database_1.default.user.update({
+                    where: { id: user.id },
+                    data: {
+                        kycBlockchainSynced: true,
+                        kycBlockchainTxHash: txHash,
+                        kycLastVerified: new Date(),
+                        kycDocumentHash: hash,
+                        updatedAt: new Date(),
+                    },
+                });
+                synced++;
+                console.log(`Synced successfully (tx: ${txHash.slice(0, 10)}...)`);
+                await this.delay(2000);
             }
-            console.log('\n Bulk sync completed:');
+            console.log('\nBulk KYC sync completed:');
             console.log(`   ✓ Success: ${synced}`);
             console.log(`   ✗ Failed: ${failed}`);
             return { synced, failed };
         }
         catch (error) {
-            console.error(' Bulk KYC sync failed:', error.message);
+            console.error('Bulk KYC sync failed:', error.message);
             throw error;
         }
     }
@@ -257,13 +272,13 @@ class Web3Service {
         try {
             const hotel = await database_1.default.hotelAsset.findUnique({
                 where: { id: hotelId },
-                select: { tokenId: true, name: true }
+                select: { blockchainId: true, name: true }
             });
-            if (!hotel?.tokenId) {
+            if (!hotel?.blockchainId) {
                 throw new Error(`Hotel ${hotelId} not found or not tokenized`);
             }
-            const hotelData = await this.hotelAssetManager.getHotel(hotel.tokenId);
-            const tokenAddress = hotelData.assetToken;
+            const hotelData = await this.hotelAssetManager.getHotel(hotel.blockchainId);
+            const tokenAddress = hotelData.tokenContract;
             if (tokenAddress === ethers_1.ethers.ZeroAddress) {
                 throw new Error(`Hotel ${hotel.name} has no asset token deployed`);
             }
@@ -284,7 +299,7 @@ class Web3Service {
         this.tokenContractCache.set(hotelId, contract);
         return contract;
     }
-    async processInvestment(hotelId, userAddress, usdcAmount) {
+    async processInvestment(hotelId, userAddress, stableAmount, paymentToken = "USDC") {
         try {
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             console.log('💰 PROCESSING INVESTMENT');
@@ -293,15 +308,15 @@ class Web3Service {
                 where: { id: hotelId },
                 select: {
                     id: true,
-                    tokenId: true,
+                    blockchainId: true,
                     name: true,
                     tokenPrice: true
                 }
             });
-            if (!hotel?.tokenId) {
+            if (!hotel?.blockchainId) {
                 throw new Error(`Hotel ${hotelId} not found`);
             }
-            const amountUSD = parseFloat(usdcAmount);
+            const amountUSD = parseFloat(stableAmount);
             console.log(` Hotel: ${hotel.name}`);
             console.log(` Investment: $${amountUSD} USDC`);
             const requiresBlockchainCheck = amountUSD >= KYC_CONFIG.LARGE_INVESTMENT_THRESHOLD;
@@ -329,12 +344,21 @@ class Web3Service {
                 }
             }
             console.log('✅ KYC verification passed');
-            const usdcAmountWei = ethers_1.ethers.parseUnits(usdcAmount, 6);
-            console.log(` USDC (wei): ${usdcAmountWei.toString()}`);
             const tokenAmount = amountUSD / Number(hotel.tokenPrice);
             console.log(` Expected tokens: ${tokenAmount.toFixed(2)}`);
+            stablecoinService_1.StablecoinService.validateToken(paymentToken, "INVESTMENT");
+            const stablecoin = stablecoinService_1.StablecoinService.getStablecoin(paymentToken);
+            const amountWei = ethers_1.ethers.parseUnits(stableAmount, stablecoin.decimals);
+            console.log(` USDC (wei): ${amountWei.toString()}`);
+            if (!stablecoin.allowInvestments) {
+                throw new Error(`${stablecoin.symbol} is not allowed for investments`);
+            }
+            if (stablecoin.complianceTier === "BANK_GRADE") {
+                console.log("🏦 Bank-grade investment detected:", stablecoin.symbol);
+            }
+            console.log(" Stablecoin approved:", stablecoin.symbol);
             console.log(' Calling HotelInvestment.invest()...');
-            const tx = await this.hotelInvestment.invest(hotel.tokenId, usdcAmountWei, { gasLimit: GAS_LIMITS.INVESTMENT });
+            const tx = await this.hotelInvestment.invest(hotel.blockchainId, amountWei, { gasLimit: GAS_LIMITS.INVESTMENT });
             console.log('   Tx sent:', tx.hash);
             console.log('   Waiting for confirmation...');
             const receipt = await tx.wait();
@@ -346,7 +370,7 @@ class Web3Service {
             console.log(' Gas Used:', receipt.gasUsed.toString());
             console.log(' Investor:', userAddress);
             console.log(' Hotel:', hotel.name);
-            console.log(' USDC Invested:', usdcAmount);
+            console.log(' USDC Invested:', stableAmount);
             console.log(' Tokens Minted:', tokenAmount.toFixed(2));
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             return receipt.hash;
@@ -391,11 +415,11 @@ class Web3Service {
     async getAllHotelTokenBalances(userAddress) {
         try {
             const hotels = await database_1.default.hotelAsset.findMany({
-                where: { tokenId: { gt: 0 } },
+                where: { blockchainId: { gt: 0 } },
                 select: {
                     id: true,
                     name: true,
-                    tokenId: true
+                    blockchainId: true
                 }
             });
             console.log(` Checking balances for ${hotels.length} tokenized hotels`);
@@ -439,6 +463,66 @@ class Web3Service {
     clearTokenCache() {
         this.tokenContractCache.clear();
         console.log(' Token contract cache cleared');
+    }
+    async verifyStablecoinTransfer(txHash, expectedAmount, expectedReceiver, stablecoin) {
+        const receipt = await this.getReceiptWithRetry(txHash);
+        if (!receipt) {
+            console.error("Transaction receipt not found after retries");
+            throw new Error("Transaction not found or not mined yet");
+        }
+        if (receipt.status !== 1) {
+            console.error("Transaction receipt indicates failure", receipt);
+            throw new Error("Transaction failed on-chain");
+        }
+        const stablecoinInterface = new ethers_1.ethers.Interface(USDC_ABI);
+        let foundAnyTransfer = false;
+        let foundMatchingReceiver = false;
+        for (const log of receipt.logs) {
+            if (!log.address || log.address.toLowerCase() !== stablecoin.address.toLowerCase())
+                continue;
+            try {
+                const parsed = stablecoinInterface.parseLog(log);
+                if (!parsed || parsed.name !== "Transfer")
+                    continue;
+                const from = parsed.args.from;
+                const to = parsed.args.to;
+                const value = parsed.args.value;
+                foundAnyTransfer = true;
+                console.log(`${stablecoin.symbol} Transfer Found:`, {
+                    from,
+                    to,
+                    value: value.toString(),
+                    expectedAmount: expectedAmount.toString(),
+                });
+                if (to.toLowerCase() !== expectedReceiver.toLowerCase())
+                    continue;
+                foundMatchingReceiver = true;
+                if (process.env.NODE_ENV !== "development" && value < expectedAmount) {
+                    throw new Error(`Insufficient ${stablecoin.symbol} payment. Expected: ${expectedAmount.toString()}, Got: ${value.toString()}`);
+                }
+                return {
+                    sender: from,
+                    receiver: to,
+                    amount: value,
+                };
+            }
+            catch (err) {
+                console.warn("Failed to parse log:", err.message ?? err);
+                continue;
+            }
+        }
+        if (!foundAnyTransfer) {
+            console.error(`No ${stablecoin.symbol} Transfer events found`);
+            throw new Error(`No ${stablecoin.symbol} Transfer events found in transaction`);
+        }
+        if (!foundMatchingReceiver) {
+            console.error(`${stablecoin.symbol} Transfer exists but not to expected receiver`, {
+                expectedReceiver,
+                logs: receipt.logs,
+            });
+            throw new Error(`${stablecoin.symbol} Transfer found, but not sent to expected receiver`);
+        }
+        throw new Error(`${stablecoin.symbol} transfer verification failed`);
     }
 }
 exports.Web3Service = Web3Service;

@@ -55,17 +55,18 @@ export const createBooking = async (req: Request, res: Response) => {
       });
     }
 
-    // Prevent overlapping booking
-    const conflict = await prisma.booking.findFirst({
-      where: {
-        hotelAssetId,
-        status: { not: "CANCELLED" },
-        AND: [
-          { checkInDate: { lte: checkOut } },
-          { checkOutDate: { gte: checkIn } },
-        ],
-      },
-    });
+    // Prevent overlapping booking for the SAME room type
+      const conflict = await prisma.booking.findFirst({
+        where: {
+          hotelAssetId,
+          roomType, // ADDED: Checks overlap ONLY if it's the same room category!
+          status: { not: "CANCELLED" },
+          AND: [
+            { checkInDate: { lte: checkOut } },
+            { checkOutDate: { gte: checkIn } },
+          ],
+        },
+      });
 
     if (conflict) {
       return res.status(409).json({
@@ -377,39 +378,48 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       return { updatedBooking };
     });
 
-    // 4️⃣ SYNC TO PMS (QloApps)
-    let pmsOrderDetails = null;
-    try {
-      const amountNumber =
-        booking.totalPrice instanceof Prisma.Decimal
-          ? booking.totalPrice.toNumber()
-          : Number(booking.totalPrice);
+  // 4️⃣ SYNC TO PMS (QloApps)
+let pmsOrderDetails = null;
+try {
+  const amountNumber =
+    booking.totalPrice instanceof Prisma.Decimal
+      ? booking.totalPrice.toNumber()
+      : Number(booking.totalPrice);
 
-      const ROOM_TYPE_MAP: Record<string, number> = {
-        standard: 1,
-        deluxe: 2,
-        executive: 3,
-        suite: 4,
-      };
+  // ⚡ CUSTOM REPLACEMENT START HERE
+  const qloHotelId = booking.hotelAsset?.qloHotelId;
 
-      const qloHotelId = booking.hotelAsset?.qloHotelId;
-      
-      const roomTypeId = ROOM_TYPE_MAP[booking.roomType];
+  // ⚡ DYNAMIC MAPPING: Matches room IDs relative to the specific Qlo Hotel ID
+  let roomTypeId = null;
+  if (Number(qloHotelId) === 1) {
+    // Mountain View Lodge Rules
+    if (booking.roomType === "standard") roomTypeId = 1;
+    if (booking.roomType === "deluxe") roomTypeId = 2;
+  } else if (Number(qloHotelId) === 13 || Number(qloHotelId) === 14) {
+    // Marina Bay Sands Rules
+    if (booking.roomType === "standard") roomTypeId = 13;
+    if (booking.roomType === "deluxe") roomTypeId = 14;
+  } else {
+    // Fallback defaults
+    const ROOM_TYPE_MAP: Record<string, number> = { standard: 1, deluxe: 2 };
+    roomTypeId = ROOM_TYPE_MAP[booking.roomType];
+  }
 
-      if (!roomTypeId || !qloHotelId) throw new Error("Missing QloApps mapping");
+  if (!roomTypeId || !qloHotelId) throw new Error(`Missing QloApps mapping for Hotel ${qloHotelId}, Room ${booking.roomType}`);
+  //  CUSTOM REPLACEMENT END HERE
 
-     pmsOrderDetails = await qloService.createBookingInPMS({
-        email: booking.user.email,
-        firstName: booking.user.firstName || "Web3",
-        lastName: booking.user.lastName || "Investor",
-        amount: amountNumber,
-        hotelId: qloHotelId,
-        roomTypeId,
-        dateFrom: booking.checkInDate.toISOString().split("T")[0],
-        dateTo: booking.checkOutDate.toISOString().split("T")[0],
-      });
+ pmsOrderDetails = await qloService.createBookingInPMS({
+    email: booking.user.email,
+    firstName: booking.user.firstName || "Web3",
+    lastName: booking.user.lastName || "Investor",
+    amount: amountNumber,
+    hotelId: qloHotelId,
+    roomTypeId,
+    dateFrom: booking.checkInDate.toISOString().split("T")[0],
+    dateTo: booking.checkOutDate.toISOString().split("T")[0],
+  });
 
-      console.log("Qlo PMS response:", JSON.stringify(pmsOrderDetails, null, 2));
+  console.log("Qlo PMS response:", JSON.stringify(pmsOrderDetails, null, 2));
 
       const qloOrderId =
       typeof pmsOrderDetails === "string" || typeof pmsOrderDetails === "number"

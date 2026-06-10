@@ -1,1 +1,1 @@
-{"version":3,"file":"kycSyncJob.d.ts","sourceRoot":"","sources":["../../src/jobs/kycSyncJob.ts"],"names":[],"mappings":"AAUA,wBAAgB,eAAe,SAyB9B;AAKD,wBAAsB,cAAc;;;GAiBnC;AAKD,wBAAgB,mBAAmB,SAalC;AAeD,wBAAgB,cAAc,SAG7B"}
+{"version":3,"file":"kycSyncJob.d.ts","sourceRoot":"","sources":["../../src/jobs/kycSyncJob.ts"],"names":[],"mappings":"AAYA,wBAAgB,eAAe,SAgC9B;AAKC,wBAAsB,cAAc;;;GAiBnC;AAKD,wBAAgB,mBAAmB,SAalC;AAeD,wBAAgB,cAAc,SAG7B"}

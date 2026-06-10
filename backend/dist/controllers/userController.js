@@ -229,8 +229,12 @@ const confirmAllInvestments = async (req, res) => {
 exports.confirmAllInvestments = confirmAllInvestments;
 const updateWalletAddress = async (req, res) => {
     try {
+        console.log("=== UPDATE WALLET ===");
+        console.log("req.user:", req.user);
         const { walletAddress } = req.body;
         const userId = req.user?.userId;
+        console.log("userId:", userId);
+        console.log("body:", req.body);
         console.log(' Updating wallet for user:', userId);
         console.log(' New wallet address:', walletAddress);
         if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {

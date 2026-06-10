@@ -8,6 +8,8 @@ const client_1 = require("@prisma/client");
 const ethers_1 = require("ethers");
 const ethers_2 = require("ethers");
 const KYCRegistry_json_1 = __importDefault(require("../../../out/KYCRegistry.sol/KYCRegistry.json"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 const provider = new ethers_2.ethers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers_2.ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const kycContract = new ethers_2.ethers.Contract(process.env.KYC_CONTRACT_ADDRESS, KYCRegistry_json_1.default.abi, wallet);
@@ -32,14 +34,9 @@ class KYCService {
             }
             const buffer = Buffer.from(data.documentFileBase64, "base64");
             const documentHash = (0, ethers_1.keccak256)(buffer);
-            let tx;
-            try {
-                tx = await kycContract.submitKYC(data.kycLevel, documentHash);
-                await tx.wait();
-            }
-            catch (blockchainError) {
-                console.error(' Blockchain submission failed:', blockchainError);
-                throw new Error(`Blockchain error: ${blockchainError.message}`);
+            const txHash = await this.submitKYCOnChain(user.walletAddress, documentHash, data.kycLevel);
+            if (txHash === "already-submitted") {
+                console.log("⚠ KYC already exists on-chain, skipping submission");
             }
             await database_1.default.kyc.deleteMany({ where: { userId } });
             const kyc = await database_1.default.kyc.create({
@@ -87,16 +84,16 @@ class KYCService {
                 throw new Error("Unauthorized: only admins can review KYC.");
             }
             const validityInSeconds = 365 * 24 * 60 * 60;
-            let tx;
+            const now = new Date();
             if (reviewData.status === client_1.KycStatus.APPROVED) {
-                const expiresAt = new Date(Date.now() + validityInSeconds * 1000);
+                const expiresAt = new Date(now.getTime() + validityInSeconds * 1000);
                 const updated = await database_1.default.kyc.update({
                     where: { id: kycId },
                     data: {
                         status: client_1.KycStatus.APPROVED,
                         rejectionReason: null,
                         reviewedBy: adminId,
-                        reviewedAt: new Date(),
+                        reviewedAt: now,
                         expiresAt
                     }
                 });
@@ -107,58 +104,46 @@ class KYCService {
                 console.log("✅ Database approval successful");
                 if (kyc.user.walletAddress) {
                     try {
-                        const txHash = await kycContract.verifyUser(kyc.user.walletAddress);
-                        console.log("✅ Blockchain approval tx:", txHash);
+                        const txHash = await this.verifyUser(kyc.user.walletAddress, 1, kyc.documentHash || undefined);
+                        console.log("🔗 Blockchain verification result:", txHash);
                         await database_1.default.kyc.update({
                             where: { id: kycId },
                             data: { blockchainTx: txHash }
                         });
                     }
                     catch (blockchainError) {
-                        console.error("⚠ Blockchain failed but admin approval kept:", blockchainError.message);
+                        console.error("⚠ Blockchain verification failed, keeping DB approval:", blockchainError.message);
                     }
                 }
                 return updated;
             }
             if (reviewData.status === client_1.KycStatus.REJECTED) {
                 const reason = reviewData.reason || "Not provided";
-                if (kyc.user.walletAddress) {
-                    try {
-                        console.log('⚠️  Rejection not yet implemented on blockchain');
+                const updated = await database_1.default.kyc.update({
+                    where: { id: kycId },
+                    data: {
+                        status: client_1.KycStatus.REJECTED,
+                        rejectionReason: reason,
+                        reviewedBy: adminId,
+                        reviewedAt: now,
+                        expiresAt: null,
+                        blockchainTx: null
                     }
-                    catch (blockchainError) {
-                        console.error(' Blockchain rejection failed:', blockchainError);
-                        throw new Error(`Blockchain rejection error: ${blockchainError.message}`);
-                    }
-                }
+                });
+                await database_1.default.user.update({
+                    where: { id: kyc.userId },
+                    data: { kycStatus: client_1.KycStatus.REJECTED }
+                });
+                console.log("❌ KYC rejected:", reason);
+                return updated;
             }
-            const expiresAt = reviewData.status === client_1.KycStatus.APPROVED
-                ? new Date(Date.now() + validityInSeconds * 1000)
-                : null;
-            let blockchainTxHash = null;
-            const updated = await database_1.default.kyc.update({
-                where: { id: kycId },
-                data: {
-                    status: reviewData.status,
-                    rejectionReason: reviewData.reason || null,
-                    reviewedBy: adminId,
-                    reviewedAt: new Date(),
-                    expiresAt,
-                    blockchainTx: blockchainTxHash
-                }
-            });
-            await database_1.default.user.update({
-                where: { id: kyc.userId },
-                data: { kycStatus: reviewData.status }
-            });
-            return updated;
+            throw new Error("Invalid KYC review status");
         }
         catch (error) {
-            console.error(' reviewKYC error:', error);
+            console.error("reviewKYC error:", error);
             throw error;
         }
     }
-    ;
     async getKYCByUserId(userId) {
         return database_1.default.kyc.findUnique({
             where: { userId },
@@ -351,30 +336,53 @@ class KYCService {
             return false;
         }
     }
-    async verifyUser(walletAddress, level = 1) {
+    async submitKYCOnChain(walletAddress, documentHash, level = 1) {
         try {
-            console.log("🔗 Approving user on blockchain...");
             const status = Number(await kycContract.getKYCStatus(walletAddress));
-            console.log("📊 On-chain status:", status);
             const PENDING = 1;
-            const APPROVED = 2;
-            if (status === APPROVED) {
-                console.log("Already approved on-chain");
-                return "already-approved";
+            if (status !== 0) {
+                console.log("KYC already submitted on-chain or in another state:", status);
+                return "already-submitted";
             }
-            if (status !== PENDING) {
-                throw new Error("User has not submitted KYC on-chain");
-            }
-            const validityDuration = 365 * 24 * 60 * 60;
-            const approveTx = await kycContract.approveKYC(walletAddress, level, validityDuration);
-            await approveTx.wait();
-            console.log("✅ approveKYC successful");
-            return approveTx.hash;
+            console.log("🔗 Submitting KYC on-chain...");
+            const tx = await kycContract.submitKYC(level, documentHash);
+            await tx.wait();
+            console.log("✅ KYC submitted on-chain:", tx.hash);
+            return tx.hash;
         }
         catch (error) {
-            console.error("❌ Blockchain verification failed:", error);
-            throw new Error(`Blockchain verification failed: ${error.message}`);
+            console.error(" submitKYCOnChain error:", error);
+            throw new Error(`Blockchain KYC submission failed: ${error.message}`);
         }
+    }
+    async verifyUser(walletAddress, level = 1, documentHash) {
+        const PENDING = 1;
+        const APPROVED = 2;
+        const onChainStatus = Number(await kycContract.getKYCStatus(walletAddress));
+        console.log("📊 On-chain status:", onChainStatus);
+        if (onChainStatus === APPROVED)
+            return "already-approved";
+        if (onChainStatus === PENDING)
+            return "already-pending";
+        if (onChainStatus === 0) {
+            if (!documentHash)
+                throw new Error("Document hash required for initial KYC submission");
+            try {
+                const txHash = await this.submitKYCOnChain(walletAddress, documentHash, level);
+                return txHash;
+            }
+            catch (err) {
+                if (err.message.includes("already pending or approved")) {
+                    console.warn("⚠ KYC already exists on-chain, skipping submit");
+                    return "already-on-chain";
+                }
+                throw err;
+            }
+        }
+        const validityDuration = 365 * 24 * 60 * 60;
+        const approveTx = await kycContract.approveKYC(walletAddress, level, validityDuration);
+        await approveTx.wait();
+        return approveTx.hash;
     }
 }
 exports.default = new KYCService();

@@ -6,4 +6,6 @@ export declare const getBookingsByHotelAsset: (req: Request, res: Response) => P
 export declare const updateBookingStatus: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const cancelBooking: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const deleteBooking: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const confirmBookingPayment: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const getAllBookingsAdmin: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=bookingController.d.ts.map

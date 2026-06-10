@@ -5,10 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getKYCStatistics = exports.getKYCStatus = exports.checkKYCStatus = exports.getPendingKYCs = exports.deleteKYC = exports.updateKYC = exports.reviewKYC = exports.getAllKYC = exports.getKYCById = exports.submitKYC = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const ethers_1 = require("ethers");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const sendAdminKycEmail_1 = require("../utils/sendAdminKycEmail");
 const kyc_1 = __importDefault(require("../blockchain/kyc"));
+const web3Service_1 = require("../services/web3Service");
 const uploadDir = path_1.default.join(__dirname, '../../uploads/kyc');
 const deleteFile = (fileName) => {
     if (!fileName)
@@ -44,8 +46,14 @@ const submitKYC = async (req, res) => {
             selfieImage: files?.selfieImage?.[0]?.filename ?? null,
             addressProof: files?.addressProof?.[0]?.filename ?? null,
         };
+        const filePath = path_1.default.join(uploadDir, files.documentFront[0].filename);
+        const buffer = fs_1.default.readFileSync(filePath);
+        const documentHash = (0, ethers_1.keccak256)(buffer);
         const kycRecord = await database_1.default.kyc.create({
-            data,
+            data: {
+                ...data,
+                documentHash
+            }
         });
         await database_1.default.user.update({
             where: { id: userId },
@@ -153,7 +161,7 @@ const reviewKYC = async (req, res) => {
                 where: { id: updated.userId },
                 data: { kycStatus: "REJECTED" }
             });
-            console.log('❌ KYC Rejected');
+            console.log(' KYC Rejected');
             return res.json({
                 success: true,
                 data: updated,
@@ -161,53 +169,40 @@ const reviewKYC = async (req, res) => {
             });
         }
         if (status === "APPROVED") {
-            if (!kycRecord.user.walletAddress) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'User wallet address not found. Cannot verify on blockchain.'
-                });
-            }
-            console.log('🔗 Verifying user on blockchain...');
-            let txHash;
+            const { walletAddress } = kycRecord.user;
+            if (!walletAddress)
+                throw new Error('User wallet address missing');
+            if (!kycRecord.documentHash)
+                throw new Error('Document hash missing');
+            let txHash = null;
             try {
-                txHash = await kyc_1.default.verifyUser(kycRecord.user.walletAddress);
-                console.log('✅ Blockchain verification result:', txHash);
-                if (txHash === "already-approved") {
-                    console.log(' User already approved on-chain');
-                    let txHash;
-                }
-                data.rejectionReason = null;
-                data.approvedAt = new Date();
-                data.blockchainTx = txHash;
+                txHash = await web3Service_1.web3Service.registerKyc(walletAddress, kycRecord.documentHash);
+                console.log('Blockchain KYC synced, txHash:', txHash);
             }
-            catch (blockchainError) {
-                console.error(' Blockchain verification failed:', blockchainError.message);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Blockchain verification failed',
-                    error: blockchainError.message
-                });
+            catch (err) {
+                console.error('Blockchain sync failed:', err instanceof Error ? err.message : err);
             }
             const updated = await database_1.default.kyc.update({
                 where: { id: kycId },
-                data
+                data: {
+                    ...data,
+                    approvedAt: new Date(),
+                    rejectionReason: null,
+                    blockchainTx: txHash
+                }
             });
             await database_1.default.user.update({
                 where: { id: updated.userId },
-                data: {
-                    kycStatus: "APPROVED",
-                    kycApprovedAt: new Date()
-                }
+                data: { kycStatus: 'APPROVED', kycApprovedAt: new Date() }
             });
-            console.log('💾 Database updated for approved KYC');
             return res.json({
                 success: true,
-                data: {
-                    ...updated,
-                    blockchainTx: txHash
-                },
-                message: 'KYC approved and verified on blockchain',
-                txHash: txHash
+                status: updated.status,
+                data: updated,
+                message: txHash
+                    ? 'KYC approved and synced to blockchain'
+                    : 'KYC approved but blockchain sync failed',
+                txHash
             });
         }
         return res.status(400).json({
@@ -216,7 +211,7 @@ const reviewKYC = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('❌ Review KYC error:', error);
+        console.error(' Review KYC error:', error);
         return res.status(500).json({
             success: false,
             message: error.message

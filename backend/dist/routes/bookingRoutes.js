@@ -5,9 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const bookingController_1 = require("../controllers/bookingController");
+const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
+router.use(auth_1.authenticate);
 router.post("/", bookingController_1.createBooking);
-router.get("/user/:userId", bookingController_1.getUserBookings);
+router.post("/confirm-payment", bookingController_1.confirmBookingPayment);
+router.get("/my", bookingController_1.getUserBookings);
 router.get("/asset/:assetId", bookingController_1.getBookingsByHotelAsset);
 router.get("/:id", bookingController_1.getBooking);
 router.put("/:id/status", bookingController_1.updateBookingStatus);
