@@ -133,8 +133,17 @@ async function runWeightedSeeder() {
           paymentMethod: "USDC"
         }),
       });
+
+      // === ADD THIS CODE PATCH RIGHT HERE ===
+      if (createRes.status === 409) {
+        console.log("⚠️ Room combo already booked (409 Conflict). Rolling new dates...");
+        await sleep(500); 
+        continue; // Skips the rest of this loop iteration and tries a fresh combo
+      }
       const createResult = await createRes.json();
-      if (!createResult.success) throw new Error(`Database Rejected Block: ${createResult.message}`);
+     if (!createRes.ok || !createResult.success) {
+        throw new Error(`Database Rejected Block: ${createResult?.message || createRes.statusText}`);
+      }
       const bookingId = createResult.data.id;
 
       // STEP 2: Payment Intent Setup
