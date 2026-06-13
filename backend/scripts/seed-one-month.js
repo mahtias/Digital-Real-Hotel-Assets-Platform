@@ -49,43 +49,16 @@ async function runWeightedSeeder() {
   console.log("====================================================");
 
   const TOTAL_TARGET_BOOKINGS = 200;
-  let successfulBookings = 0;
+  
+  // Hardcoded to bypass filled dates and resume clean execution tracks
+  let successfulBookings = 46; 
 
-  // --- NEW: DYNAMIC RECOVERY RESUME CHECK ---
-  try {
-    console.log("🔍 Checking database for existing bookings to resume progress...");
-    
-    // Generate a temporary token using your first user config to clear any Auth middleware
-    const checkToken = generateMockUserToken(USERS[0].id, USERS[0].role);
-    
-    const checkRes = await fetch(`${API_URL}/api/v1/bookings`, {
-      method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${checkToken}`
-      }
-    });
-    
-    const checkResult = await checkRes.json();
-    
-    // Check if the response returned an array of bookings successfully
-    if (checkResult.success && Array.isArray(checkResult.data)) {
-      successfulBookings = checkResult.data.length;
-      console.log(`✨ Sync Successful: Found ${successfulBookings} existing bookings in your database.`);
-    } else {
-      console.log("⚠️ Could not verify existing records dynamically (Invalid array format). Defaulting to 0.");
-    }
-  } catch (error) {
-    console.error(`❌ Recovery check failed: ${error.message}. Defaulting to 0.`);
-  }
-  // ------------------------------------------
+  console.log(`🚀 Resuming engine from manual checkpoint entry [${successfulBookings + 1}/${TOTAL_TARGET_BOOKINGS}]...\n`);
 
-  // Immediate exit safeguard if your database is already populated
+  // Immediate exit safeguard if your database target is already met
   if (successfulBookings >= TOTAL_TARGET_BOOKINGS) {
-    console.log(`\n🎉 Database already satisfies target metric (${successfulBookings}/${TOTAL_TARGET_BOOKINGS}). Stopping execution safely.`);
+    console.log(`\n🎉 Target metric satisfies constraints (${successfulBookings}/${TOTAL_TARGET_BOOKINGS}). Stopping execution safely.`);
     process.exit(0);
-  } else if (successfulBookings > 0) {
-    console.log(`🚀 Resuming engine seamlessly from status tracking entry [${successfulBookings + 1}/${TOTAL_TARGET_BOOKINGS}]...\n`);
   }
 
   while (successfulBookings < TOTAL_TARGET_BOOKINGS) {
@@ -134,14 +107,15 @@ async function runWeightedSeeder() {
         }),
       });
 
-      // === ADD THIS CODE PATCH RIGHT HERE ===
+      // Handle full room instances dynamically without crashing the script execution loops
       if (createRes.status === 409) {
         console.log("⚠️ Room combo already booked (409 Conflict). Rolling new dates...");
         await sleep(500); 
-        continue; // Skips the rest of this loop iteration and tries a fresh combo
+        continue; 
       }
+
       const createResult = await createRes.json();
-     if (!createRes.ok || !createResult.success) {
+      if (!createRes.ok || !createResult.success) {
         throw new Error(`Database Rejected Block: ${createResult?.message || createRes.statusText}`);
       }
       const bookingId = createResult.data.id;
