@@ -39,7 +39,6 @@ function generateMockUserToken(userId, role) {
   return jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: "10h" });
 }
 
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function runWeightedSeeder() {
@@ -51,6 +50,43 @@ async function runWeightedSeeder() {
 
   const TOTAL_TARGET_BOOKINGS = 200;
   let successfulBookings = 0;
+
+  // --- NEW: DYNAMIC RECOVERY RESUME CHECK ---
+  try {
+    console.log("🔍 Checking database for existing bookings to resume progress...");
+    
+    // Generate a temporary token using your first user config to clear any Auth middleware
+    const checkToken = generateMockUserToken(USERS[0].id, USERS[0].role);
+    
+    const checkRes = await fetch(`${API_URL}/api/v1/bookings`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${checkToken}`
+      }
+    });
+    
+    const checkResult = await checkRes.json();
+    
+    // Check if the response returned an array of bookings successfully
+    if (checkResult.success && Array.isArray(checkResult.data)) {
+      successfulBookings = checkResult.data.length;
+      console.log(`✨ Sync Successful: Found ${successfulBookings} existing bookings in your database.`);
+    } else {
+      console.log("⚠️ Could not verify existing records dynamically (Invalid array format). Defaulting to 0.");
+    }
+  } catch (error) {
+    console.error(`❌ Recovery check failed: ${error.message}. Defaulting to 0.`);
+  }
+  // ------------------------------------------
+
+  // Immediate exit safeguard if your database is already populated
+  if (successfulBookings >= TOTAL_TARGET_BOOKINGS) {
+    console.log(`\n🎉 Database already satisfies target metric (${successfulBookings}/${TOTAL_TARGET_BOOKINGS}). Stopping execution safely.`);
+    process.exit(0);
+  } else if (successfulBookings > 0) {
+    console.log(`🚀 Resuming engine seamlessly from status tracking entry [${successfulBookings + 1}/${TOTAL_TARGET_BOOKINGS}]...\n`);
+  }
 
   while (successfulBookings < TOTAL_TARGET_BOOKINGS) {
     //  Modifies day distribution to 20 days max (0 to 19 days offset from June 10)
