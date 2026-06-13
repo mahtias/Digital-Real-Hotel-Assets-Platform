@@ -62,22 +62,18 @@ async function runWeightedSeeder() {
   }
 
   while (successfulBookings < TOTAL_TARGET_BOOKINGS) {
-    //  Modifies day distribution to 20 days max (0 to 19 days offset from June 10)
-    const randomDayOffset = Math.floor(Math.random() * 20);
+  // === UPDATED: Expand random distribution to 90 days out to find vacant rooms easily ===
+    const randomDayOffset = Math.floor(Math.random() * 90); 
     
-    // Calculate how many days are left in June from this check-in day
-    const daysRemainingInMonth = 20 - randomDayOffset; 
-    
-    // Cap stay length (max 3 nights) so it never forces a checkout into July
-    const maxAllowedStay = Math.min(3, daysRemainingInMonth);
-    const stayDuration = maxAllowedStay > 1 ? Math.floor(Math.random() * maxAllowedStay) + 1 : 1;
+    // Simplified stay length: 1 to 3 nights stay
+    const stayDuration = Math.floor(Math.random() * 3) + 1;
 
     const targetHotel = getRandomElement(HOTELS);
     const room = getWeightedRoomType();
     const activeUser = getRandomElement(USERS);
     const authToken = generateMockUserToken(activeUser.id, activeUser.role);
 
-    // Date generation starting explicitly from June 10
+    // Date generation starting from today, projecting 90 days out into the future
     const checkInDate = new Date();
     checkInDate.setDate(checkInDate.getDate() + randomDayOffset);
     
@@ -85,6 +81,7 @@ async function runWeightedSeeder() {
     checkOutDate.setDate(checkOutDate.getDate() + stayDuration);
 
     const totalPrice = room.price * stayDuration;
+    // ===================================================================================
 
     console.log(`\n [Progress: ${successfulBookings + 1}/${TOTAL_TARGET_BOOKINGS}]`);
     console.log(`🏨 Hotel: ${targetHotel.id.substring(0,8)}... | Room: ${room.name.padEnd(8)} | Nights: ${stayDuration} | Cost: $${totalPrice} USDC`);
