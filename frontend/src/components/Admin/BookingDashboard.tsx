@@ -33,6 +33,15 @@ const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+const [limit] = useState(20);
+
+const [pagination, setPagination] = useState({
+  total: 0,totalPages: 0,hasNextPage: false,hasPrevPage: false,});
+
+const [search, setSearch] = useState("");
+const [paymentStatus, setPaymentStatus] = useState("");
+const [hotelId, setHotelId] = useState("");
 
   // ========================================
   // FETCH BOOKINGS
@@ -43,16 +52,24 @@ const navigate = useNavigate();
 
       const token = localStorage.getItem("token");
 
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/v1/admin/bookings`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+     const res = await axios.get(
+  `${import.meta.env.VITE_API_URL}/api/v1/admin/bookings`,
+  {
+    params: {
+  page,
+  limit,
+  search,
+  paymentStatus,
+  hotelId,
+   },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
-      setBookings(res.data);
+      setBookings(res.data.data);
+setPagination(res.data.pagination);
 
     } catch (err) {
       console.error("Failed to fetch bookings:", err);
@@ -61,9 +78,9 @@ const navigate = useNavigate();
     }
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
+useEffect(() => {
+  fetchBookings();
+}, [page, search, paymentStatus, hotelId]);
 
   // ========================================
   // SUMMARY
@@ -109,7 +126,7 @@ const navigate = useNavigate();
           </h2>
 
           <p className="text-4xl font-bold">
-            {bookings.length}
+            {pagination.total}
           </p>
         </div>
 
@@ -134,6 +151,52 @@ const navigate = useNavigate();
         </div>
 
       </div>
+
+      <div className="bg-white p-4 rounded-xl border mb-6">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    {/* Search */}
+    <input
+      type="text"
+      placeholder="Search booking code, email, guest..."
+      value={search}
+      onChange={(e) => {
+        setPage(1);
+        setSearch(e.target.value);
+      }}
+      className="border rounded-lg px-3 py-2"
+    />
+
+    {/* Payment Status */}
+    <select
+      value={paymentStatus}
+      onChange={(e) => {
+        setPage(1);
+        setPaymentStatus(e.target.value);
+      }}
+      className="border rounded-lg px-3 py-2"
+    >
+      <option value="">All Payments</option>
+      <option value="SUCCESS">Paid</option>
+      <option value="PENDING">Pending</option>
+      <option value="FAILED">Failed</option>
+    </select>
+
+    {/* Reset */}
+    <button
+      onClick={() => {
+        setSearch("");
+        setPaymentStatus("");
+        setHotelId("");
+        setPage(1);
+      }}
+      className="bg-gray-100 border rounded-lg px-3 py-2"
+    >
+      Reset Filters
+    </button>
+
+  </div>
+ </div>
 
       {/* BOOKINGS TABLE */}
       <div className="bg-white rounded-2xl shadow-lg border overflow-hidden">
@@ -284,6 +347,34 @@ const navigate = useNavigate();
               </tbody>
 
             </table>
+
+        <div className="flex items-center justify-between p-4 border-t">
+
+  <div className="text-sm text-gray-500">
+    Page {page} of {pagination.totalPages}
+  </div>
+
+  <div className="flex gap-2">
+
+    <button
+      disabled={!pagination.hasPrevPage}
+      onClick={() => setPage((p) => p - 1)}
+      className="px-4 py-2 border rounded disabled:opacity-50"
+    >
+      Previous
+    </button>
+
+    <button
+      disabled={!pagination.hasNextPage}
+      onClick={() => setPage((p) => p + 1)}
+      className="px-4 py-2 border rounded disabled:opacity-50"
+    >
+      Next
+    </button>
+
+  </div>
+
+</div>
 
           </div>
         )}

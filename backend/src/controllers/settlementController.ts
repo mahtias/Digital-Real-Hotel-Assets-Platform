@@ -42,60 +42,131 @@ export const getSettlementHistory = async (
   res: Response
 ) => {
   try {
-
-    const settlements = await prisma.settlement.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    const formatted = await Promise.all(
-      settlements.map(async (s) => {
-
-        // HOTEL
-        const hotel = await prisma.hotelAsset.findUnique({
-          where: {
-            id: s.hotelAssetId,
-          },
-          select: {
-            name: true,
-            location: true,
-          },
-        });
-
-        // BOOKING
-        const booking = await prisma.booking.findUnique({
-          where: {
-            id: s.bookingId,
-          },
-          select: {
-            bookingCode: true,
-          },
-        });
-
-        return {
-          id: s.id,
-
-          bookingCode: booking?.bookingCode,
-
-          hotelName: hotel?.name,
-          location: hotel?.location,
-
-          amount: Number(s.amount),
-
-          currency: s.currency,
-          status: s.status,
-
-          txHash: s.txHash,
-
-          hotelWallet: s.hotelWallet,
-
-          createdAt: s.createdAt,
-        };
-      })
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 20, 1),
+      100
     );
 
-    return res.json(formatted);
+    const skip = (page - 1) * limit;
+
+      const search = req.query.search as string;
+    const status   = req.query.status   as string;
+    const hotelId = req.query.hotelId as string;
+
+    
+    const where: any = {};
+        if (status && status !== "ALL") {
+      where.status = status;
+    }
+
+    if (hotelId) {
+      where.hotelAssetId = hotelId;
+    }
+
+    if (search) {
+  where.OR = [
+    {
+      txHash: {
+        contains: search,
+        mode: "insensitive",
+      },
+    },
+    {
+      hotelWallet: {
+        contains: search,
+        mode: "insensitive",
+      },
+    },
+    {
+      booking: {
+        bookingCode: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+    },
+    {
+      hotelAsset: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+    },
+  ];
+}
+
+    const [settlements, total] = await Promise.all([
+      prisma.settlement.findMany({
+        where,
+        skip,
+        take: limit,
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        include: {
+          booking: {
+            select: {
+              bookingCode: true,
+            },
+          },
+
+          hotelAsset: {
+            select: {
+              id: true,
+              name: true,
+              location: true,
+            },
+          },
+        },
+      }),
+
+      prisma.settlement.count({
+          where,
+        }),
+    ]);
+
+    const formatted = settlements.map((s) => ({
+      id: s.id,
+
+      bookingCode: s.booking?.bookingCode,
+
+      hotelName: s.hotelAsset?.name,
+      hotelLocation: s.hotelAsset?.location,
+
+      amount: Number(s.amount),
+
+      currency: s.currency,
+      status: s.status,
+
+      txHash: s.txHash,
+      hotelWallet: s.hotelWallet,
+
+      createdAt: s.createdAt,
+    }));
+
+    return res.json({
+      success: true,
+
+      data: formatted,
+
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
+      },
+      filters: {
+        status ,
+        hotelId,
+        search,
+      },
+    });
 
   } catch (err: any) {
 
@@ -105,5 +176,6 @@ export const getSettlementHistory = async (
       success: false,
       error: err.message,
     });
+
   }
 };

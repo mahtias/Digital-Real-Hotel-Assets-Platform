@@ -6,102 +6,183 @@ export const getHotelRevenue = async (
   res: Response
 ) => {
   try {
-
-    // GROUP BY HOTEL
-    const data = await prisma.booking.groupBy({
-
-      by: ["hotelAssetId"],
-
-      where: {
-        status: "PAID",
-      },
-
-      _sum: {
-        totalPrice: true,
-        platformFee: true,
-      },
-
-    });
-
-    const enriched = await Promise.all(
-
-      data.map(async (item) => {
-
-        // HOTEL INFO
-        const hotel = await prisma.hotelAsset.findUnique({
-          where: {
-            id: item.hotelAssetId,
-          },
-        });
-
-        // PENDING SETTLEMENTS
-        const pending = await prisma.settlement.aggregate({
-          where: {
-            hotelAssetId: item.hotelAssetId,
-            status: "PENDING",
-          },
-          _sum: {
-            amount: true,
-          },
-        });
-
-        // COMPLETED SETTLEMENTS
-        const completed = await prisma.settlement.aggregate({
-          where: {
-            hotelAssetId: item.hotelAssetId,
-            status: "COMPLETED",
-          },
-          _sum: {
-            amount: true,
-          },
-        });
-
-        // TOTAL REVENUE
-        const totalRevenue =
-          Number(item._sum.totalPrice || 0);
-
-        // PLATFORM FEES
-        const platformFees =
-          Number(item._sum.platformFee || 0);
-
-        // INVESTOR YIELD (10%)
-        const investorYield =
-          totalRevenue * 0.10;
-
-        // HOTEL NET REVENUE
-        const hotelNetRevenue =
-          totalRevenue -
-          platformFees -
-          investorYield;
-
-       return {
-              hotelId: item.hotelAssetId,
-              hotelName: hotel?.name || "Unknown Hotel",
-
-              totalRevenue,
-
-              platformFees,
-              platformFeeRate: 0.05, // 5% example (DEFINE YOUR RULE)
-
-              investorYield,
-              investorYieldRate: 0.10, // 10%
-
-              hotelNetRevenue,
-
-              pending: Number(pending._sum.amount || 0),
-              paid: Number(completed._sum.amount || 0),
-            };
-      })
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 20, 1),
+      100
     );
 
-    return res.json(enriched);
+    const skip = (page - 1) * limit;
+
+    const search = req.query.search as string;
+
+    const hotelWhere: any = {};
+
+    if (search) {
+      hotelWhere.name = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
+
+    const [hotels, total] = await Promise.all([
+      prisma.hotelAsset.findMany({
+        where: hotelWhere,
+
+        skip,
+        take: limit,
+
+        select: {
+          id: true,
+          name: true,
+        },
+
+        orderBy: {
+          name: "asc",
+        },
+      }),
+
+      prisma.hotelAsset.count({
+        where: hotelWhere,
+      }),
+    ]);
+
+    const hotelIds = hotels.map((h) => h.id);
+
+    const [revenues, pendingSettlements, completedSettlements] =
+      await Promise.all([
+        prisma.booking.groupBy({
+          by: ["hotelAssetId"],
+
+          where: {
+            hotelAssetId: {
+              in: hotelIds,
+            },
+            status: "PAID",
+          },
+
+          _sum: {
+            totalPrice: true,
+            platformFee: true,
+          },
+        }),
+
+        prisma.settlement.groupBy({
+          by: ["hotelAssetId"],
+
+          where: {
+            hotelAssetId: {
+              in: hotelIds,
+            },
+            status: "PENDING",
+          },
+
+          _sum: {
+            amount: true,
+          },
+        }),
+
+        prisma.settlement.groupBy({
+          by: ["hotelAssetId"],
+
+          where: {
+            hotelAssetId: {
+              in: hotelIds,
+            },
+            status: "COMPLETED",
+          },
+
+          _sum: {
+            amount: true,
+          },
+        }),
+      ]);
+
+    const revenueMap = new Map(
+      revenues.map((r) => [r.hotelAssetId, r])
+    );
+
+    const pendingMap = new Map(
+      pendingSettlements.map((p) => [
+        p.hotelAssetId,
+        Number(p._sum.amount || 0),
+      ])
+    );
+
+    const completedMap = new Map(
+      completedSettlements.map((p) => [
+        p.hotelAssetId,
+        Number(p._sum.amount || 0),
+      ])
+    );
+
+    const data = hotels.map((hotel) => {
+      const revenue = revenueMap.get(hotel.id);
+
+      const totalRevenue = Number(
+        revenue?._sum.totalPrice || 0
+      );
+
+      const platformFees = Number(
+        revenue?._sum.platformFee || 0
+      );
+
+      const investorYield = totalRevenue * 0.1;
+
+      const hotelNetRevenue =
+        totalRevenue -
+        platformFees -
+        investorYield;
+
+      return {
+        hotelId: hotel.id,
+        hotelName: hotel.name,
+
+        totalRevenue,
+
+        platformFees,
+        platformFeeRate: 0.05,
+
+        investorYield,
+        investorYieldRate: 0.1,
+
+        hotelNetRevenue,
+
+        pending:
+          pendingMap.get(hotel.id) || 0,
+
+        paid:
+          completedMap.get(hotel.id) || 0,
+      };
+    });
+
+    return res.json({
+      success: true,
+
+      data,
+
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
+      },
+
+      filters: {
+        search,
+      },
+    });
 
   } catch (err: any) {
 
     console.error("Revenue Error:", err);
 
     return res.status(500).json({
+      success: false,
       error: err.message,
     });
+
   }
 };

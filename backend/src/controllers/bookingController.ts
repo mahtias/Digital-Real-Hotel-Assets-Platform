@@ -499,46 +499,148 @@ export const getAllBookingsAdmin = async (
   res: Response
 ) => {
   try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 20, 1),
+      100
+    );
 
-    const bookings = await prisma.booking.findMany({
+    const skip = (page - 1) * limit;
 
-      orderBy: {
-        createdAt: "desc",
-      },
+    const search = req.query.search as string;
+    const paymentStatus  = req.query.paymentStatus  as string;
+    const hotelId = req.query.hotelId as string;
 
-      include: {
+   
 
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            walletAddress: true,
+    const where: any = {};
+
+    // Status filter
+    if (paymentStatus  && paymentStatus  !== "ALL") {
+      where.paymentStatus  = paymentStatus ;
+    }
+
+    // Hotel filter
+    if (hotelId) {
+      where.hotelAssetId = hotelId;
+    }
+
+    // Search filter
+    if (search) {
+      where.OR = [
+        {
+          bookingCode: {
+            contains: search,
+            mode: "insensitive",
           },
         },
-
-        hotelAsset: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
+        {
+          user: {
+            email: {
+              contains: search,
+              mode: "insensitive",
+            },
           },
         },
+        {
+          user: {
+            firstName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          user: {
+            lastName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          hotelAsset: {
+            name: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+      ];
+    }
 
-        settlements: true,
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        skip,
+        take: limit,
 
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              walletAddress: true,
+            },
+          },
+
+          hotelAsset: {
+            select: {
+              id: true,
+              name: true,
+              location: true,
+            },
+          },
+
+          settlements: {
+            select: {
+              id: true,
+              amount: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
+
+      prisma.booking.count({
+        where,
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      count: bookings.length,
+
+      data: bookings,
+
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
       },
 
+      filters: {
+        paymentStatus,
+        hotelId,
+        search,
+      },
     });
-
-    return res.json(bookings);
 
   } catch (err: any) {
 
     console.error("Admin Bookings Error:", err);
 
     return res.status(500).json({
+      success: false,
       error: err.message,
     });
 

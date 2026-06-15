@@ -26,28 +26,52 @@ const navigate = useNavigate();
 
   const [data, setData] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+const [limit] = useState(20);
 
+const [pagination, setPagination] = useState({
+  total: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPrevPage: false,
+});
+
+const [search, setSearch] = useState("");
+const [status, setStatus] = useState("");
+const [hotelId, setHotelId] = useState("");
   const API_URL =
     import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  useEffect(() => {
-    fetchSettlements();
-  }, []);
+ useEffect(() => {
+  fetchSettlements();
+}, [page, search, status, hotelId]);
+
+useEffect(() => {
+  setPage(1);
+}, [search, status, hotelId]);
 
   const fetchSettlements = async () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await axios.get(
-        `${API_URL}/api/v1/settlements/history`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+     const res = await axios.get(
+  `${API_URL}/api/v1/settlements/history`,
+  {
+    params: {
+        page,
+      limit,
+      search,
+      status,
+      hotelId,
+    },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+  );
 
-      setData(res.data);
+     setData(res.data.data);
+   setPagination(res.data.pagination);
 
     } catch (err) {
       console.error("Settlement fetch error:", err);
@@ -89,7 +113,7 @@ const navigate = useNavigate();
           </h2>
 
           <p className="text-4xl font-bold">
-            {data.length}
+             {pagination.total}
           </p>
         </div>
 
@@ -114,7 +138,41 @@ const navigate = useNavigate();
         </div>
 
       </div>
+           <div className="bg-white rounded-2xl shadow-lg border p-4 mb-6">
 
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    <input
+      type="text"
+      placeholder="Search booking code, tx hash, hotel..."
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      className="border rounded-lg px-4 py-2"
+    />
+
+    <select
+      value={status}
+      onChange={(e) => setStatus(e.target.value)}
+      className="border rounded-lg px-4 py-2"
+    >
+      <option value="">All Status</option>
+      <option value="COMPLETED">Completed</option>
+      <option value="PENDING">Pending</option>
+      <option value="FAILED">Failed</option>
+    </select>
+
+    <input
+      type="text"
+      placeholder="Hotel Asset ID"
+      value={hotelId}
+      onChange={(e) => setHotelId(e.target.value)}
+      className="border rounded-lg px-4 py-2"
+    />
+
+  </div>
+
+</div>
+     
       {/* TABLE */}
       <div className="bg-white rounded-2xl shadow-lg border overflow-hidden">
 
@@ -228,6 +286,34 @@ const navigate = useNavigate();
               </tbody>
 
             </table>
+
+            <div className="flex items-center justify-between p-4 border-t">
+
+            <div className="text-sm text-gray-500">
+              Page {page} of {pagination.totalPages}
+            </div>
+
+            <div className="flex gap-2">
+
+              <button
+                disabled={!pagination.hasPrevPage}
+                onClick={() => setPage((p) => p - 1)}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <button
+                disabled={!pagination.hasNextPage}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+
+            </div>
+
+          </div>
 
           </div>
         )}

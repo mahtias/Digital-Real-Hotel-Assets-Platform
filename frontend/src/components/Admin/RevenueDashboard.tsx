@@ -23,23 +23,37 @@ export default function RevenueDashboard() {
 
   const [data, setData] = useState<RevenueItem[]>([]);
   const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState("");
+   const [page, setPage] = useState(1);
+
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+
 
   const fetchRevenue = async () => {
 
     try {
 
       const token = localStorage.getItem("token");
+    const res = await axios.get(
+      `${import.meta.env.VITE_API_URL}/api/v1/admin/revenue`,
+      {
+        params: {
+          page,
+          search,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/v1/admin/revenue`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setData(res.data);
+    setData(res.data.data);
+    setPagination(res.data.pagination);
 
     } catch (err) {
 
@@ -51,9 +65,9 @@ export default function RevenueDashboard() {
     }
   };
 
-  useEffect(() => {
-    fetchRevenue();
-  }, []);
+useEffect(() => {
+  fetchRevenue();
+}, [page, search]);
 
   // =========================================
   // TOTALS
@@ -206,6 +220,21 @@ export default function RevenueDashboard() {
         </div>
 
       </div>
+       
+        <div className="bg-white rounded-2xl shadow-lg border p-4 mb-6">
+
+      <input
+        type="text"
+        placeholder="Search hotel name..."
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
+        className="w-full border rounded-lg px-4 py-2"
+      />
+
+    </div>
 
       {/* TABLE */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden border">
@@ -224,7 +253,7 @@ export default function RevenueDashboard() {
             Loading revenue data...
           </div>
 
-        ) : data.length === 0 ? (
+        ) : pagination.total === 0 ? (
 
           <div className="p-8 text-center text-gray-500">
             No revenue data available.
@@ -352,6 +381,34 @@ export default function RevenueDashboard() {
               </tbody>
 
             </table>
+
+            <div className="flex items-center justify-between p-4 border-t">
+
+          <div className="text-sm text-gray-500">
+            Page {page} of {pagination.totalPages}
+          </div>
+
+          <div className="flex gap-2">
+
+            <button
+              disabled={!pagination.hasPrevPage}
+              onClick={() => setPage((p) => p - 1)}
+              className="px-4 py-2 border rounded disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            <button
+              disabled={!pagination.hasNextPage}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-4 py-2 border rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+
+          </div>
+
+        </div>
 
           </div>
 
