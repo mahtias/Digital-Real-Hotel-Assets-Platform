@@ -144,22 +144,58 @@ export const getUserBookings = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
 
-    const bookings = await prisma.booking.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        hotelAsset: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
-            location: true,
-            description: true
-            
-          },
+  const page = Math.max(Number(req.query.page) || 1, 1);
+
+const limit = Math.min(
+  Math.max(Number(req.query.limit) || 10, 1),
+  50
+);
+
+const skip = (page - 1) * limit;
+
+const [bookings, total] = await Promise.all([
+  prisma.booking.findMany({
+    where: { userId },
+
+    skip,
+    take: limit,
+
+    orderBy: {
+      createdAt: "desc",
+    },
+
+    include: {
+      hotelAsset: {
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          location: true,
+          description: true,
         },
       },
-    });
+    },
+  }),
+
+  prisma.booking.count({
+    where: { userId },
+  }),
+]);
+
+return res.json({
+  success: true,
+
+  data: bookings,
+
+  pagination: {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+    hasNextPage: page * limit < total,
+    hasPrevPage: page > 1,
+  },
+});
 
     return res.json({
       success: true,

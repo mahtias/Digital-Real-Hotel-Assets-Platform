@@ -5,12 +5,13 @@ import { useAuth } from '@/context/AuthContext';
 import './AuthModal.css';
 import { resendVerificationEmail } from '@/api/auth';
 import { useLanguage } from '@/components/common/LanguageContext';
-
+import { useNavigate } from "react-router-dom";
 const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
    const { t } = useLanguage();
+  const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
   //const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -345,9 +346,12 @@ const handleResendEmail = async () => {
       <span>{t("authLogin.rememberMe")}</span>
     </label>
 
-    <button type="button" className="auth-link">
-      {t("authLogin.forgotPassword")}
-    </button>
+   <button
+  type="button"
+  className="auth-link"
+  onClick={() => navigate("/forgot-password")}>
+  {t("authLogin.forgotPassword")}
+</button>
   </div>
 
   {/* Submit button */}

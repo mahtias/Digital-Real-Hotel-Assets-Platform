@@ -17,13 +17,25 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [page, setPage] = useState(1);
+const [limit] = useState(10);
+
+const [pagination, setPagination] = useState({
+  total: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPrevPage: false,
+});
+
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const res = await authFetch(`${API_URL}/api/v1/bookings/my`);
+      const res = await authFetch(
+  `${API_URL}/api/v1/bookings/my?page=${page}&limit=${limit}`);
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const data = await res.json();
-      setBookings(data.data || []);
+    setBookings(data.data || []);
+    setPagination(data.pagination);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load your bookings");
@@ -32,9 +44,10 @@ export default function MyBookings() {
     }
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
+
+ useEffect(() => {
+  fetchBookings();
+}, [page]);
 
   const handleCancel = async (id) => {
     if (!confirm("Are you sure you want to cancel this booking?")) return;
@@ -145,6 +158,27 @@ export default function MyBookings() {
             </div>
           </Card>
         ))}
+
+        {/* PAGINATION */}
+      <div className="flex items-center justify-between mt-6">
+        <Button
+          disabled={!pagination.hasPrevPage}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Previous
+        </Button>
+
+        <span className="text-white">
+          Page {page} of {pagination.totalPages}
+        </span>
+
+        <Button
+          disabled={!pagination.hasNextPage}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </Button>
+      </div>
       </div>
     </div>
   );

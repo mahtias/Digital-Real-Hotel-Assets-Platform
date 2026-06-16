@@ -31,7 +31,9 @@ export default function AdminSettlements() {
         );
 
         const hotels = hotelRes.data;
-        const revenue = revenueRes.data;
+        const revenue = Array.isArray(revenueRes.data)
+          ? revenueRes.data
+          : revenueRes.data.data || [];
 
         // MERGE DATA
         const merged = hotels.map((hotel: any) => {

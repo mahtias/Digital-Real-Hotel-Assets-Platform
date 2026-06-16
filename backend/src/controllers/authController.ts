@@ -131,29 +131,7 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
-// export const login = async (req, res) => {
-//   const { email, password } = req.body;
-  
-//   console.log('🔐 PM LOGIN:', email);
-  
-//   // PM DEMO CREDENTIALS
-//   if (email === 'admin@digireal.com' && password === 'password123') {
-//     return res.json({
-//       success: true,
-//       token: 'pm-demo-token-2024',
-//       user: { 
-//         id: 1, 
-//         email, 
-//         name: 'Platform Admin',
-//         role: 'ADMIN'
-//       }
-//     });
-//   }
-  
-//   // Real login logic here...
-//   res.status(401).json({ error: 'Invalid credentials' });
-// };
-// LOGIN (BLOCK IF EMAIL NOT VERIFIED)
+
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -468,43 +446,130 @@ export const forgotPassword = async (req: Request, res: Response) => {
   }
 };
 
-export const resetPassword = async (req: Request, res: Response) => {
-  try {
-    const { token, newPassword } = req.body;
+export const resetPassword = async (
+req: Request,
+res: Response
+) => {
+try {
+const { token, newPassword } = req.body;
 
-    if (!token) {
-      return res.status(400).json({ message: "Invalid token" });
-    }
+console.log("RESET PASSWORD REQUEST");
+console.log("Body:", req.body);
 
-    const user = await prisma.user.findFirst({
-      where: {
-        resetPasswordToken: token,
-      }
-    });
+// Validate input
+if (!token) {
+  return res.status(400).json({
+    success: false,
+    message: "Reset token is required",
+  });
+}
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid or expired reset token" });
-    }
+if (!newPassword) {
+  return res.status(400).json({
+    success: false,
+    message: "New password is required",
+  });
+}
 
-    if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
-      return res.status(400).json({ message: "Reset token expired" });
-    }
+if (newPassword.length < 8) {
+  return res.status(400).json({
+    success: false,
+    message: "Password must be at least 8 characters long",
+  });
+}
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+// Find user by reset token
+const user = await prisma.user.findFirst({
+  where: {
+    resetPasswordToken: token,
+  },
+});
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetPasswordToken: null,
-        resetPasswordExpires: null
-      }
-    });
+if (!user) {
+  console.warn("Reset password failed: invalid token");
 
-    return res.json({ message: "Password successfully reset. You may now log in." });
+  return res.status(400).json({
+    success: false,
+    message: "Invalid or expired reset token",
+  });
+}
 
-  } catch (error) {
-    console.error("Reset password error:", error);
-    res.status(500).json({ message: "Server error resetting password" });
-  }
+// Check expiry
+if (
+  user.resetPasswordExpires &&
+  user.resetPasswordExpires < new Date()
+) {
+  console.warn(
+    `Reset token expired for user ${user.email}`
+  );
+
+  // Optional cleanup
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+    },
+  });
+
+  return res.status(400).json({
+    success: false,
+    message: "Reset token expired",
+  });
+}
+
+console.log(
+  `Resetting password for user: ${user.email}`
+);
+
+// Hash password
+const hashedPassword = await bcrypt.hash(
+  newPassword,
+  10
+);
+
+console.log("Password hashed successfully");
+
+// Update user
+await prisma.user.update({
+  where: {
+    id: user.id,
+  },
+  data: {
+    password: hashedPassword,
+    resetPasswordToken: null,
+    resetPasswordExpires: null,
+  },
+});
+
+console.log(
+  `Password reset completed for ${user.email}`
+);
+
+return res.status(200).json({
+  success: true,
+  message:
+    "Password successfully reset. You may now log in.",
+});
+
+} catch (error: any) {
+console.error("================================");
+console.error("RESET PASSWORD ERROR");
+console.error("Message:", error?.message);
+console.error("Stack:", error?.stack);
+console.error("Full Error:", error);
+console.error("================================");
+
+return res.status(500).json({
+  success: false,
+  message: "Server error resetting password",
+  error:
+    process.env.NODE_ENV === "development"
+      ? error?.message
+      : undefined,
+});
+}
 };
+

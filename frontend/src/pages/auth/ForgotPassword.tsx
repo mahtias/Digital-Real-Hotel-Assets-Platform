@@ -77,10 +77,11 @@ export default function ForgotPassword() {
 
       <p className="text-center text-sm mt-6">
         <button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate(-1)}
+          variant="ghost" 
           className="text-orange-500 hover:text-orange-600"
         >
-          Back to login
+          Back to DRA
         </button>
       </p>
     </div>
