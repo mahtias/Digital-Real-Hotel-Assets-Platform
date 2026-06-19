@@ -36,7 +36,18 @@ export const KYC_ABI = [
     outputs: [{ name: "", type: "uint8" }],
     stateMutability: "view",
     type: "function",
-  }
+  },
+  {
+  inputs: [
+    { name: "_user", type: "address", internalType: "address" }
+  ],
+  name: "getKYCStatus",
+  outputs: [
+    { name: "", type: "uint8", internalType: "enum IKYCRegistry.KYCStatus" }
+  ],
+  stateMutability: "view",
+  type: "function"
+}
 ] as const;
 
 const ERC20_ABI = [
@@ -140,6 +151,13 @@ const amountWei = ethers.parseUnits(amount.toString(), 6);
     return await this.signer.getAddress();
   }
 
+async getKYCStatus(address: string) {
+  if (!this.kycContract) throw new Error("KYC contract not initialized");
+
+  const status = await this.kycContract.getKYCStatus(address);
+
+  return status;
+}
   disconnect() {
     this.provider = null;
     this.signer = null;
@@ -150,31 +168,60 @@ const amountWei = ethers.parseUnits(amount.toString(), 6);
   // KYC METHODS
   // -------------------
 
- async submitKYC(documentHash: string, level: number = 1): Promise<string> {
-  if (!this.kycContract || !this.signer) {
-    throw new Error("Wallet not connected.");
+  async ensureConnected() {
+  if (this.signer && this.kycContract) {
+    return;
   }
 
-  // Ensure hash is bytes32
+  if (!window.ethereum) {
+    throw new Error("MetaMask not installed");
+  }
+
+  this.provider = new BrowserProvider(window.ethereum);
+
+  await this.provider.send(
+    "eth_requestAccounts",
+    []
+  );
+
+  this.signer = await this.provider.getSigner();
+
+  this.kycContract = new Contract(
+    KYC_CONTRACT_ADDRESS,
+    KYC_ABI,
+    this.signer
+  );
+
+  console.log(
+    "Wallet restored:",
+    await this.signer.getAddress()
+  );
+}
+
+async submitKYC(
+  documentHash: string,
+  level: number = 1
+): Promise<string> {
+
+  await this.ensureConnected();
+
   const padded = documentHash.startsWith("0x")
     ? documentHash
     : "0x" + documentHash;
 
-  const hash32 = ethers.zeroPadValue(padded, 32);
+  const hash32 = ethers.zeroPadValue(
+    padded,
+    32
+  );
 
-  console.log("Submitting KYC:", {
-    level,
-    hash32
-  });
-
-  const tx = await this.kycContract.submitKYC(level, hash32);
-
-  console.log("KYC tx sent:", tx.hash);
+  const tx =
+    await this.kycContract!.submitKYC(
+      level,
+      hash32
+    );
 
   const receipt = await tx.wait();
-
-  console.log("KYC confirmed:", receipt.hash);
-
+  
   return receipt.hash;
 }
 

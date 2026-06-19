@@ -22,8 +22,9 @@ import {
 } from "lucide-react";
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuth } from "@/context/AuthContext";
-import { HOTEL_TOKEN_ABI, KYC_ABI, HAT_TOKEN_ABI, HOTEL_ASSET_MANAGER_ABI } from '@/contracts/abis';
+import { HOTEL_TOKEN_ABI, KYC_ABI, HAT_TOKEN_ABI, HOTEL_ASSET_MANAGER_ABI , ERC20_ABI } from '@/contracts/abis';
 import {  KYC_CONTRACT_ADDRESS , HOTEL_ASSET_MANAGER_ADDRESS  } from '@/contracts/config';
+import { validateInvestment } from "@/services/validateInvestment";
 import { toast } from 'sonner';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -40,9 +41,11 @@ export default function HotelDetail() {
   const [hatAmount, setHatAmount] = useState('');
     const [selectedStablecoin, setSelectedStablecoin] = useState("USDC");
   const stablecoin = STABLECOIN_REGISTRY[selectedStablecoin];
+  
   const [isInvesting, setIsInvesting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(0);
+  const [ethBalance, setEthBalance] = useState<bigint>(0n);
  const { data: walletClient } = useWalletClient();
   console.log("🔍 Hotel ID from URL:", id);
   console.log(" Wallet Address:", address);
@@ -50,23 +53,34 @@ export default function HotelDetail() {
 
 
 useEffect(() => {
-  if (!walletClient) return;
+  if (!walletClient || !address) return;
 
   const initSigner = async () => {
     try {
-      const provider = new BrowserProvider(walletClient.transport as any);
+      const provider = new BrowserProvider(
+        walletClient.transport as any
+      );
+
       const signer = await provider.getSigner();
 
       await web3Service.setSigner(signer);
 
-      console.log("Signer ready:", await signer.getAddress());
+      const balance = await provider.getBalance(address);
+
+      setEthBalance(balance);
+
+      console.log(
+        "ETH Balance:",
+        ethers.formatEther(balance)
+      );
+
     } catch (error) {
-      console.error("Signer error:", error);
+      console.error(error);
     }
   };
 
   initSigner();
-}, [walletClient]);
+}, [walletClient, address]);
 
 
   // ===================================
@@ -221,6 +235,24 @@ console.log("Decimals:", decimals);
     query: { enabled: !!address }
   });
 
+ const {
+  data: userStablecoinBalance,
+  error: stablecoinError,
+  isLoading: stablecoinLoading,
+} = useReadContract({
+  address: stablecoin.address as `0x${string}`,
+  abi: ERC20_ABI,
+  functionName: "balanceOf",
+  args: address ? [address] : undefined,
+  query: {
+    enabled: !!address && !!stablecoin?.address,
+  },
+});
+
+console.log("Wallet:", address);
+console.log("Stablecoin:", stablecoin);
+console.log("Stablecoin Address:", stablecoin?.address);
+
   // ===================================
   // 💰 INVESTMENT LOGIC
   // ===================================
@@ -256,6 +288,30 @@ const handleInvest = async () => {
   setIsInvesting(true);
   setLoading(true);
 
+    const validation = await validateInvestment({
+    walletAddress: address,
+
+    investmentAmount: Number(
+      investmentAmount
+    ),
+
+    stablecoin: {
+      address: stablecoin.address,
+      symbol: stablecoin.symbol,
+      decimals: stablecoin.decimals,
+      balance: userStablecoinBalance || 0n,
+    },
+
+    ethBalance,
+
+    estimatedGasETH:
+      ethers.parseEther("0.0001"),
+  });
+
+  if (!validation.success) {
+    toast.error(validation.message);
+    return;
+  }
   //
   // STEP 1 CREATE PENDING RECORD
   //
@@ -467,7 +523,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
         </Button>
       </div>
 
-      {/* 🖼️ HERO IMAGE */}
+      {/*  HERO IMAGE */}
       <div className="relative h-96 overflow-hidden">
         <img 
           src={image}
@@ -622,21 +678,11 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                   {isFullyKycApproved ? (
                     <>
                     {console.log(
-    'isInvesting:', isInvesting,
-    'isActive:', isActive,
-    'hotelTokenAddress:', hotelTokenAddress
-  )}
-                      {/* 💰 YOUR BALANCE */}
-                      {/* <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-slate-400 text-sm">Your HAT Balance</span>
-                          <span className="text-white font-bold text-lg">{userHatBalanceFormatted} HAT</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400 text-sm">Your Hotel Tokens</span>
-                          <span className="text-emerald-400 font-bold text-lg">{userBalanceFormatted} {hotelSymbol}</span>
-                        </div>
-                      </div> */}
+                      'isInvesting:', isInvesting,
+                      'isActive:', isActive,
+                      'hotelTokenAddress:', hotelTokenAddress
+                    )}
+
 
                       {/* 💵 INVESTMENT FORM */}
 <div className="space-y-4 mb-6">
@@ -655,8 +701,8 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
     >
       <option value="USDC">USDC</option>
       <option value="USDT">USDT</option>
-      <option value="HKD_STABLECOIN_HSBC">HKD-HSBC</option>
-      <option value="HKD_STABLECOIN_SC">HKD-SC</option>
+      {/* <option value="HKD_STABLECOIN_HSBC">HKD-HSBC</option>
+      <option value="HKD_STABLECOIN_SC">HKD-SC</option> */}
       
     </select>
   </div>
@@ -675,12 +721,28 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
       className="bg-slate-800 border border-slate-700 text-white text-lg h-12 w-full rounded-md px-3"
     />
 
-    <p className="text-xs text-slate-500 mt-1">
-      Minimum: $1
-    </p>
+   <p className="text-xs text-slate-500 mt-1">
+  Available: {
+    userStablecoinBalance
+      ? Number(
+          formatUnits(
+            userStablecoinBalance,
+            stablecoin.decimals
+          )
+        ).toLocaleString()
+      : "0"
+  } {selectedStablecoin}
+</p>
+
+<p className="text-xs text-slate-500">
+  Minimum: $1
+</p>
+<p className="text-xs text-slate-500">
+  Gas Wallet: {ethers.formatEther(ethBalance)} ETH
+</p>
   </div>
 </div>
-
+ 
  <Button
   onClick={handleInvest}
   disabled={isInvesting || !canInvest}
@@ -749,17 +811,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                       Complete KYC
                     </Button>
                   )}
-                      {/* <Button 
-                       
-                        className="w-full bg-amber-500 hover:bg-amber-600" >
-                         <a 
-                    href="/kyc/submit" 
-                    target="_blank" 
-                    rel="noopener noreferrer" >
-                        {user?.kycStatus === 'APPROVED' ? 'Complete Blockchain KYC' : 'Complete KYC'}
-                       
-                         </a>
-                      </Button> */}
+
                     </div>
                   )}
                 </>

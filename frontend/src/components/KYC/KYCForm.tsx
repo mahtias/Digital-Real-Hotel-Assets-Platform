@@ -1,19 +1,42 @@
   import React, { useState, useRef } from "react";
   import axios from "axios";
+   import { useWalletClient } from "wagmi";
+  import { BrowserProvider } from "ethers";
+  import { useEffect } from "react";
   import web3Service from "@/services/web3Service";
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   export const KYCForm = () => {
     const token = localStorage.getItem("authToken");
-
+ 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<any>({});
     const [success, setSuccess] = useState(false);
-
+    const { data: walletClient } = useWalletClient();
     // store refs to reset file inputs
     const fileInputsRef = useRef<any>({});
+     const [kycStatus, setKycStatus] = useState<number | null>(null);
 
+    useEffect(() => {
+  const loadStatus = async () => {
+    if (!walletClient) return;
+
+    const provider = new BrowserProvider(walletClient.transport);
+    const signer = await provider.getSigner();
+    await web3Service.setSigner(signer);
+
+    const address = await signer.getAddress();
+
+    const status = await web3Service.getKYCStatus(address);
+
+    console.log("KYC STATUS RAW:", status);
+
+    setKycStatus(Number(status)); // IMPORTANT
+  };
+
+  loadStatus();
+}, [walletClient]);
     // ----------------------------
     // FORM DATA
     // ----------------------------
@@ -169,56 +192,75 @@
     // SUBMIT FINAL KYC
     // ----------------------------
   const submitKYC = async () => {
-    // Validate uploaded files (Step 3)
-    const e = validateStep3();
-    if (Object.keys(e).length) {
-      setErrors(e);
-      return;
+  const e = validateStep3();
+  if (Object.keys(e).length) {
+    setErrors(e);
+    return;
+  }
+
+  setLoading(true);
+  setErrors({});
+
+  try {
+    // 🔥 ADD THIS BLOCK HERE (VERY IMPORTANT)
+  const walletAddress = await web3Service.getCurrentAddress();
+
+if (!walletAddress) {
+  setErrors({ global: "Wallet not connected" });
+  return;
+}
+
+const status = await web3Service.getKYCStatus(walletAddress);
+
+if (status === "APPROVED") {
+  setErrors({ global: "Already KYC approved on-chain" });
+  return;
+}
+
+if (status === "PENDING") {
+  setErrors({ global: "KYC already pending approval" });
+  return;
+}
+
+    // ----------------------------
+    // existing backend flow
+    // ----------------------------
+    const fd = new FormData();
+    Object.entries(formData).forEach(([k, v]) => fd.append(k, v));
+    Object.entries(files).forEach(([k, v]) => v && fd.append(k, v));
+
+    const res = await axios.post(`${API_URL}/api/v1/kyc/submit`, fd, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    const kycRecord = res.data.data;
+
+    if (!kycRecord.documentHash) {
+      throw new Error("Document hash not returned from backend");
     }
 
-    setLoading(true);
-    setErrors({});
+    const kycLevel = 1;
 
-    try {
-      // Prepare form data for backend
-      const fd = new FormData();
-      Object.entries(formData).forEach(([k, v]) => fd.append(k, v));
-      Object.entries(files).forEach(([k, v]) => v && fd.append(k, v));
+    // blockchain call
+    await web3Service.submitKYC(kycRecord.documentHash, kycLevel);
 
-      // Submit KYC to backend
-      const res = await axios.post(`${API_URL}/api/v1/kyc/submit`, fd, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
+    setSuccess(true);
 
-      // Backend response contains the KYC record inside data.data
-      const kycRecord = res.data.data;
+    setTimeout(() => {
+      resetForm();
+    }, 3000);
 
-      if (!kycRecord.documentHash) {
-        throw new Error("Document hash not returned from backend");
-      }
-
-      // Set KYC level (use 1 for now, or fetch from backend if implemented)
-      const kycLevel = 1;
-
-      // Submit KYC to blockchain
-      await web3Service.submitKYC(kycRecord.documentHash, kycLevel);
-
-      setSuccess(true);
-
-      // Reset form after a short delay
-      setTimeout(() => {
-        resetForm();
-      }, 3000);
-
-    } catch (err: any) {
-      setErrors({ global: err?.response?.data?.message || err?.message || "Submission failed" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (err: any) {
+    setErrors({
+      global: err?.response?.data?.message || err?.message || "Submission failed"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
     // ----------------------------
     // RENDER UI
@@ -227,11 +269,24 @@
       <div className="max-w-lg mx-auto p-6 bg-white rounded shadow mt-10">
         <h2 className="text-2xl font-bold mb-4">KYC Verification</h2>
 
-        {success && (
-          <div className="p-3 bg-green-200 text-green-800 mb-4 rounded">
-            KYC Submitted Successfully!
-          </div>
-        )}
+          {success && (
+            <div className="p-3 bg-green-200 text-green-800 mb-4 rounded">
+              KYC Submitted Successfully! wait for Admin to approved!
+            </div>
+          )}
+
+          {/* ✅ ADD THIS HERE */}
+          {kycStatus === 1 && (
+            <div className="p-3 bg-yellow-100 text-yellow-800 mb-4 rounded">
+              ⏳ KYC is pending approval
+            </div>
+          )}
+
+          {kycStatus === 2 && (
+            <div className="p-3 bg-green-100 text-green-800 mb-4 rounded">
+               You are already KYC verified on-chain
+            </div>
+          )}
         
         {errors.global && (
           <div className="p-3 bg-red-200 text-red-800 mb-4 rounded">

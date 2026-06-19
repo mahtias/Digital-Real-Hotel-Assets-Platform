@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, differenceInDays } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Star, CreditCard, Tag, CheckCircle } from "lucide-react";
 
@@ -53,6 +54,9 @@ const [bookingInfo, setBookingInfo] = useState(null);
 
     setup();
   }, [walletClient, user]);
+
+  // 🔐 KYC VERIFICATION
+//const backendKycApproved = user?.kycStatus === 'APPROVED';
 
   // -------- Fetch hotels --------
   const { data: hotels = [] } = useQuery({
@@ -418,6 +422,8 @@ const handleBookingPayment = async () => {
                   <span>Total</span>
                   <span className="text-amber-400 text-xl">${totalPrice.toFixed(2)}</span>
                 </div>
+
+                 
 
                 <Button
                   className="w-full mt-4 bg-amber-500"

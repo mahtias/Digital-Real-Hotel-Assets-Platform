@@ -32,12 +32,12 @@ export const CONTRACTS = {
   USDC: import.meta.env.VITE_USDC_ADDRESS as `0x${string}`,
 } as const;
 
-// ✅ Keep HOTEL_ASSET_MANAGER_ADDRESS export for legacy pages 
+//  Keep HOTEL_ASSET_MANAGER_ADDRESS export for legacy pages 
 export const HOTEL_ASSET_MANAGER_ADDRESS = CONTRACTS.HOTEL_MANAGER;
 export const KYC_CONTRACT_ADDRESS = CONTRACTS.KYC;
 
 // ================================
-// 📊 TOKEN CONFIG
+//  TOKEN CONFIG
 // ================================
 export const TOKEN_CONFIG = {
   HAT_DECIMALS: 18,
@@ -127,11 +127,11 @@ export const validateConfig = (): boolean => {
 
   const invalid = addresses.filter(({ addr }) => !addr || !addr.startsWith('0x') || addr.length < 42);
   if (invalid.length > 0) {
-    console.error('❌ Invalid contract addresses:', invalid.map(a => a.name));
+    console.error(' Invalid contract addresses:', invalid.map(a => a.name));
     return false;
   }
 
-  console.log('✅ Contract config validated');
+  console.log(' Contract config validated');
   return true;
 };
 

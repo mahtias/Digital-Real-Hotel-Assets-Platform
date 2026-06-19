@@ -6,7 +6,7 @@ import kycRegistryAbi from "../../../out/KYCRegistry.sol/KYCRegistry.json";
 import hotelAssetManagerAbi from "../../../out/HotelAssetManager.sol/HotelAssetManager.json";
 import hotelInvestmentAbi from "../../../out/HotelInvestment.sol/HotelInvestment.json";
 import hotelAssetTokenAbi from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
-//import { Stablecoin } from "../config/stablecoinRegistry";
+//import { Stablecoin } from "../config/stablecoinRegistry";getKYCStatus
 import { StablecoinService } from "./stablecoinService";
 // ============================================================
 //  CONSTANTS & CONFIG
@@ -251,8 +251,19 @@ async registerKyc(address: string, hash: string): Promise<string> {
     const receipt = await tx.wait();
     console.log(" KYC approved on blockchain:", receipt.hash);
 
+   const user = await prisma.user.findFirst({
+      where: {
+        walletAddress: {
+          equals: address,
+          mode: "insensitive"
+        }
+      }
+    });
+
+    if (!user) throw new Error("User not found");
+
     await prisma.user.update({
-      where: { walletAddress: address.toLowerCase() },
+      where: { id: user.id },
       data: {
         kycBlockchainTxHash: receipt.hash,
         kycBlockchainSynced: true,
@@ -299,15 +310,9 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
         walletAddress: true,
         kycDocumentHash: true,
         email: true,
+        updatedAt: true,
       },
     });
-
-    if (pendingUsers.length === 0) {
-      console.log('No pending KYC syncs needed');
-      return { synced: 0, failed: 0 };
-    }
-
-    console.log(`Found ${pendingUsers.length} users to sync`);
 
     let synced = 0;
     let failed = 0;
@@ -319,53 +324,65 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
         continue;
       }
 
+      //  FIX 1: stable hash (no Date.now)
       const hash =
-        user.kycDocumentHash ||
-        ethers.keccak256(ethers.toUtf8Bytes(`kyc-${user.id}-${Date.now()}`));
+  user.kycDocumentHash ||
+  ethers.keccak256(
+    ethers.toUtf8Bytes(`kyc-${user.id}-${user.updatedAt}`)
+  );
 
       console.log(`\nSyncing KYC for: ${user.email}`);
-      console.log(`   Wallet: ${user.walletAddress}`);
 
-      let attempts = 0;
-      let txHash: string | null = null;
+      try {
+        //  FIX 2: stricter on-chain check
+        const onChainStatus = await this.kycContract.getKYCStatus(user.walletAddress);
 
-      while (attempts < 3 && !txHash) {
-        attempts++;
-        try {
-          txHash = await this.registerKyc(user.walletAddress, hash);
-        } catch (error: any) {
-          console.warn(
-            `Attempt ${attempts} failed for ${user.email}: ${error.message}`
-          );
-          if (attempts < 3) {
-            await this.delay(2000); // wait before retry
-          }
-        }
-      }
+      if (onChainStatus !== 0) {
+  console.log(`Skipping ${user.email}: already processed on-chain`);
 
-      if (!txHash) {
-        console.error(`Failed to sync ${user.email} after 3 attempts`);
-        failed++;
-        continue;
-      }
-
-      // Update database
       await prisma.user.update({
         where: { id: user.id },
         data: {
           kycBlockchainSynced: true,
-          kycBlockchainTxHash: txHash,
           kycLastVerified: new Date(),
-          kycDocumentHash: hash,
-          updatedAt: new Date(),
+          kycSyncError: null,
         },
       });
 
-      synced++;
-      console.log(`Synced successfully (tx: ${txHash.slice(0, 10)}...)`);
+      continue;
+    }
 
-      // Delay to avoid rate limiting
-      await this.delay(2000);
+        const txHash = await this.registerKyc(user.walletAddress, hash);
+
+        if (!txHash) {
+          throw new Error("registerKyc returned empty txHash");
+        }
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            kycBlockchainSynced: true,
+            kycBlockchainTxHash: txHash,
+            kycLastVerified: new Date(),
+            kycDocumentHash: hash,
+            kycSyncError: null,
+          },
+        });
+
+        synced++;
+      } catch (error: any) {
+        console.error(`Failed ${user.email}:`, error.message);
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            kycSyncAttempts: { increment: 1 },
+            kycSyncError: error.message,
+          },
+        });
+
+        failed++;
+      }
     }
 
     console.log('\nBulk KYC sync completed:');

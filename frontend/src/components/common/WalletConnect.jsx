@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi'; // ✅ Add useSignMessage
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi'; 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Wallet, Copy, ExternalLink, LogOut, Check, ShieldCheck } from "lucide-react";
@@ -9,13 +9,13 @@ import { useLanguage } from './LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 import { toast } from 'sonner';
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export default function WalletConnect() {
   const { language } = useLanguage();
   const { address, isConnected, chain } = useAccount();
   const { disconnectAsync } = useDisconnect();
-  const { signMessageAsync } = useSignMessage(); // ✅ Get signature function
-  const { token, refreshUser, user } = useAuth(); // ✅ Get user
+  const { signMessageAsync } = useSignMessage(); 
+  const { token, refreshUser, user } = useAuth(); 
   const [copied, setCopied] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -53,15 +53,14 @@ export default function WalletConnect() {
         signature = await signMessageAsync({ message });
         console.log("✅ Signature received:", signature);
       } catch (signError) {
-        console.log("❌ User rejected signature");
+        console.log(" User rejected signature");
         toast.error("Signature required to link wallet");
         return;
       }
 
       // ✅ Step 3: Send to backend with signature
       console.log("📤 Sending to backend...");
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/v1/user/wallet`,
+      const response = await axios.put(`${API_URL}/api/v1/user/wallet`,
         { 
           walletAddress: address,
           signature: signature 
