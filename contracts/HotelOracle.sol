@@ -12,7 +12,10 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
     //  ENUMS & STRUCTS
     // ============================================================
 
-    enum RequestType { HOTEL_DATA, PERFORMANCE_DATA }
+    enum RequestType {
+        HOTEL_DATA,
+        PERFORMANCE_DATA
+    }
 
     struct HotelData {
         string name;
@@ -25,10 +28,10 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
 
     struct HotelPerformanceData {
         uint256 occupancyRate; // scaled x100 (e.g. 7550 = 75.50%)
-        uint256 revenue;       // in cents (e.g. 100000 = $1000.00)
-        uint256 revpar;        // scaled x100
+        uint256 revenue; // in cents (e.g. 100000 = $1000.00)
+        uint256 revpar; // scaled x100
         uint256 bookingCount;
-        string  period;        // "YYYY-MM"
+        string period; // "YYYY-MM"
         uint256 lastUpdated;
     }
 
@@ -36,11 +39,11 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
     //  STATE
     // ============================================================
 
-    mapping(uint256 => HotelData)            public hotels;
+    mapping(uint256 => HotelData) public hotels;
     mapping(uint256 => HotelPerformanceData) public performances;
 
-    mapping(bytes32 => uint256)      private requestIdToHotelId;
-    mapping(bytes32 => RequestType)  private requestTypes;
+    mapping(bytes32 => uint256) private requestIdToHotelId;
+    mapping(bytes32 => RequestType) private requestTypes;
 
     // ============================================================
     //  EVENTS
@@ -64,7 +67,7 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
         uint256 revenue,
         uint256 revpar,
         uint256 bookingCount,
-        string  period,
+        string period,
         uint256 timestamp
     );
 
@@ -82,7 +85,7 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
     //  CONSTRUCTOR
     // ============================================================
 
-    constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) {}
+    constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) { }
 
     // ============================================================
     //  REQUEST — STATIC HOTEL DATA
@@ -138,11 +141,10 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
     //  FULFILLMENT CALLBACK
     // ============================================================
 
-    function fulfillRequest(
-        bytes32 requestId,
-        bytes memory response,
-        bytes memory err
-    ) internal override {
+    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err)
+        internal
+        override
+    {
         uint256 hotelId = requestIdToHotelId[requestId];
         RequestType reqType = requestTypes[requestId];
 
@@ -264,7 +266,9 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
 
     function getHotelJsCode(string memory apiUrl) private pure returns (string memory) {
         return string.concat(
-            "const response = await Functions.makeHttpRequest({ url: '", apiUrl, "' });",
+            "const response = await Functions.makeHttpRequest({ url: '",
+            apiUrl,
+            "' });",
             "if (response.error) throw new Error('API request failed');",
             "const h = response.data;",
             "return Functions.encodeBytes(",
@@ -278,7 +282,9 @@ contract HotelOracle is FunctionsClient, ConfirmedOwner {
 
     function getPerformanceJsCode(string memory apiUrl) private pure returns (string memory) {
         return string.concat(
-            "const response = await Functions.makeHttpRequest({ url: '", apiUrl, "' });",
+            "const response = await Functions.makeHttpRequest({ url: '",
+            apiUrl,
+            "' });",
             "if (response.error) throw new Error('API request failed');",
             "const d = response.data?.data || response.data;",
             "const occupancy = Math.round((Number(d.occupancyRate)||0) * 100);",
