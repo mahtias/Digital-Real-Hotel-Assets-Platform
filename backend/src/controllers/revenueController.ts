@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../config/database";
+import { qloService } from "../services/qloService";
 
 export const getHotelRevenue = async (
   req: Request,
@@ -184,5 +185,29 @@ export const getHotelRevenue = async (
       error: err.message,
     });
 
+  }
+};
+
+export const getQloHotelStats = async (req: Request, res: Response) => {
+  try {
+    const qloHotelId = Number(req.params.hotelId);
+    if (!qloHotelId) {
+      return res.status(400).json({ success: false, message: "Invalid hotelId" });
+    }
+
+    const today = new Date();
+    const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1)
+      .toISOString().split("T")[0];
+    const defaultTo = today.toISOString().split("T")[0];
+
+    const dateFrom = (req.query.from as string) || defaultFrom;
+    const dateTo   = (req.query.to   as string) || defaultTo;
+
+    const stats = await qloService.getHotelStats(qloHotelId, dateFrom, dateTo);
+
+    return res.json({ success: true, data: stats });
+  } catch (err: any) {
+    console.error("QloApps stats error:", err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

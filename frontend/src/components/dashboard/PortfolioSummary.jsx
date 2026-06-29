@@ -11,16 +11,10 @@ export default function PortfolioSummary({
   investments, 
   totalInvested,
   totalTokens,
-  totalProperties
-  // totalValue, 
-  // totalRewards,
-  // hatBalance = 0,  
-  // hatPrice = 20    
+  totalProperties,
+  claimableUSDC  
 }) {
   const { t } = useLanguage();
-
-  // 🔥 Calculate pending rewards
- const pendingRewards = investments?.reduce((acc, inv) => acc + (inv.pendingRewards || 0), 0) || 0;
 
   return (
     <Card className="bg-gradient-to-br from-amber-500/10 via-slate-900/50 to-slate-900/50 border-amber-500/20 p-6">
@@ -64,6 +58,16 @@ export default function PortfolioSummary({
       Properties
     </div>
   </div>
+
+  <div className="text-center">
+  <div className="text-2xl font-black text-green-400">
+    ${Number(claimableUSDC || 0).toFixed(2)}
+  </div>
+
+  <div className="text-sm text-slate-500 uppercase tracking-wider text-white">
+    Claimable Yield
+  </div>
+</div>
 </div>
 
  {/* 🔥 INVESTMENT LIST */}
@@ -83,8 +87,7 @@ export default function PortfolioSummary({
       const tokenAmount =
         Number(inv.tokenAmount ?? 0);
 
-      const pendingRewards =
-        Number(inv.pendingRewards ?? 0);
+     
 
       return (
         <div
@@ -113,15 +116,6 @@ export default function PortfolioSummary({
 
             <p className="text-white font-bold">
               ${amount.toFixed(2)}
-            </p>
-
-            <p className="text-emerald-400 text-sm">
-              +{(
-                (pendingRewards /
-                  (amount || 1)) *
-                100
-              ).toFixed(1)}
-              %
             </p>
 
           </div>

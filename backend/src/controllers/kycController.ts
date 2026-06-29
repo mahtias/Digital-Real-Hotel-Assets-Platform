@@ -381,7 +381,7 @@ export const checkKYCStatus = async (req: Request, res: Response) => {
         blockchainVerified = await kyc.isVerified(user.walletAddress);
         console.log('✅ Blockchain verification result:', blockchainVerified);
       } catch (error: any) {
-        console.error('❌ Blockchain check error:', error.message);
+        console.error(' Blockchain check error:', error.message);
         blockchainError = error.message;
       }
     }

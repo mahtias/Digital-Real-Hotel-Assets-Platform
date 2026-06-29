@@ -60,14 +60,6 @@ const soldPercentage =
     ? (totalSupplyScaled / maxSupplyScaled) * 100
     : 0;
 
-console.log({
-  hotel: hotel.name,
-  tokenDecimals,
-  maxSupplyScaled,
-  totalSupplyScaled,
-  soldPercentage
-});
-
   const getStatusLabel = (status) => {
     switch (status) {
       case "ACTIVE": return t('hotelCard.active') || 'Active';

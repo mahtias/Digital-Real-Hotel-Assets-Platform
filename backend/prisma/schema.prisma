@@ -38,6 +38,8 @@ model User {
   createdHotelAssets   HotelAsset[]       @relation("CreatedAssets")
   investments          Investment[]
   investor_yields      investor_yields[]
+  snapshots            Snapshot[]
+  performances         HotelPerformance[]
   reviewedKyc          Kyc[]              @relation("ReviewedBy")
   kyc                  Kyc?
   createdProposals     Proposal[]         @relation("CreatedProposals")
@@ -127,6 +129,8 @@ model HotelAsset {
   settlements         Settlement[]
   treasury            Treasury[]
   yield_distributions yield_distributions[]
+  snapshots           Snapshot[]
+  performances        HotelPerformance[]
 
   @@map("hotel_assets")
 }
@@ -365,6 +369,54 @@ model Treasury {
   hotelAsset   HotelAsset @relation(fields: [hotelAssetId], references: [id])
 
   @@map("treasury")
+}
+
+model HotelPerformance {
+  id             String     @id @default(uuid())
+  hotelAssetId   String     @map("hotel_asset_id")
+  period         String     // "YYYY-MM" e.g. "2026-06"
+  periodStart    DateTime   @map("period_start")
+  periodEnd      DateTime   @map("period_end")
+  totalRevenue   Decimal    @default(0) @map("total_revenue") @db.Decimal(18, 2)
+  qloRevenue     Decimal    @default(0) @map("qlo_revenue") @db.Decimal(18, 2)
+  bookingCount   Int        @default(0) @map("booking_count")
+  occupancyRate  Float      @default(0) @map("occupancy_rate")
+  revpar         Float      @default(0)
+  investorYield  Decimal    @default(0) @map("investor_yield") @db.Decimal(18, 2)
+  recordedBy     String     @map("recorded_by")
+  recordedAt     DateTime   @default(now()) @map("recorded_at")
+  hotelAsset     HotelAsset @relation(fields: [hotelAssetId], references: [id], onDelete: Cascade)
+  recordedByUser User       @relation(fields: [recordedBy], references: [id])
+
+  @@unique([hotelAssetId, period])
+  @@map("hotel_performance")
+}
+
+model Snapshot {
+  id           String          @id @default(uuid())
+  hotelAssetId String?         @map("hotel_asset_id")
+  takenBy      String          @map("taken_by")
+  takenAt      DateTime        @default(now()) @map("taken_at")
+  status       String          @default("ACTIVE")
+  totalEntries Int             @default(0) @map("total_entries")
+  entries      SnapshotEntry[]
+  hotelAsset   HotelAsset?     @relation(fields: [hotelAssetId], references: [id])
+  takenByUser  User            @relation(fields: [takenBy], references: [id])
+
+  @@map("snapshots")
+}
+
+model SnapshotEntry {
+  id            String   @id @default(uuid())
+  snapshotId    String   @map("snapshot_id")
+  userId        String   @map("user_id")
+  investmentId  String   @map("investment_id")
+  walletAddress String   @map("wallet_address")
+  tokenAmount   Decimal  @map("token_amount") @db.Decimal(18, 8)
+  hotelAssetId  String   @map("hotel_asset_id")
+  snapshot      Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@map("snapshot_entries")
 }
 
 enum ESGRewardStatus {

@@ -67,7 +67,7 @@ export const settlementService = {
   ) {
     try {
       // ======================================================
-      // ✅ VALIDATE STABLECOIN
+      //  VALIDATE STABLECOIN
       // ======================================================
 
       StablecoinService.validateToken(currency, "BOOKING");
@@ -76,7 +76,7 @@ export const settlementService = {
         StablecoinService.getStablecoin(currency);
 
       // ======================================================
-      // ✅ HOTEL WALLET CHECK
+      //  HOTEL WALLET CHECK
       // ======================================================
 
      let hotelWallet = booking.hotelAsset?.walletAddress;
@@ -101,7 +101,7 @@ export const settlementService = {
       hotelWallet = hotelWallet.trim();
 
       // ======================================================
-      // ✅ SAFE AMOUNT CONVERSION
+      //  SAFE AMOUNT CONVERSION
       // ======================================================
 
       const amount =
@@ -114,7 +114,7 @@ export const settlementService = {
       }
 
       // ======================================================
-      // ✅ IDEMPOTENCY CHECK
+      //  IDEMPOTENCY CHECK
       // Prevent duplicate settlement creation
       // ======================================================
 
@@ -127,7 +127,7 @@ export const settlementService = {
 
       if (existingSettlement) {
         console.log(
-          "⚠️ Settlement already exists:",
+          " Settlement already exists:",
           existingSettlement.id
         );
 
@@ -135,7 +135,7 @@ export const settlementService = {
       }
 
       // ======================================================
-      // ✅ CREATE SETTLEMENT
+      //  CREATE SETTLEMENT
       // ======================================================
 
       const settlement = await prisma.settlement.create({
@@ -166,7 +166,7 @@ export const settlementService = {
       });
 
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🧾 SETTLEMENT CREATED");
+      console.log(" SETTLEMENT CREATED");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("Booking:", booking.id);
       console.log("Hotel:", booking.hotelAssetId);
@@ -178,7 +178,7 @@ export const settlementService = {
       return settlement;
     } catch (err: any) {
       console.error(
-        "❌ Settlement creation error:",
+        " Settlement creation error:",
         err.message
       );
 
@@ -196,7 +196,7 @@ export const settlementService = {
   ) {
     try {
       // ======================================================
-      // ✅ VALIDATE STABLECOIN
+      //  VALIDATE STABLECOIN
       // ======================================================
 
       StablecoinService.validateToken(
@@ -211,7 +211,7 @@ export const settlementService = {
         this.getTokenContract(stablecoin);
 
       // ======================================================
-      // ✅ GET PENDING SETTLEMENTS
+      //  GET PENDING SETTLEMENTS
       // ======================================================
 
       const settlements =
@@ -288,7 +288,7 @@ export const settlementService = {
       }
 
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("💸 PROCESSING HOTEL PAYOUT");
+      console.log(" PROCESSING HOTEL PAYOUT");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("Hotel:", hotelAssetId);
       console.log("Currency:", stablecoin.symbol);
@@ -319,7 +319,7 @@ export const settlementService = {
       // ======================================================
 
       console.log(
-        `🔄 Sending ${stablecoin.symbol} transfer...`
+        ` Sending ${stablecoin.symbol} transfer...`
       );
 
       const tx = await tokenContract.transfer(
@@ -347,7 +347,7 @@ export const settlementService = {
 
       const txHash = receipt.hash;
 
-      console.log("✅ Blockchain payout confirmed");
+      console.log(" Blockchain payout confirmed");
       console.log("TX:", txHash);
 
       // ======================================================
@@ -390,12 +390,12 @@ export const settlementService = {
       };
     } catch (err: any) {
       console.error(
-        "❌ Payout processing error:",
+        " Payout processing error:",
         err.message
       );
 
       // ======================================================
-      // ❌ UPDATE FAILED SETTLEMENTS
+      //  UPDATE FAILED SETTLEMENTS
       // ======================================================
 
       try {
@@ -421,7 +421,7 @@ export const settlementService = {
         });
       } catch (dbErr) {
         console.error(
-          "❌ Failed updating settlement failure state:",
+          " Failed updating settlement failure state:",
           dbErr
         );
       }
@@ -455,7 +455,7 @@ export const settlementService = {
         });
 
       console.log(
-        `🔁 Retrying ${failedSettlements.length} payout groups`
+        ` Retrying ${failedSettlements.length} payout groups`
       );
 
       for (const item of failedSettlements) {
@@ -478,7 +478,7 @@ export const settlementService = {
       };
     } catch (err: any) {
       console.error(
-        "❌ Retry payouts failed:",
+        " Retry payouts failed:",
         err.message
       );
 
@@ -523,7 +523,7 @@ export const settlementService = {
 // 🔁 BATCH: PROCESS ALL PENDING HOTEL PAYOUTS
 // --------------------------------------------------
 async processAllPendingPayouts() {
-  console.log("🔄 Processing all pending hotel payouts...");
+  console.log(" Processing all pending hotel payouts...");
 
   // Fetch hotel assets that have pending settlements
   const hotelAssetsWithPending = await prisma.settlement.findMany({
@@ -535,9 +535,9 @@ async processAllPendingPayouts() {
   for (const item of hotelAssetsWithPending) {
     try {
       await this.processHotelPayout(item.hotelAssetId, item.currency);
-      console.log(`✅ Payout processed for hotel ${item.hotelAssetId}`);
+      console.log(` Payout processed for hotel ${item.hotelAssetId}`);
     } catch (err) {
-      console.error(`❌ Payout failed for hotel ${item.hotelAssetId}:`, err);
+      console.error(` Payout failed for hotel ${item.hotelAssetId}:`, err);
     }
   }
 

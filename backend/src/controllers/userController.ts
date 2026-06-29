@@ -347,13 +347,34 @@ export const updateWalletAddress = async (req: Request, res: Response) => {
       });
     }
 
+
+     const currentUser = await prisma.user.findUnique({
+  where: { id: userId },
+  select: {
+    walletAddress: true,
+  },
+});
+
+const walletChanged = currentUser?.walletAddress?.toLowerCase() !== walletAddress.toLowerCase();
+
     // Update wallet address
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { walletAddress },
+   const updatedUser = await prisma.user.update({
+  where: { id: userId },
+  data: {
+    walletAddress,
+
+        ...(walletChanged && {
+          kycBlockchainSynced: false,
+          kycBlockchainTxHash: null,
+          kycLastVerified: null,
+          kycSyncAttempts: 0,
+          kycSyncError: null,
+        }),
+      },
+
       include: {
-        kyc: true
-      }
+        kyc: true,
+      },
     });
 
     console.log(' Wallet updated in database');
@@ -637,14 +658,6 @@ export const deactivateUser = async (req: Request, res: Response) => {
       });
       return;
     }
-
-    // TODO: Soft delete or deactivate user in database
-    // await User.findByIdAndUpdate(userId, { 
-    //   isActive: false,
-    //   deactivatedAt: new Date(),
-    //   deactivatedBy: adminId,
-    //   deactivationReason: reason
-    // });
 
     res.json({
       success: true,

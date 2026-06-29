@@ -8,6 +8,7 @@ import hotelInvestmentAbi from "../../../out/HotelInvestment.sol/HotelInvestment
 import hotelAssetTokenAbi from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
 //import { Stablecoin } from "../config/stablecoinRegistry";getKYCStatus
 import { StablecoinService } from "./stablecoinService";
+import { engineService } from "./engineService";
 // ============================================================
 //  CONSTANTS & CONFIG
 // ============================================================
@@ -231,25 +232,37 @@ async registerKyc(address: string, hash: string): Promise<string> {
 
     const level = 1; // BASIC
     const expiresAt = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+    const kycAddress = process.env.KYC_CONTRACT_ADDRESS!;
 
-    // Pre-flight checks
-    const verifierRole = await this.kycContract.VERIFIER_ROLE();
-    const hasRole = await this.kycContract.hasRole(verifierRole, this.signer.address);
-    const paused = await this.kycContract.paused();
-    console.log("Signer has VERIFIER_ROLE:", hasRole);
-    console.log("KYC contract paused:", paused);
+    let txHash: string;
 
-    if (!hasRole) throw new Error("Signer does not have VERIFIER_ROLE");
-    if (paused) throw new Error("KYC contract is currently paused");
+    if (engineService.isEnabled()) {
+      // ── thirdweb Engine path ──────────────────────
+      console.log(" Using thirdweb Engine for KYC registration");
+      const { queueId } = await engineService.approveKYC(kycAddress, address, level, expiresAt);
+      console.log(" Engine queued KYC tx:", queueId);
+      const result = await engineService.waitForMine(queueId);
+      txHash = result.txHash;
+      console.log(" KYC approved via Engine:", txHash);
+    } else {
+      // ── Direct ethers path (default) ─────────────
+      const verifierRole = await this.kycContract.VERIFIER_ROLE();
+      const hasRole = await this.kycContract.hasRole(verifierRole, this.signer.address);
+      const paused = await this.kycContract.paused();
+      console.log("Signer has VERIFIER_ROLE:", hasRole);
+      console.log("KYC contract paused:", paused);
 
-    // Approve KYC
-    const tx = await this.kycContract.approveKYC(address, level, expiresAt, {
-      gasLimit: GAS_LIMITS.KYC_REGISTER
-    });
+      if (!hasRole) throw new Error("Signer does not have VERIFIER_ROLE");
+      if (paused) throw new Error("KYC contract is currently paused");
 
-    console.log(" Tx sent:", tx.hash);
-    const receipt = await tx.wait();
-    console.log(" KYC approved on blockchain:", receipt.hash);
+      const tx = await this.kycContract.approveKYC(address, level, expiresAt, {
+        gasLimit: GAS_LIMITS.KYC_REGISTER
+      });
+      console.log(" Tx sent:", tx.hash);
+      const receipt = await tx.wait();
+      txHash = receipt.hash;
+      console.log(" KYC approved on blockchain:", txHash);
+    }
 
    const user = await prisma.user.findFirst({
       where: {
@@ -265,7 +278,7 @@ async registerKyc(address: string, hash: string): Promise<string> {
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        kycBlockchainTxHash: receipt.hash,
+        kycBlockchainTxHash: txHash,
         kycBlockchainSynced: true,
         kycLastVerified: new Date(),
         kycSyncAttempts: 0,
@@ -273,7 +286,7 @@ async registerKyc(address: string, hash: string): Promise<string> {
       }
     });
 
-    return receipt.hash;
+    return txHash;
 
   } catch (error: any) {
     console.error(" KYC registration failed:", error.message);
@@ -325,32 +338,84 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
       }
 
       //  FIX 1: stable hash (no Date.now)
-      const hash =
-  user.kycDocumentHash ||
-  ethers.keccak256(
-    ethers.toUtf8Bytes(`kyc-${user.id}-${user.updatedAt}`)
-  );
+              const hash =
+          user.kycDocumentHash ||
+          ethers.keccak256(
+            ethers.toUtf8Bytes(`kyc-${user.id}-${user.updatedAt}`)
+          );
 
-      console.log(`\nSyncing KYC for: ${user.email}`);
+              console.log(`\nSyncing KYC for: ${user.email}`);
 
-      try {
-        //  FIX 2: stricter on-chain check
-        const onChainStatus = await this.kycContract.getKYCStatus(user.walletAddress);
+              try {
+                //  FIX 2: stricter on-chain check
+              const onChainStatus = Number(
+          await this.kycContract.getKYCStatus(user.walletAddress)
+        );
 
-      if (onChainStatus !== 0) {
-  console.log(`Skipping ${user.email}: already processed on-chain`);
+        console.log(
+          `${user.email} -> On-chain status:`,
+          onChainStatus
+        );
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          kycBlockchainSynced: true,
-          kycLastVerified: new Date(),
-          kycSyncError: null,
-        },
-      });
+        // 0 = NONE
+        if (onChainStatus === 0) {
+          console.log("Waiting for user to submit KYC.");
+          continue;
+        }
 
-      continue;
-    }
+        // 1 = PENDING
+        if (onChainStatus === 1) {
+          console.log("Pending -> approving...");
+
+          const txHash = await this.registerKyc(
+            user.walletAddress,
+            hash
+          );
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              kycBlockchainSynced: true,
+              kycBlockchainTxHash: txHash,
+              kycLastVerified: new Date(),
+              kycDocumentHash: hash,
+              kycSyncError: null,
+            },
+          });
+
+          synced++;
+          continue;
+        }
+
+        // 2 = APPROVED
+        if (onChainStatus === 2) {
+          console.log("Already approved.");
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              kycBlockchainSynced: true,
+              kycLastVerified: new Date(),
+              kycSyncError: null,
+            },
+          });
+
+          continue;
+        }
+
+        // 3 = REJECTED
+        if (onChainStatus === 3) {
+          console.log("Rejected.");
+          failed++;
+          continue;
+        }
+
+        // 4 = EXPIRED
+        if (onChainStatus === 4) {
+          console.log("Expired.");
+          failed++;
+          continue;
+        }
 
         const txHash = await this.registerKyc(user.walletAddress, hash);
 
@@ -572,32 +637,43 @@ async syncAllPendingKycs(): Promise<{ synced: number; failed: number }> {
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       //  Execute Investment Transaction
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      console.log(' Calling HotelInvestment.invest()...');
+      let investTxHash: string;
 
-      const tx = await this.hotelInvestment.invest(
-        hotel.blockchainId,
-        amountWei,
-        { gasLimit: GAS_LIMITS.INVESTMENT }
-      );
-
-      console.log('   Tx sent:', tx.hash);
-      console.log('   Waiting for confirmation...');
-
-      const receipt = await tx.wait();
+      if (engineService.isEnabled()) {
+        console.log(' Using thirdweb Engine for investment');
+        const investmentAddress = process.env.INVESTMENT_CONTRACT_ADDRESS!;
+        const { queueId } = await engineService.writeContract(
+          investmentAddress,
+          "invest",
+          [hotel.blockchainId, amountWei.toString()],
+          GAS_LIMITS.INVESTMENT
+        );
+        console.log(' Engine queued investment tx:', queueId);
+        const result = await engineService.waitForMine(queueId);
+        investTxHash = result.txHash;
+      } else {
+        console.log(' Calling HotelInvestment.invest()...');
+        const tx = await this.hotelInvestment.invest(
+          hotel.blockchainId,
+          amountWei,
+          { gasLimit: GAS_LIMITS.INVESTMENT }
+        );
+        console.log('   Tx sent:', tx.hash);
+        const receipt = await tx.wait();
+        investTxHash = receipt.hash;
+      }
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log(' INVESTMENT SUCCESS!');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log(' Tx Hash:', receipt.hash);
-      console.log(' Block:', receipt.blockNumber);
-      console.log(' Gas Used:', receipt.gasUsed.toString());
+      console.log(' Tx Hash:', investTxHash);
       console.log(' Investor:', userAddress);
       console.log(' Hotel:', hotel.name);
       console.log(' USDC Invested:', stableAmount);
       console.log(' Tokens Minted:', tokenAmount.toFixed(2));
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      return receipt.hash;
+      return investTxHash;
 
     } catch (error: any) {
       console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -25,14 +25,14 @@ export class QloService {
     dateTo: string;
   }) {
     try {
-      // 1️⃣ Ensure customer
+      // 1️ Ensure customer
       const customer = await this.ensureCustomer(
         data.email,
         data.firstName,
         data.lastName
       );
 
-      // 2️⃣ Create cart (reservation)
+      // 2️ Create cart (reservation)
       const cartId = await this.createCart(
         customer.id,
         data.hotelId,
@@ -45,7 +45,7 @@ export class QloService {
         throw new Error("Cart creation failed — aborting booking");
       }
 
-      // 3️⃣ Create order
+      // 3️ Create order
 const orderXml = this.builder.buildObject({
   qloapps: {
     order: {
@@ -59,7 +59,7 @@ const orderXml = this.builder.buildObject({
       module: 'ps_checkpayment',
       payment: 'Blockchain Verified (USDC)',
       total_paid: data.amount,
-      total_paid_real: data.amount, // ✅ MUST add this
+      total_paid_real: data.amount, 
       total_products: data.amount,
       total_products_wt: data.amount,
       conversion_rate: 1,
@@ -77,7 +77,7 @@ const orderXml = this.builder.buildObject({
 
       return this.parseResponse(response.data, 'order');
     } catch (error: any) {
-      console.error("❌ QloApps Sync Error:", error.response?.data || error.message);
+      console.error(" QloApps Sync Error:", error.response?.data || error.message);
       throw error;
     }
   }
@@ -159,7 +159,6 @@ private async createCart(
         id_shop_group: 1,
         associations: {
           cart_bookings: {
-            // ✅ Use "booking" instead of "cart_booking"
             booking: {
               id_product: roomTypeId,
               id_product_attribute: 0,
@@ -183,6 +182,40 @@ private async createCart(
 
   return this.parseResponse(res.data, 'cart');
 }
+
+  /**
+   * Pull revenue + booking stats for a hotel from QloApps
+   * dateFrom / dateTo format: YYYY-MM-DD
+   */
+  async getHotelStats(hotelId: number, dateFrom: string, dateTo: string) {
+    try {
+      const url = `${this.apiUrl}/orders?ws_key=${this.apiKey}&filter[id_hotel]=[${hotelId}]&filter[date_add]=[${dateFrom},${dateTo}]&display=full&output_format=JSON`;
+
+      const res = await axios.get(url);
+      const orders: any[] = res.data?.orders ?? [];
+
+      const totalRevenue = orders.reduce(
+        (sum: number, o: any) => sum + Number(o.total_paid ?? 0),
+        0
+      );
+
+      const confirmedOrders = orders.filter(
+        (o: any) => Number(o.current_state) === 2
+      );
+
+      return {
+        hotelId,
+        dateFrom,
+        dateTo,
+        totalOrders: orders.length,
+        confirmedOrders: confirmedOrders.length,
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+      };
+    } catch (error: any) {
+      console.error(" QloApps getHotelStats error:", error.response?.data || error.message);
+      throw error;
+    }
+  }
 
   /**
    * Generic XML parser helper

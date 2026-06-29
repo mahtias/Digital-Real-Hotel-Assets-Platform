@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Lock, Hotel, RefreshCw } from "lucide-react";
+import { Building2, Lock, Hotel, RefreshCw, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useLanguage } from '@/components/common/LanguageContext';
@@ -13,9 +13,17 @@ import { useAuthModal } from "@/context/AuthModalContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { useAccount, useReadContract } from "wagmi";
+import { useWalletClient } from "wagmi";
+import { BrowserProvider } from "ethers";
 import { HAT_TOKEN_ABI } from "@/contracts/abis";
 import { HAT_TOKEN_ADDRESS } from "@/config/chains";
 import { formatUnits } from "viem";
+import { web3Service } from "@/services/web3Service";
+import { STABLECOIN_REGISTRY } from "@/config/stablecoinRegistry";
+
+const YIELD_VAULT_STABLECOIN = import.meta.env.VITE_YIELD_VAULT_STABLECOIN || "USDC";
+const YIELD_VAULT_DECIMALS = STABLECOIN_REGISTRY[YIELD_VAULT_STABLECOIN]?.decimals ?? 6;
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 export default function Portfolio() {
   const { openAuthModal } = useAuthModal();
@@ -23,8 +31,9 @@ export default function Portfolio() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  // 🔥 Wallet
+  //  Wallet
   const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const { data: hatBalanceRaw, refetch: refetchHatBalance } = useReadContract({
     address: HAT_TOKEN_ADDRESS,
     abi: HAT_TOKEN_ABI,
@@ -33,9 +42,51 @@ export default function Portfolio() {
     enabled: !!address,
     watch: true,
   });
-  const hatBalance = hatBalanceRaw ? Number(formatUnits(hatBalanceRaw, 18)) : 0;
+  const {data: claimableYield,refetch: refetchClaimableYield,
+} = useQuery({
+  queryKey: ["claimable-yield", address],
+  queryFn: async () => {
+    if (!address) return "0";
 
-  // 🔥 User
+    const res = await authFetch(
+      `${API_URL}/api/v1/yield/claimable/${address}`
+    );
+
+    const json = await res.json();
+
+    return json.claimable;
+  },
+  enabled: !!address,
+});
+useEffect(() => {
+  if (!walletClient || !address) return;
+
+  const initSigner = async () => {
+    try {
+      const provider = new BrowserProvider(
+        walletClient.transport
+      );
+
+      const signer = await provider.getSigner();
+
+      await web3Service.setSigner(signer);
+    } catch (err) {
+      console.error(
+        "Portfolio signer init failed:",
+        err
+      );
+    }
+  };
+
+  initSigner();
+}, [walletClient, address]);
+
+  const hatBalance = hatBalanceRaw ? Number(formatUnits(hatBalanceRaw, 18)) : 0;
+  const claimableUSDC = claimableYield
+    ? Number(formatUnits(BigInt(claimableYield), YIELD_VAULT_DECIMALS))
+    : 0;
+
+  //  User
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
   useEffect(() => {
@@ -47,26 +98,15 @@ export default function Portfolio() {
       .finally(() => setUserLoading(false));
   }, [authFetch]);
 
-  // 🔥 Investments
+  //  Investments
 const { data: investmentsRaw = [], isLoading: investmentsLoading, refetch: refetchInvestments } = useQuery({
   queryKey: ["investments"],
   queryFn: async () => {
-    const res = await authFetch(`${API_URL}/api/v1/investments`)
-    //const res = await authFetch("/api/v1/investments");
+    const res = await authFetch(`${API_URL}/api/v1/investments`);
 
-    console.log("STATUS:", res.status);
+    if (!res.ok) throw new Error("Failed to fetch investments");
 
-    if (!res.ok) {
-      console.error("Request failed:", res);
-      throw new Error("Failed to fetch investments");
-    }
-
-    const text = await res.text();   // 👈 read raw response
-    console.log("RAW RESPONSE:", text);
-
-    const json = JSON.parse(text);
-    console.log("PARSED JSON:", json);
-    
+    const json = await res.json();
     return json?.data ?? [];
   },
   enabled: !!localStorage.getItem("authToken"),
@@ -85,32 +125,67 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
   pendingRewards: Number(inv.pendingRewards ?? 0),
 }));
 
+  // Performance data — fetched per unique hotel from user's investments
+  const uniqueHotelIds = [...new Set(investmentsRaw.map(inv => inv.hotelAssetId).filter(Boolean))];
+  const { data: performanceData = [] } = useQuery({
+    queryKey: ["performance", uniqueHotelIds],
+    queryFn: async () => {
+      const results = await Promise.all(
+        uniqueHotelIds.map(async (id) => {
+          try {
+            const res = await authFetch(`${API_URL}/api/v1/performance/${id}/history?limit=6`);
+            const json = await res.json();
+            return { hotelAssetId: id, history: json.data ?? [] };
+          } catch {
+            return { hotelAssetId: id, history: [] };
+          }
+        })
+      );
+      return results;
+    },
+    enabled: uniqueHotelIds.length > 0,
+  });
+
   //  Portfolio totals
   const totalInvested = enrichedInvestments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const totalTokens = enrichedInvestments.reduce((sum, inv) => sum + (inv.tokenAmount || 0), 0);
   const totalProperties = enrichedInvestments.length;
-  const totalPendingRewards = enrichedInvestments.reduce((sum, inv) => sum + (inv.pendingRewards || 0), 0);
+  const totalPendingRewards = claimableUSDC;
   const totalEarned = enrichedInvestments.reduce((sum, inv) => sum + Number(inv.earnedRewards ?? 0),0);
 
-  // 🔥 Refresh
+  //  Refresh
   const refreshPortfolio = async () => {
     toast.info("Refreshing portfolio...");
-    await Promise.all([refetchInvestments(), refetchHatBalance()]);
+    await Promise.all([refetchInvestments(),
+      refetchHatBalance(),
+       refetchClaimableYield(),]);
     toast.success("Portfolio refreshed!");
   };
 
-  // 🔥 Claim rewards
-  const claimRewardsMutation = useMutation({
-    mutationFn: async (investment) => {
-      const res = await authFetch(`/api/v1/investments/${investment.id}/claim`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to claim rewards");
-      return res.json();
-    },
-    onSuccess: () => refetchInvestments(),
-    onError: (err) => toast.error(`Failed to claim: ${err.message}`),
-  });
+ const claimYieldMutation = useMutation({
+  mutationFn: async () => {
+    const receipt = await web3Service.claimYield();
 
-  // 🔥 Delete investment
+    await authFetch(`${API_URL}/api/v1/yield/mark-claimed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id, txHash: receipt.hash }),
+    });
+
+    return receipt;
+  },
+
+  onSuccess: async () => {
+    toast.success("Yield claimed successfully!");
+    await Promise.all([refetchClaimableYield(), refetchInvestments(), refetchHatBalance()]);
+  },
+
+  onError: (err) => {
+    toast.error(err.message);
+  },
+});
+
+  //  Delete investment
   const deleteInvestmentMutation = useMutation({
     mutationFn: async (investmentId) => {
       const res = await authFetch(`/api/v1/investments/${investmentId}`, { method: "DELETE" });
@@ -180,18 +255,38 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
               <div className="text-sm text-slate-500 uppercase tracking-wider">Properties</div>
             </div>
           </div>
-          <Button onClick={refreshPortfolio}
-                  disabled={investmentsLoading}
-           className="ml-auto bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </Button>
+          <div className="flex gap-3 ml-auto">
+            {claimableUSDC > 0 && (
+              <Button
+                onClick={() => claimYieldMutation.mutate()}
+                disabled={claimYieldMutation.isPending}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold flex items-center gap-2"
+              >
+                {claimYieldMutation.isPending ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Claiming...</>
+                ) : (
+                  <>Claim ${claimableUSDC.toFixed(2)} USDC</>
+                )}
+              </Button>
+            )}
+            <Button
+              onClick={refreshPortfolio}
+              disabled={investmentsLoading}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Investments Tabs */}
         <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-900/50 border p-2 rounded-2xl mb-8">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-900/50 border p-2 rounded-2xl mb-8">
             <TabsTrigger value="active" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-slate-900 font-bold rounded-xl">
               Active Investments
+            </TabsTrigger>
+            <TabsTrigger value="performance" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white font-bold rounded-xl">
+              Performance
             </TabsTrigger>
             <TabsTrigger value="staked" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white font-bold rounded-xl">
               Staked Assets
@@ -285,12 +380,7 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
                       Total: ${(Number(inv.earnedRewards ?? 0) + inv.pendingRewards).toFixed(2)}
                     </div>
                     </div>
-
-
                       </div>
-                      {inv.pendingRewards > 0 && (
-                        <Button size="sm" onClick={()=>claimRewardsMutation.mutate(inv)}>Claim ${inv.pendingRewards.toFixed(2)}</Button>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -303,6 +393,83 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
                   <Button className="bg-amber-500 text-slate-900 font-bold px-12 py-6">Browse Assets →</Button>
                 </Link>
               </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="performance">
+            {performanceData.length === 0 ? (
+              <Card className="p-16 text-center bg-slate-900/50 border rounded-xl">
+                <TrendingUp className="w-16 h-16 text-slate-600 mx-auto mb-6 opacity-50"/>
+                <h3 className="text-2xl font-bold text-white mb-3">No Performance Data Yet</h3>
+                <p className="text-slate-400">Performance records are generated monthly by the admin after bookings are completed.</p>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-8">
+                {performanceData.map(({ hotelAssetId, history }) => {
+                  const hotel = enrichedInvestments.find(inv => inv.hotelAssetId === hotelAssetId)?.hotel;
+                  if (!history.length) return null;
+                  const latest = history[0];
+                  return (
+                    <Card key={hotelAssetId} className="bg-slate-900/50 border backdrop-blur-xl">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-white flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-blue-400"/>
+                          {hotel?.name ?? "Hotel"} — Performance
+                        </CardTitle>
+                        <p className="text-slate-400 text-sm">Latest period: {latest.period}</p>
+                      </CardHeader>
+                      <CardContent>
+                        {/* Latest metrics */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                          <div className="bg-slate-800/60 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-black text-blue-400">{latest.occupancyRate}%</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wider mt-1">Occupancy</div>
+                          </div>
+                          <div className="bg-slate-800/60 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-black text-emerald-400">${Number(latest.totalRevenue).toLocaleString()}</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wider mt-1">Revenue</div>
+                          </div>
+                          <div className="bg-slate-800/60 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-black text-amber-400">${Number(latest.revpar).toFixed(2)}</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wider mt-1">RevPAR</div>
+                          </div>
+                          <div className="bg-slate-800/60 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-black text-green-400">${Number(latest.investorYield).toLocaleString()}</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wider mt-1">Investor Yield</div>
+                          </div>
+                        </div>
+                        {/* History table */}
+                        {history.length > 1 && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                              <thead>
+                                <tr className="text-slate-500 uppercase text-xs border-b border-slate-700">
+                                  <th className="pb-2 pr-4">Period</th>
+                                  <th className="pb-2 pr-4">Revenue</th>
+                                  <th className="pb-2 pr-4">Occupancy</th>
+                                  <th className="pb-2 pr-4">RevPAR</th>
+                                  <th className="pb-2">Bookings</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {history.map((row) => (
+                                  <tr key={row.id} className="border-b border-slate-800 hover:bg-slate-800/40">
+                                    <td className="py-2 pr-4 text-white font-medium">{row.period}</td>
+                                    <td className="py-2 pr-4 text-emerald-400">${Number(row.totalRevenue).toLocaleString()}</td>
+                                    <td className="py-2 pr-4 text-blue-400">{row.occupancyRate}%</td>
+                                    <td className="py-2 pr-4 text-amber-400">${Number(row.revpar).toFixed(2)}</td>
+                                    <td className="py-2 text-slate-300">{row.bookingCount}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 

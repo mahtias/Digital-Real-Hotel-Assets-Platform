@@ -14,6 +14,11 @@ import settlementRoutes from './settlementRoutes';
 import paymentRoutes from './paymentRoutes';
 import revenueRoutes from './revenueRoutes'
 import adminRoutes from './adminRoutes';
+import yieldRoutes from './yieldRoutes';
+import snapshotRoutes from './snapshotRoutes';
+import performanceRoutes from './performanceRoutes';
+import oracleRoutes from './oracleRoutes';
+import engineRoutes from './engineRoutes';
 
 const router = Router();
 
@@ -42,6 +47,11 @@ router.use('/payments', paymentRoutes);
 router.use('/settlements', settlementRoutes); 
 router.use('/admin/revenue', revenueRoutes);
 router.use('/admin', adminRoutes);
+router.use('/yield', yieldRoutes);
+router.use('/admin/snapshot', snapshotRoutes);
+router.use('/performance', performanceRoutes);
+router.use('/admin/oracle', oracleRoutes);
+router.use('/admin/engine', engineRoutes);
 // router.use('/portfolios', portfolioRoutes); 
 
 

@@ -35,6 +35,23 @@ export default function Home() {
       .catch(() => setUser(null));
   }, [authFetch]);
 
+  const { data: claimableYield = "0" } = useQuery({
+  queryKey: ["claimable-yield", address],
+  queryFn: async () => {
+    if (!address) return "0";
+
+    const res = await authFetch(
+      `${API_URL}/api/v1/yield/claimable/${address}`
+    );
+
+    const json = await res.json();
+
+    return json.claimable;
+  },
+  enabled: !!address,
+});
+
+const claimableUSDC = Number(claimableYield) / 1_000_000;
   //  HOTELS WITH TOKEN ADDRESSES
   const { data: hotels = [] } = useQuery({
     queryKey: ['hotels'],
@@ -54,18 +71,13 @@ const { data: investments = [] } = useQuery({
     const res = await authFetch(`${API_URL}/api/v1/investments`)
     //const res = await authFetch("/api/v1/investments");
 
-    console.log("STATUS:", res.status);
-
     if (!res.ok) {
-      console.error("Request failed:", res);
       throw new Error("Failed to fetch investments");
     }
 
-    const text = await res.text();   // 👈 read raw response
-    console.log("RAW RESPONSE:", text);
+    const text = await res.text();   
 
     const json = JSON.parse(text);
-    console.log("PARSED JSON:", json);
     
     return json?.data ?? [];
   },
@@ -124,10 +136,7 @@ const { data: investments = [] } = useQuery({
   //  CALCULATIONS
   const totalValue = investments.reduce(
   (sum, inv) => sum + Number(inv.amount ?? inv.invested_amount ?? inv.investedAmount ?? 0), 0);
-
-const totalRewards = investments.reduce(
-  (sum, inv) => sum + Number(inv.rewards_earned ?? inv.pendingRewards ?? 0), 0);
-
+  
 const totalTokenBalance = investments.reduce(
   (sum, inv) => sum + Number(inv.tokenAmount ?? inv.tokens ?? 0),0);
 
@@ -267,6 +276,7 @@ const walletHatValue = hotelTokenBalances.reduce(
               totalInvested={totalValue}
               totalTokens={totalTokenBalance}
               totalProperties={investments.length}
+                claimableUSDC={claimableUSDC}
             />
 
             {/* Quick Actions */}

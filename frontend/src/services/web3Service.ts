@@ -2,6 +2,7 @@
 import { BrowserProvider, Contract, ethers, JsonRpcSigner, Signer } from "ethers";
 import HotelInvestmentJSON from "../contracts/ABI/HotelInvestment.json";
 import HotelAssetManagerJSON from "../contracts/ABI/HotelAssetManager.json";
+import HotelYieldVaultJSON from "../contracts/ABI/HotelYieldVault.json" 
 //import KYCRegistryJSON from "../contracts/ABI/KYCRegistry.json";
 
 //import axios from "axios";
@@ -11,6 +12,7 @@ import { globalEvent } from '@/utils/events';
 
 const HotelInvestmentABI = HotelInvestmentJSON.abi;
 const HotelAssetManagerABI = HotelAssetManagerJSON.abi;
+const HotelYieldVaultABI = HotelYieldVaultJSON.abi; 
 //const KYC_ABI = KYCRegistryJSON.abi;
 export const KYC_ABI = [
   {
@@ -63,6 +65,7 @@ const HOTEL_INVESTMENT_ADDRESS =
 const KYC_CONTRACT_ADDRESS = import.meta.env.VITE_KYC_CONTRACT_ADDRESS ?? "";
 const HOTEL_ASSET_MANAGER_ADDRESS =
   import.meta.env.VITE_HOTEL_ASSET_MANAGER_ADDRESS ?? "";
+  const HOTEL_YIELD_VAULT_ADDRESS = import.meta.env.VITE_HOTEL_YIELD_VAULT_ADDRESS ?? "";
 
 class Web3Service {
   private provider: BrowserProvider | null = null;
@@ -262,7 +265,7 @@ async investOnBlockchain(
     this.signer
   );
 
-  // 🧠 DYNAMIC TOKEN (NO MORE USDC HARDCODE)
+  //  DYNAMIC TOKEN (NO MORE USDC HARDCODE)
   const tokenContract = new Contract(
     stablecoin.address,
     ERC20_ABI,
@@ -373,7 +376,7 @@ const tx = await hotelContract.invest(
   const receipt = await tx.wait();
 
   console.log("Investment confirmed:", receipt.hash);
-
+  
   // -----------------------------
   // 5️⃣ BACKEND CONFIRMATION
   // -----------------------------
@@ -462,7 +465,7 @@ async payBooking(
 
   console.log("Allowance:", allowance.toString());
 
-  // ⚠️ Booking uses direct transfer → no approve needed
+  // Booking uses direct transfer → no approve needed
   // (ERC20 transfer does NOT require allowance)
 
   // -----------------------------
@@ -556,6 +559,19 @@ async sendStablecoin(
   return receipt.hash;
 }
 
+async claimYield() {
+  if (!this.signer) throw new Error("Wallet not connected.");
+
+  const vault = new Contract(
+    HOTEL_YIELD_VAULT_ADDRESS,
+    HotelYieldVaultABI,
+    this.signer
+  );
+
+  const tx = await vault.claimYield();
+
+  return await tx.wait();
+}
 
 }
 

@@ -401,14 +401,15 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
 
       // 3a️⃣ DISTRIBUTE YIELD (20% of booking)
       const totalYield = paymentAmount * 0.20;
-      await yieldService.distributeFromBooking(updatedBooking.id, totalYield);
+      await yieldService.distributeFromBooking(updatedBooking.id, totalYield, "USDC", tx);
 
       // 3b️⃣ CREATE SETTLEMENT FOR HOTEL (70% of booking)
       const hotelShare = paymentAmount * 0.70;
       await settlementService.createSettlement({
         ...updatedBooking,
         hotelAsset: booking.hotelAsset,
-        totalPrice: hotelShare, // override totalPrice for settlement
+        totalPrice: hotelShare, 
+        
       });
 
       return { updatedBooking };

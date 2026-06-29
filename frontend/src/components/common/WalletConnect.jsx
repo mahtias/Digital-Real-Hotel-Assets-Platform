@@ -20,12 +20,11 @@ export default function WalletConnect() {
   const [showDialog, setShowDialog] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // ✅ Sync wallet to backend when connected
+  //  Sync wallet to backend when connected
   useEffect(() => {
     if (isConnected && address && token && !isSyncing) {
       // Check if wallet is already linked
       if (user?.walletAddress?.toLowerCase() === address.toLowerCase()) {
-        console.log("✅ Wallet already linked");
         return;
       }
       
@@ -41,25 +40,22 @@ export default function WalletConnect() {
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("Address:", address);
 
-      // ✅ Step 1: Create message to sign
+      //  Step 1: Create message to sign
       const message = `Link wallet to KYC account: ${user?.id || 'unknown'}`;
-      console.log("📝 Message to sign:", message);
 
-      // ✅ Step 2: Request signature from user
+      //  Step 2: Request signature from user
       toast.info("Please sign the message in your wallet...");
       
       let signature;
       try {
         signature = await signMessageAsync({ message });
-        console.log("✅ Signature received:", signature);
       } catch (signError) {
         console.log(" User rejected signature");
         toast.error("Signature required to link wallet");
         return;
       }
 
-      // ✅ Step 3: Send to backend with signature
-      console.log("📤 Sending to backend...");
+      //  Step 3: Send to backend with signature
       const response = await axios.put(`${API_URL}/api/v1/user/wallet`,
         { 
           walletAddress: address,
@@ -71,15 +67,12 @@ export default function WalletConnect() {
         }
       );
 
-      console.log("✅ Backend response:", response.data);
-
       // ✅ Refresh user data
       await refreshUser();
-      toast.success("🎉 Wallet verified and linked!");
+      toast.success(" Wallet verified and linked!");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     } catch (error) {
-      console.error("❌ Wallet sync error:", error);
       
       if (error.response?.status === 403) {
         toast.error("Invalid signature - wallet verification failed");

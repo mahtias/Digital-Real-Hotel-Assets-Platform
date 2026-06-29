@@ -1,4 +1,4 @@
-import HotelAssetManagerJSON from "../../../out/HotelAssetManager.sol/HotelAssetManager.json";
+import HotelAssetManagerJSON from "./ABI/HotelAssetManager.json";
 
 export const HOTEL_ASSET_MANAGER_ABI = HotelAssetManagerJSON.abi;
 // ===================================

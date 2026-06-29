@@ -18,7 +18,7 @@ interface AuthRequest extends Request {
   walletAddress?: string; // Added by requireKYC middleware
 }
 
-// ✅ Helper: Safe Decimal to Number conversion
+//  Helper: Safe Decimal to Number conversion
 const toNumber = (value: Prisma.Decimal | number | null | undefined): number => {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
@@ -112,7 +112,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
         });
       }
     } catch (error) {
-      console.error('❌ Blockchain KYC check failed:', error);
+      console.error(' Blockchain KYC check failed:', error);
       return res.status(500).json({ 
         message: 'Failed to verify KYC status on blockchain',
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -1036,5 +1036,3 @@ export const cancelInvestment = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
-

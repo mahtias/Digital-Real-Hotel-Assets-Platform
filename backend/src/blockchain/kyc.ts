@@ -13,7 +13,7 @@ export class BlockchainKYC  {
     this.wallet = walletClient;
   }
 
-  // ✅ Fixed: Use isKYCVerified instead of isVerified
+  //  Fixed: Use isKYCVerified instead of isVerified
   async isVerified(userAddress: string): Promise<boolean> {
     try {
       const address = userAddress.toLowerCase() as Address;
@@ -32,7 +32,7 @@ export class BlockchainKYC  {
     }
   }
 
-  // ✅ Fixed: Use getKYCStatus to check if PENDING (status = 1)
+  // Fixed: Use getKYCStatus to check if PENDING (status = 1)
   async isPending(userAddress: string): Promise<boolean> {
     try {
       const address = userAddress.toLowerCase() as Address;
@@ -52,7 +52,7 @@ export class BlockchainKYC  {
     }
   }
 
-  // ✅ Fixed: Use getKYCRecord to get approvedAt timestamp
+  //  Fixed: Use getKYCRecord to get approvedAt timestamp
   async getVerificationTime(userAddress: string): Promise<bigint> {
     try {
       const address = userAddress.toLowerCase() as Address;
@@ -71,7 +71,7 @@ export class BlockchainKYC  {
     }
   }
 
-  // ✅ Fixed: Use approveKYC with proper parameters
+  //  Fixed: Use approveKYC with proper parameters
   async verifyUser(userAddress: string): Promise<string> {
     try {
       console.log(' Approving KYC on blockchain:', userAddress);
@@ -115,7 +115,7 @@ export class BlockchainKYC  {
     }
   }
 
-  // ✅ New: Get full KYC record
+  //  New: Get full KYC record
   async getKYCRecord(userAddress: string) {
     try {
       const address = userAddress.toLowerCase() as Address;
@@ -134,7 +134,7 @@ export class BlockchainKYC  {
     }
   }
 
-  // ✅ New: Get KYC status
+  //  New: Get KYC status
   async getKYCStatus(userAddress: string): Promise<number> {
     try {
       const address = userAddress.toLowerCase() as Address;
