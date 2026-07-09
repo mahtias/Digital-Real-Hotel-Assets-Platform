@@ -18,7 +18,10 @@ contract DRAToken is ERC20, ERC20Burnable, Ownable {
 
     event DRAMinted(address indexed to, uint256 amount);
 
-    constructor(address initialOwner) ERC20("DIGIREAL Assets Token", "DRA") Ownable(initialOwner) {}
+    constructor(address initialOwner)
+        ERC20("DIGIREAL Assets Token", "DRA")
+        Ownable(initialOwner)
+    { }
 
     /**
      * @notice Mint DRA reward tokens to an investor wallet.
