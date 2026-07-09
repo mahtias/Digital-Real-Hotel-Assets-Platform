@@ -599,39 +599,24 @@ export const updateUserRole = async (req: Request, res: Response) => {
     const { role } = req.body;
     const adminId = req.user?.userId;
 
-    // Validate role
-    const validRoles = ['user', 'admin', 'property_manager', 'compliance_officer', 'finance_manager'];
-    if (!validRoles.includes(role)) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid role',
-        validRoles
-      });
+    const validRoles = ['USER', 'ADMIN', 'PROPERTY_MANAGER', 'COMPLIANCE_OFFICER', 'FINANCE_MANAGER'];
+    if (!role || !validRoles.includes(role.toUpperCase())) {
+      res.status(400).json({ success: false, message: 'Invalid role', validRoles });
       return;
     }
 
-    // Prevent self-role change
     if (userId === adminId) {
-      res.status(403).json({
-        success: false,
-        message: 'Cannot change your own role'
-      });
+      res.status(403).json({ success: false, message: 'Cannot change your own role' });
       return;
     }
 
-    // TODO: Update user role in database
-    // await User.findByIdAndUpdate(userId, { role });
-
-    res.json({
-      success: true,
-      message: 'User role updated successfully',
-      data: {
-        userId,
-        role,
-        updatedBy: adminId,
-        updatedAt: new Date()
-      }
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data:  { role: role.toUpperCase() as any },
+      select: { id: true, email: true, role: true },
     });
+
+    res.json({ success: true, message: 'User role updated', data: updated });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -647,28 +632,20 @@ export const updateUserRole = async (req: Request, res: Response) => {
 export const deactivateUser = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { reason } = req.body;
     const adminId = req.user?.userId;
 
-    // Prevent self-deactivation
     if (userId === adminId) {
-      res.status(403).json({
-        success: false,
-        message: 'Cannot deactivate your own account'
-      });
+      res.status(403).json({ success: false, message: 'Cannot deactivate your own account' });
       return;
     }
 
-    res.json({
-      success: true,
-      message: 'User deactivated successfully',
-      data: {
-        userId,
-        deactivatedBy: adminId,
-        reason,
-        deactivatedAt: new Date()
-      }
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data:  { isActive: false },
+      select: { id: true, email: true, isActive: true },
     });
+
+    res.json({ success: true, message: 'User deactivated', data: updated });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -727,24 +704,14 @@ export const getUserStatistics = async (req: Request, res: Response) => {
 export const reactivateUser = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const adminId = req.user?.userId;
 
-    // TODO: Reactivate user in database
-    // await User.findByIdAndUpdate(userId, { 
-    //   isActive: true,
-    //   reactivatedAt: new Date(),
-    //   reactivatedBy: adminId
-    // });
-
-    res.json({
-      success: true,
-      message: 'User reactivated successfully',
-      data: {
-        userId,
-        reactivatedBy: adminId,
-        reactivatedAt: new Date()
-      }
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data:  { isActive: true },
+      select: { id: true, email: true, isActive: true },
     });
+
+    res.json({ success: true, message: 'User reactivated', data: updated });
   } catch (error) {
     res.status(500).json({
       success: false,

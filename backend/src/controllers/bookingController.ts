@@ -197,11 +197,6 @@ return res.json({
   },
 });
 
-    return res.json({
-      success: true,
-      data: bookings,
-    });
-    
   } catch (err: any) {
     console.error("Get User Bookings Error:", err);
     return res.status(500).json({
@@ -376,17 +371,17 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Payment verification failed" });
     }
 
-    // 3️⃣ ATOMIC TRANSACTION: UPDATE BOOKING + YIELD + SETTLEMENT
+    // 3️⃣ ATOMIC TRANSACTION: UPDATE BOOKING + SETTLEMENT ONLY
+    //    Yield distribution runs AFTER commit — blockchain calls can't be inside a DB tx
+    const paymentAmount = booking.totalPrice instanceof Prisma.Decimal
+      ? booking.totalPrice.toNumber()
+      : Number(booking.totalPrice);
+
+    const platformFee   = Number((paymentAmount * 0.01).toFixed(2));
+    const totalYield    = paymentAmount * 0.20;
+    const hotelShare    = paymentAmount * 0.79;
+
     const result = await prisma.$transaction(async (tx) => {
-      // Convert total price
-      const paymentAmount = booking.totalPrice instanceof Prisma.Decimal
-        ? booking.totalPrice.toNumber()
-        : Number(booking.totalPrice);
-
-      // Platform fee example (10%)
-      const platformFee = Number((paymentAmount * 0.10).toFixed(2));
-
-      // Update booking status + payment details
       const updatedBooking = await tx.booking.update({
         where: { id: bookingId },
         data: {
@@ -399,21 +394,22 @@ export const confirmBookingPayment = async (req: Request, res: Response) => {
         },
       });
 
-      // 3a️⃣ DISTRIBUTE YIELD (20% of booking)
-      const totalYield = paymentAmount * 0.20;
-      await yieldService.distributeFromBooking(updatedBooking.id, totalYield, "USDC", tx);
-
-      // 3b️⃣ CREATE SETTLEMENT FOR HOTEL (70% of booking)
-      const hotelShare = paymentAmount * 0.70;
+      // Settlement is pure DB — safe inside the transaction
       await settlementService.createSettlement({
         ...updatedBooking,
         hotelAsset: booking.hotelAsset,
-        totalPrice: hotelShare, 
-        
+        totalPrice: hotelShare,
       });
 
       return { updatedBooking };
     });
+
+    // 3a️⃣ DISTRIBUTE YIELD — runs after booking is committed
+    //    If blockchain fails, distribution stays PENDING and is retried by background job
+    yieldService.distributeFromBooking(result.updatedBooking.id, totalYield, "USDC")
+      .catch((err: Error) => {
+        console.error(`Yield distribution failed for booking ${result.updatedBooking.id}, will retry:`, err.message);
+      });
 
   // 4️⃣ SYNC TO PMS (QloApps)
 let pmsOrderDetails = null;

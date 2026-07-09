@@ -19,9 +19,9 @@ export const revenueService = {
     // 1. SPLIT REVENUE
     // =====================================
 
-    const hotelShare = paymentAmount * 0.70;
+    const hotelShare = paymentAmount * 0.79;
     const investorPool = paymentAmount * 0.20;
-    const platformFee = paymentAmount * 0.10;
+    const platformFee = paymentAmount * 0.01;
 
     console.log("💰 Revenue Split:", {
       hotelShare,

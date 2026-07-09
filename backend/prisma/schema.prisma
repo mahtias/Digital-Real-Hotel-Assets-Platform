@@ -34,6 +34,7 @@ model User {
   kycSyncAttempts      Int                @default(0) @map("kyc_sync_attempts")
   kycSyncError         String?            @map("kyc_sync_error")
   kycDocumentHash      String?
+  isActive             Boolean            @default(true) @map("is_active")
   bookings             Booking[]
   createdHotelAssets   HotelAsset[]       @relation("CreatedAssets")
   investments          Investment[]

@@ -106,6 +106,19 @@ export default function AdminDashboard() {
           </p>
         </a>
 
+        {/* SNAPSHOT & PERFORMANCE */}
+        <a
+          href="/admin/snapshot-performance"
+          className="p-6 rounded-2xl shadow-md hover:shadow-2xl transition bg-gradient-to-br from-violet-600 to-indigo-700 text-white"
+        >
+          <h2 className="text-2xl font-bold mb-2">
+            Snapshot & Performance
+          </h2>
+          <p className="text-violet-100">
+            Capture investor snapshots and record monthly hotel occupancy, RevPAR, and yield.
+          </p>
+        </a>
+
       </div>
     </div>
   );

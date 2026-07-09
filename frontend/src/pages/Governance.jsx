@@ -16,9 +16,12 @@ import { enUS, zhCN } from 'date-fns/locale';
 import TokenBalance from "@/components/common/TokenBalance";
 import { useLanguage } from '@/components/common/LanguageContext';
 import { useAuth } from "@/context/AuthContext";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function Governance() {
   const { t, language } = useLanguage();
   const [user, setUser] = useState(null);
+  const [draBalance, setDraBalance] = useState(0);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProposal, setNewProposal] = useState({ title: '', description: '', category: 'platform_upgrade' });
   const queryClient = useQueryClient();
@@ -29,6 +32,11 @@ useEffect(() => {
     .then(res => res.json())
     .then(data => setUser(data.user))
     .catch(() => setUser(null));
+
+  authFetch(`${API_URL}/api/v1/auth/dra-balance`)
+    .then(res => res.json())
+    .then(data => { if (data.success) setDraBalance(data.balance); })
+    .catch(() => {});
 }, []);
 
 const { data: proposals = [], isLoading } = useQuery({
@@ -43,26 +51,36 @@ const { data: proposals = [], isLoading } = useQuery({
 
  const createProposalMutation = useMutation({
   mutationFn: async () => {
+    const now = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7);
 
-  await authFetch("/api/v1/proposals", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    ...newProposal,
-    quorumRequired: 1000,
-    approvalThreshold: 50,
-    hotelAssetId: null,
-    type: "GENERAL",
-  })
-});
+    const res = await authFetch("/api/v1/proposals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...newProposal,
+        type: "OTHER",
+        quorumRequired: 10,
+        approvalThreshold: 50,
+        hotelAssetId: null,
+        status: "ACTIVE",
+        votingStartDate: now.toISOString(),
+        votingEndDate: endDate.toISOString(),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to create proposal");
+    }
+    return res.json();
   },
   onSuccess: () => {
     queryClient.invalidateQueries(["proposals"]);
     setShowCreateDialog(false);
     setNewProposal({ title: "", description: "", category: "platform_upgrade" });
-  }
+  },
+  onError: (err) => alert(err.message),
 });
 
  const voteMutation = useMutation({
@@ -117,12 +135,18 @@ const { data: proposals = [], isLoading } = useQuery({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <Vote 
-
-              className="w-8 h-8 text-amber-400" />
+              <Vote className="w-8 h-8 text-amber-400" />
               {t('governance.title')}
             </h1>
             <p className="text-slate-400">{t('governance.subtitle')}</p>
+            {draBalance > 0 && (
+              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-full">
+                <span className="text-violet-400 text-sm font-semibold">
+                  🗳 {draBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} DRA
+                </span>
+                <span className="text-slate-500 text-xs">= your voting power</span>
+              </div>
+            )}
           </div>
           
           {user && (
@@ -193,9 +217,9 @@ const { data: proposals = [], isLoading } = useQuery({
         {/* Token Balance */}
         {user && (
           <div className="mb-6">
-            <TokenBalance 
-              draBalance={user?.dra_balance || 1500}
-              votingPower={user?.voting_power || 1500}
+            <TokenBalance
+              draBalance={draBalance}
+              votingPower={Math.floor(draBalance)}
               pendingRewards={0}
             />
           </div>
@@ -207,17 +231,21 @@ const { data: proposals = [], isLoading } = useQuery({
             <p className="text-slate-400 text-sm">{t('governance.activeProposals')}</p>
             <p className="text-2xl font-bold text-white mt-1">{proposals.filter(p => p.status === 'ACTIVE').length}</p>
           </Card>
-          < Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.passed')}</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">{proposals.filter(p => p.status === 'APPROVED').length}</p>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.totalVotingPower')}</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">2.5M DRA</p>
+            <p className="text-2xl font-bold text-amber-400 mt-1">
+              {proposals.reduce((sum, p) => sum + (p.votesFor || 0) + (p.votesAgainst || 0) + (p.votesAbstain || 0), 0).toLocaleString()} DRA
+            </p>
           </Card>
-          <  Card className="bg-slate-900/50 border-slate-800 p-5">
+          <Card className="bg-slate-900/50 border-slate-800 p-5">
             <p className="text-slate-400 text-sm">{t('governance.participants')}</p>
-            <p className="text-2xl font-bold text-violet-400 mt-1">1,234</p>
+            <p className="text-2xl font-bold text-violet-400 mt-1">
+              {[...new Set(proposals.flatMap(p => (p.votes || []).map(v => v.userId)))].length}
+            </p>
           </Card>
         </div>
 

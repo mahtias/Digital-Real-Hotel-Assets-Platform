@@ -89,6 +89,7 @@ useEffect(() => {
   //  User
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
+  const [draBalance, setDraBalance] = useState(0);
   useEffect(() => {
     setUserLoading(true);
     authFetch("/api/v1/auth/me")
@@ -96,6 +97,13 @@ useEffect(() => {
       .then(data => setUser(data.user))
       .catch(() => setUser(null))
       .finally(() => setUserLoading(false));
+  }, [authFetch]);
+
+  useEffect(() => {
+    authFetch(`${API_URL}/api/v1/auth/dra-balance`)
+      .then(res => res.json())
+      .then(data => { if (data.success) setDraBalance(data.balance); })
+      .catch(() => {});
   }, [authFetch]);
 
   //  Investments
@@ -253,6 +261,10 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
             <div className="text-center">
               <div className="text-2xl font-black text-amber-400">{totalProperties}</div>
               <div className="text-sm text-slate-500 uppercase tracking-wider">Properties</div>
+            </div>
+            <div className="text-center border-l border-slate-700 pl-4">
+              <div className="text-2xl font-black text-violet-400">{draBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+              <div className="text-sm text-slate-500 uppercase tracking-wider">DRA Tokens</div>
             </div>
           </div>
           <div className="flex gap-3 ml-auto">

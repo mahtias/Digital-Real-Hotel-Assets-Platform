@@ -6,6 +6,7 @@ import { UserRole, KycStatus } from '@prisma/client';
 import crypto from 'crypto';
 //import { mailer } from '../utils/mailer';
 import { sendResendEmail } from "../utils/resendEmail";
+import { draService } from "../services/draService";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -147,6 +148,14 @@ export const login = async (req: Request, res: Response) => {
       return res.status(403).json({
         success: false,
         message: "Please verify your email before logging in."
+      });
+    }
+
+    // Block deactivated accounts
+    if (!(user as any).isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Contact support."
       });
     }
 
@@ -572,3 +581,86 @@ return res.status(500).json({
 }
 };
 
+// ============================================================
+//  ADMIN LOGIN — separate endpoint, ADMIN role only
+//  Shorter token (8h), logs every attempt for audit trail
+// ============================================================
+export const adminLogin = async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+
+  try {
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+
+    // Always same message — never reveal whether user exists
+    const INVALID = "Invalid credentials or insufficient permissions";
+
+    if (!user) {
+      console.warn(`[ADMIN LOGIN FAILED] unknown email: ${email} from IP: ${ip}`);
+      return res.status(401).json({ success: false, message: INVALID });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      console.warn(`[ADMIN LOGIN FAILED] wrong password for: ${email} from IP: ${ip}`);
+      return res.status(401).json({ success: false, message: INVALID });
+    }
+
+    if (user.role !== "ADMIN") {
+      console.warn(`[ADMIN LOGIN BLOCKED] non-admin attempt: ${email} (role: ${user.role}) from IP: ${ip}`);
+      return res.status(403).json({ success: false, message: INVALID });
+    }
+
+    // 8-hour token — shorter than investor 7d
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    console.info(`[ADMIN LOGIN] ${email} from IP: ${ip}`);
+
+    return res.json({
+      success: true,
+      message: "Admin login successful",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+    });
+
+  } catch (error) {
+    console.error("[ADMIN LOGIN ERROR]", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+// GET /api/v1/auth/dra-balance
+export const getDRABalance = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { walletAddress: true },
+    });
+
+    if (!user?.walletAddress) {
+      return res.json({ success: true, balance: 0, walletAddress: null });
+    }
+
+    const balance = await draService.getBalance(user.walletAddress);
+    return res.json({ success: true, balance, walletAddress: user.walletAddress });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Failed to fetch DRA balance" });
+  }
+};

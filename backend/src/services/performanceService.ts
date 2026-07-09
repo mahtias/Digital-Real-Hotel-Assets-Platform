@@ -11,7 +11,7 @@ export const performanceService = {
     adminId: string,
     period?: string // "YYYY-MM", defaults to last month
   ) {
-    const targetPeriod = period ?? getPreviousMonth();
+    const targetPeriod = period ?? getCurrentMonth();
     const { periodStart, periodEnd } = getPeriodDates(targetPeriod);
 
     const hotel = await prisma.hotelAsset.findUnique({
@@ -27,8 +27,7 @@ export const performanceService = {
       where: {
         hotelAssetId,
         status: "PAID",
-        checkInDate: { gte: periodStart },
-        checkOutDate: { lte: periodEnd },
+        checkInDate: { gte: periodStart, lte: periodEnd },
       },
       _sum: { totalPrice: true, platformFee: true },
       _count: { id: true },
@@ -139,7 +138,7 @@ export const performanceService = {
   //  GET PERFORMANCE ACROSS ALL HOTELS
   // =========================================
   async getAllHotelsPerformance(period?: string) {
-    const targetPeriod = period ?? getPreviousMonth();
+    const targetPeriod = period ?? getCurrentMonth();
     return prisma.hotelPerformance.findMany({
       where: { period: targetPeriod },
       include: { hotelAsset: { select: { name: true, location: true } } },
@@ -151,11 +150,11 @@ export const performanceService = {
 // =========================================
 //  HELPERS
 // =========================================
-function getPreviousMonth(): string {
+function getCurrentMonth(): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
 
 function getPeriodDates(period: string): { periodStart: Date; periodEnd: Date } {
   const [year, month] = period.split("-").map(Number);

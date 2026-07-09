@@ -20,15 +20,7 @@ import MyBookings from "@/pages/MyBookings";
 import BookingDetails from "@/pages/BookingDetails";
 import KYCForm from '@/components/KYC/KYCForm';
 import KYCStatus from '@/components/KYC/KYCStatus';
-import AdminKYCReview from '@/components/Admin/KYCReview';
-import KYCReviewDetails from '@/components/Admin/KYCReviewDetails';
-import AdminDashboard from "@/components/Admin/AdminDashboard";
-import AdminKYCStatusList from '@/components/Admin/AdminKYCStatusList';
-import AdminKYCStatusDetail from '@/components/Admin/AdminKYCStatusDetail';
-import AdminSettlements from '@/components/Admin/AdminSettlements';
-import RevenueDashboard from '@/components/Admin/RevenueDashboard';
-import BookingDashboard from '@/components/Admin/BookingDashboard';
-import SettlementHistory from '@/components/Admin/SettlementHistory';
+// Admin pages removed — now live at localhost:5174 (admin app)
 
 
 
@@ -114,16 +106,7 @@ function App() {
                     <Route path="/kyc/submit" element={<KYCForm />} />
                     <Route path="/kyc/status" element={<KYCStatus />} />
 
-                    {/* Admin */}
-                    <Route path="/admin/kyc" element={<AdminKYCReview />} />
-                    <Route path="/admin/kyc/review/:kycId" element={<KYCReviewDetails />} />
-                    <Route path="/admin" element={<AdminDashboard />} />
-                    <Route path="/admin/kyc/status" element={<AdminKYCStatusList />} />
-                    <Route path="/admin/kyc/status/:kycId" element={<AdminKYCStatusDetail />} />
-                    <Route path="/admin/settlements" element={<AdminSettlements />} />
-                    <Route path="/admin/revenue" element={<RevenueDashboard />} />
-                    <Route path="/admin/bookings" element={<BookingDashboard />} />
-                    <Route path="/admin/settlements/history" element={<SettlementHistory />} />
+                    {/* Admin panel moved to localhost:5174 */}
                       
                     
 

@@ -67,6 +67,7 @@
     "stream-buffers": "^3.0.3",
     "uuid": "^13.0.0",
     "viem": "^2.44.4",
+    "x402": "^1.2.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

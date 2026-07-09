@@ -11,6 +11,7 @@ import {
 } from "../controllers/bookingController";
 
 import { authenticate } from "../middleware/auth";
+import { x402Middleware } from "../middleware/x402";
 
 const router = express.Router();
 
@@ -20,6 +21,10 @@ router.use(authenticate);
 // Booking CRUD
 router.post("/", createBooking);
 router.post("/confirm-payment", confirmBookingPayment);
+
+// x402 payment route — add ?pay=x402 to trigger x402 flow
+// Price is dynamic per booking (passed as query param or default 1 USDC for the route guard)
+router.post("/x402", x402Middleware(1), createBooking);
 
 // User-specific bookings
 router.get("/my", getUserBookings);

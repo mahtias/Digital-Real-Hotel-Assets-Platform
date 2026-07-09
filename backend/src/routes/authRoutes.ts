@@ -2,9 +2,11 @@ import { Router } from 'express';
 import {
   register,
   login,
+  adminLogin,
   getProfile,
   verifyEmail,
-  resendVerificationEmail, forgotPassword, resetPassword
+  resendVerificationEmail, forgotPassword, resetPassword,
+  getDRABalance,
 } from '../controllers/authController';
 
 import { authenticate } from '../middleware/auth';
@@ -29,6 +31,7 @@ const loginValidation = [
 // Public routes
 router.post('/register', registerValidation, validateRequest, register);
 router.post('/login', loginValidation, validateRequest, login);
+router.post('/admin-login', loginValidation, validateRequest, adminLogin);
 
 router.get('/verify-email', verifyEmail);
 
@@ -36,7 +39,8 @@ router.post('/resend-verification', resendVerificationEmail);
 
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
-// Private route
+// Private routes
 router.get('/me', authenticate, getProfile);
+router.get('/dra-balance', authenticate, getDRABalance);
 
 export default router;

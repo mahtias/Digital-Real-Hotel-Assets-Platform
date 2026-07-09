@@ -142,7 +142,7 @@ export const getHotelRevenue = async (
         totalRevenue,
 
         platformFees,
-        platformFeeRate: 0.05,
+        platformFeeRate: 0.01,
 
         investorYield,
         investorYieldRate: 0.1,

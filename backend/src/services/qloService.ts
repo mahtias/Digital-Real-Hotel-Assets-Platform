@@ -189,10 +189,21 @@ private async createCart(
    */
   async getHotelStats(hotelId: number, dateFrom: string, dateTo: string) {
     try {
-      const url = `${this.apiUrl}/orders?ws_key=${this.apiKey}&filter[id_hotel]=[${hotelId}]&filter[date_add]=[${dateFrom},${dateTo}]&display=full&output_format=JSON`;
+      // QloApps/PrestaShop orders API uses date_add (order creation date) for range
+      // filtering. Format must be full datetime: "YYYY-MM-DD HH:MM:SS".
+      const url = `${this.apiUrl}/orders?ws_key=${this.apiKey}&filter[date_add]=[${dateFrom} 00:00:00,${dateTo} 23:59:59]&display=full&output_format=JSON`;
 
       const res = await axios.get(url);
-      const orders: any[] = res.data?.orders ?? [];
+      const allOrders: any[] = res.data?.orders ?? [];
+
+      // Filter to this specific hotel via cart_bookings association
+      const orders = hotelId
+        ? allOrders.filter((o: any) => {
+            const bookings: any[] = o.associations?.cart_bookings?.booking ?? [];
+            const arr = Array.isArray(bookings) ? bookings : [bookings];
+            return arr.some((b: any) => Number(b.id_hotel) === hotelId);
+          })
+        : allOrders;
 
       const totalRevenue = orders.reduce(
         (sum: number, o: any) => sum + Number(o.total_paid ?? 0),

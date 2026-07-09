@@ -5,11 +5,12 @@ import {
   getLatestPerformance,
   getAllHotelsPerformance,
 } from "../controllers/performanceController";
-import { authenticate } from "../middleware/auth";
+import { authenticate, authorize } from "../middleware/auth";
 
 const router = Router();
 
 router.use(authenticate);
+router.use(authorize("ADMIN"));
 
 // Admin — record + overview
 router.post("/record", recordPerformance);

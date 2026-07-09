@@ -40,11 +40,7 @@ export const getLatestPerformance = async (req: Request, res: Response) => {
     const { hotelAssetId } = req.params;
     const record = await performanceService.getLatestPerformance(hotelAssetId);
 
-    if (!record) {
-      return res.status(404).json({ success: false, message: "No performance data yet" });
-    }
-
-    return res.json({ success: true, data: record });
+    return res.json({ success: true, data: record ?? null });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }

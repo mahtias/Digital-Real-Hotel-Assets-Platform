@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from 'react-router-dom';
+
+const API = import.meta.env.VITE_API_URL;
 interface Booking {
   id: string;
   bookingCode: string;
@@ -42,6 +44,8 @@ const [pagination, setPagination] = useState({
 const [search, setSearch] = useState("");
 const [paymentStatus, setPaymentStatus] = useState("");
 const [hotelId, setHotelId] = useState("");
+const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+const [paidMsg, setPaidMsg] = useState<Record<string, string>>({});
 
   // ========================================
   // FETCH BOOKINGS
@@ -50,7 +54,7 @@ const [hotelId, setHotelId] = useState("");
   const fetchBookings = async () => {
     try {
 
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("authToken");
 
      const res = await axios.get(
   `${import.meta.env.VITE_API_URL}/api/v1/admin/bookings`,
@@ -81,6 +85,30 @@ setPagination(res.data.pagination);
 useEffect(() => {
   fetchBookings();
 }, [page, search, paymentStatus, hotelId]);
+
+  // ========================================
+  // MARK AS PAID → triggers yield distribution
+  // ========================================
+  const markAsPaid = async (bookingId: string) => {
+    setMarkingPaid(bookingId);
+    setPaidMsg((prev) => ({ ...prev, [bookingId]: "" }));
+    try {
+      await axios.post(
+        `${API}/api/v1/webhook/qlo`,
+        { event: "PAYMENT_CONFIRMED", bookingId },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` } }
+      );
+      setPaidMsg((prev) => ({ ...prev, [bookingId]: "Paid — yield distributed!" }));
+      fetchBookings();
+    } catch (err: any) {
+      setPaidMsg((prev) => ({
+        ...prev,
+        [bookingId]: err.response?.data?.message ?? "Failed",
+      }));
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
 
   // ========================================
   // SUMMARY
@@ -253,6 +281,10 @@ useEffect(() => {
                     Tx Hash
                   </th>
 
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    Actions
+                  </th>
+
                 </tr>
 
               </thead>
@@ -339,6 +371,28 @@ useEffect(() => {
                     {/* TX HASH */}
                     <td className="p-4 max-w-xs truncate text-sm text-gray-500">
                       {booking.txHash || "-"}
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td className="p-4">
+                      {booking.paymentStatus !== "SUCCESS" ? (
+                        <div>
+                          <button
+                            onClick={() => markAsPaid(booking.id)}
+                            disabled={markingPaid === booking.id}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition"
+                          >
+                            {markingPaid === booking.id ? "Processing..." : "Mark as Paid"}
+                          </button>
+                          {paidMsg[booking.id] && (
+                            <p className={`text-xs mt-1 ${paidMsg[booking.id].includes("Failed") ? "text-red-500" : "text-emerald-600"}`}>
+                              {paidMsg[booking.id]}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
 
                   </tr>

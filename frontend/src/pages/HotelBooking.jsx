@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Star, CreditCard, Tag, CheckCircle } from "lucide-react";
+import { MapPin, Star, CreditCard, Tag, CheckCircle, Zap, X } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { web3Service } from "@/services/web3Service";
@@ -36,8 +36,11 @@ export default function BookingDetail() {
   const [isPaying, setIsPaying] = useState(false);
 
   const [isGalleryOpen, setGalleryOpen] = useState(false);
-const [bookingSuccess, setBookingSuccess] = useState(false);
-const [bookingInfo, setBookingInfo] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingInfo, setBookingInfo] = useState(null);
+  const [payWith, setPayWith] = useState("usdc"); // "usdc" | "x402"
+  const [x402Modal, setX402Modal] = useState(null); // holds 402 response data
+  const [isX402Loading, setIsX402Loading] = useState(false);
  const today = new Date().toISOString().split("T")[0];
   // -------- Wallet setup --------
   useEffect(() => {
@@ -216,11 +219,50 @@ const handleBookingPayment = async () => {
 };
   
   
+  // -------- x402 HANDLER --------
+  const handleX402Payment = async () => {
+    if (!checkIn || !checkOut) { toast.error("Select dates first"); return; }
+    if (!user) { toast.error("Please login first"); return; }
+    setIsX402Loading(true);
+    setX402Modal(null);
+    try {
+      const token = localStorage.getItem("authToken") || "";
+      const res = await fetch(`${API_URL}/api/v1/bookings/x402?pay=x402`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          hotelAssetId: hotelId,
+          checkInDate: checkIn.toISOString(),
+          checkOutDate: checkOut.toISOString(),
+          totalPrice: totalPrice,
+          roomType,
+          guests,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        setX402Modal(data);
+      } else if (res.ok) {
+        toast.success("Booking confirmed via x402!");
+        setBookingSuccess(true);
+      } else {
+        toast.error(data.message || "x402 request failed");
+      }
+    } catch (err) {
+      toast.error("x402 request failed: " + err.message);
+    } finally {
+      setIsX402Loading(false);
+    }
+  };
+
     // -------- SUCCESS SCREEN --------
   if (bookingSuccess && bookingInfo) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <Card className="bg-slate-900 p-8 max-w-md text-center">
+        <Card className="bg-slate-900 p-5 sm:p-8 w-full max-w-md text-center">
           <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-10 h-10 text-emerald-400" />
           </div>
@@ -296,22 +338,22 @@ const handleBookingPayment = async () => {
   if (!hotel) return <p className="text-white p-6">Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 text-white">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-950 p-3 sm:p-6 text-white">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
 
         {/* Back */}
         <Button onClick={() => navigate("/booking")}>← Back</Button>
 
         {/* Hotel Info */}
-        <Card className="p-6 bg-slate-900">
+        <Card className="p-4 sm:p-6 bg-slate-900">
           <img
             src={hotel.imageUrl}
-            className="w-full h-64 object-cover rounded-lg cursor-pointer"
+            className="w-full h-48 sm:h-64 object-cover rounded-lg cursor-pointer"
             onClick={() => setGalleryOpen(true)}
           />
-          <h2 className="text-2xl font-bold mt-4 text-white">{hotel.name}</h2>
-          <p className="text-white/90 flex items-center gap-2">
-            <MapPin className="w-4 h-4" /> {hotel.location}
+          <h2 className="text-xl sm:text-2xl font-bold mt-4 text-white">{hotel.name}</h2>
+          <p className="text-white/90 flex items-center gap-2 text-sm sm:text-base">
+            <MapPin className="w-4 h-4 shrink-0" /> {hotel.location}
           </p>
           <div className="flex mt-2">
             {[...Array(hotel.star_rating || 4)].map((_, i) => (
@@ -321,26 +363,26 @@ const handleBookingPayment = async () => {
         </Card>
 
         {/* Booking Form + Payment */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
 
           {/* Booking Form */}
-          <Card className="p-6 bg-slate-900 space-y-4">
+          <Card className="p-4 sm:p-6 bg-slate-900 space-y-4">
             <h3 className="text-white font-semibold mb-2">Stay Information</h3>
 
-            <label className="text-white/80">Check-in Date</label>
+            <label className="text-white/80 text-sm">Check-in Date</label>
             <input
               type="date"
               min={today}
               onChange={(e) => setCheckIn(new Date(e.target.value))}
-              className="bg-slate-800 p-2 w-full text-white"
+              className="bg-slate-800 p-2 w-full text-white rounded-lg text-sm"
             />
 
-            <label className="text-white/80 mt-2">Check-out Date</label>
+            <label className="text-white/80 mt-2 text-sm">Check-out Date</label>
             <input
               type="date"
               min={today}
               onChange={(e) => setCheckOut(new Date(e.target.value))}
-              className="bg-slate-800 p-2 w-full text-white"
+              className="bg-slate-800 p-2 w-full text-white rounded-lg text-sm"
             />
 
             <label className="text-white/80 mt-2">Room Type</label>
@@ -369,31 +411,41 @@ const handleBookingPayment = async () => {
             </Select>
 
             {/* Payment Method */}
-            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-            <p className="text-sm text-slate-400 mb-1">
-              Payment Currency
-            </p>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-semibold text-lg">
-                  {hotel?.stablecoin?.symbol || "USDC"}
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  Accepted payment token for this hotel
-                </p>
-              </div>
-
-              <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                Stablecoin
+            <div className="space-y-2">
+              <p className="text-sm text-slate-400">Payment Method</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPayWith("usdc")}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-all text-left ${
+                    payWith === "usdc"
+                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                      : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4 mb-1" />
+                  <div>{hotel?.stablecoin?.symbol || "USDC"}</div>
+                  <div className="text-xs opacity-70">Direct wallet</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayWith("x402")}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-all text-left ${
+                    payWith === "x402"
+                      ? "bg-violet-500/20 border-violet-500 text-violet-400"
+                      : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}
+                >
+                  <Zap className="w-4 h-4 mb-1" />
+                  <div>x402 Protocol</div>
+                  <div className="text-xs opacity-70">HTTP-native pay</div>
+                </button>
               </div>
             </div>
-          </div>
           </Card>
 
           {/* Order Summary */}
-          <Card className="p-6 bg-slate-900/90 backdrop-blur-md">
+          <Card className="p-4 sm:p-6 bg-slate-900/90 backdrop-blur-md">
             <h3 className="text-white font-semibold mb-2">Order Summary</h3>
 
             {checkIn && checkOut ? (
@@ -425,14 +477,25 @@ const handleBookingPayment = async () => {
 
                  
 
-                <Button
-                  className="w-full mt-4 bg-amber-500"
-                  onClick={handleBookingPayment}
-                  disabled={!walletReady || isPaying}
-                >
-                  <CreditCard className="mr-2" />
-                  {isPaying ? "Processing..." : "Confirm Booking"}
-                </Button>
+                {payWith === "usdc" ? (
+                  <Button
+                    className="w-full mt-4 bg-amber-500 hover:bg-amber-600"
+                    onClick={handleBookingPayment}
+                    disabled={!walletReady || isPaying}
+                  >
+                    <CreditCard className="mr-2 w-4 h-4" />
+                    {isPaying ? "Processing..." : "Confirm Booking (USDC)"}
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full mt-4 bg-violet-600 hover:bg-violet-700"
+                    onClick={handleX402Payment}
+                    disabled={isX402Loading}
+                  >
+                    <Zap className="mr-2 w-4 h-4" />
+                    {isX402Loading ? "Requesting..." : "Pay with x402 Protocol"}
+                  </Button>
+                )}
               </>
             ) : (
               <p className="text-slate-400 text-sm">Select dates to continue</p>
@@ -442,14 +505,74 @@ const handleBookingPayment = async () => {
 
         {/* Image Modal */}
         {isGalleryOpen && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-40">
             <img src={hotel.imageUrl} className="max-h-[90vh]" />
-            <Button
-              className="absolute top-4 right-4"
-              onClick={() => setGalleryOpen(false)}
-            >
+            <Button className="absolute top-4 right-4" onClick={() => setGalleryOpen(false)}>
               Close
             </Button>
+          </div>
+        )}
+
+        {/* x402 Payment Details Modal */}
+        {x402Modal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-violet-500/40 rounded-2xl p-6 max-w-md w-full space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-violet-400" />
+                  <h3 className="text-white font-bold text-lg">x402 Payment Required</h3>
+                </div>
+                <button onClick={() => setX402Modal(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4 space-y-3">
+                {x402Modal.accepts?.[0] && (() => {
+                  const req = x402Modal.accepts[0];
+                  const amountUSDC = (Number(req.maxAmountRequired) / 1_000_000).toFixed(2);
+                  return (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">Amount Due</span>
+                        <span className="text-white font-bold text-base">${amountUSDC} USDC</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">Network</span>
+                        <span className="text-violet-300 font-medium">{req.network}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-slate-400">Pay To</span>
+                        <p className="text-white font-mono text-xs mt-1 break-all bg-slate-800 rounded p-2">
+                          {req.payTo}
+                        </p>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-slate-400">Token (USDC)</span>
+                        <p className="text-white font-mono text-xs mt-1 break-all bg-slate-800 rounded p-2">
+                          {req.asset}
+                        </p>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">Expires in</span>
+                        <span className="text-amber-400">{req.maxTimeoutSeconds}s</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div className="bg-slate-800/50 rounded-xl p-3 text-xs text-slate-400 space-y-1">
+                <p className="font-semibold text-slate-300">How x402 works:</p>
+                <p>1. Send the exact USDC amount to the address above on Base Sepolia</p>
+                <p>2. Your wallet client includes the payment proof in the <code className="text-violet-300">X-PAYMENT</code> header</p>
+                <p>3. Server verifies and confirms your booking automatically</p>
+              </div>
+
+              <p className="text-center text-xs text-violet-400 font-medium">
+                ✅ x402 Protocol Active — HTTP 402 response confirmed
+              </p>
+            </div>
           </div>
         )}
       </div>

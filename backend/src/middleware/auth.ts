@@ -53,10 +53,12 @@ export const authenticate = async (
     });
 
     if (!user) {
-      res.status(401).json({
-        success: false,
-        message: 'User not found',
-      });
+      res.status(401).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    if (!(user as any).isActive) {
+      res.status(403).json({ success: false, message: 'Account is deactivated' });
       return;
     }
 

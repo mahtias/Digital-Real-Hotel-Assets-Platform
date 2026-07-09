@@ -7,6 +7,7 @@ import { KycStatus } from "@prisma/client";
 import  kyc  from "../blockchain/kyc";
 import { Prisma } from "@prisma/client";
 import { verifyTransaction } from "../utils/blockchain";
+import { draService } from "../services/draService";
 // ✅ Extend Request to include wallet address from middleware
 interface AuthRequest extends Request {
   user?: {
@@ -358,9 +359,15 @@ const [investment] = await prisma.$transaction([
 
 ]);
 
+    // Fire-and-forget DRA reward mint — does not block the response
+    if (user.walletAddress) {
+      draService.mintReward(user.walletAddress, netInvestedAmount).catch(() => {});
+    }
+
     return res.json({
       success: true,
       investment,
+      draReward: netInvestedAmount * Number(process.env.DRA_EARN_RATE ?? 10),
       message: `Investment confirmed. Platform fee: $${platformFee}, Net invested: $${netInvestedAmount}`,
     });
 

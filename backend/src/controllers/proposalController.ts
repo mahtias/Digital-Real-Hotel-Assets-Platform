@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ProposalType, ProposalStatus,ProposalCategory , VoteChoice } from '@prisma/client';
+import { draService } from '../services/draService';
 
 // CREATE proposal
 export const createProposal = async (req: Request, res: Response) => {
@@ -129,7 +130,13 @@ export const voteOnProposal = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "User already voted" });
     }
 
-    const votingPower = 1;
+    // Voting power = DRA balance (floored to whole tokens). Minimum 1 for any token holder.
+    const voter = await prisma.user.findUnique({ where: { id: userId }, select: { walletAddress: true } });
+    let votingPower = 1;
+    if (voter?.walletAddress) {
+      const draBalance = await draService.getBalance(voter.walletAddress);
+      if (draBalance > 0) votingPower = Math.max(1, Math.floor(draBalance));
+    }
 
     const newVote = await prisma.vote.create({
       data: {
