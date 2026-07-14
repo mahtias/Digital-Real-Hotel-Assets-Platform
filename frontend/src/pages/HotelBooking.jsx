@@ -41,6 +41,7 @@ export default function BookingDetail() {
   const [payWith, setPayWith] = useState("usdc"); // "usdc" | "x402"
   const [x402Modal, setX402Modal] = useState(null); // holds 402 response data
   const [isX402Loading, setIsX402Loading] = useState(false);
+  const [x402Error, setX402Error] = useState(null); // error message shown inside modal
  const today = new Date().toISOString().split("T")[0];
   // -------- Wallet setup --------
   useEffect(() => {
@@ -219,12 +220,13 @@ const handleBookingPayment = async () => {
 };
   
   
-  // -------- x402 HANDLER --------
+  // -------- x402 STEP 1: get 402 payment requirements --------
   const handleX402Payment = async () => {
     if (!checkIn || !checkOut) { toast.error("Select dates first"); return; }
     if (!user) { toast.error("Please login first"); return; }
     setIsX402Loading(true);
     setX402Modal(null);
+    setX402Error(null);
     try {
       const token = localStorage.getItem("authToken") || "";
       const res = await fetch(`${API_URL}/api/v1/bookings/x402?pay=x402`, {
@@ -253,6 +255,133 @@ const handleBookingPayment = async () => {
       }
     } catch (err) {
       toast.error("x402 request failed: " + err.message);
+    } finally {
+      setIsX402Loading(false);
+    }
+  };
+
+  // -------- x402 STEP 2: sign EIP-712 and retry with X-PAYMENT header --------
+  const handleX402Pay = async () => {
+    if (!signer || !address) { toast.error("Connect your wallet first"); return; }
+    if (!x402Modal?.accepts?.[0]) return;
+
+    const req = x402Modal.accepts[0];
+    setIsX402Loading(true);
+
+    try {
+      const amountRaw = BigInt(req.maxAmountRequired);
+      const validBefore = BigInt(Math.floor(Date.now() / 1000) + (req.maxTimeoutSeconds || 300));
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+
+      // EIP-712 domain for USDC on Base Sepolia — name is "USDC" (not "USD Coin") on this chain
+      const domain = {
+        name: "USDC",
+        version: "2",
+        chainId: 84532,
+        verifyingContract: req.asset,
+      };
+
+      const types = {
+        TransferWithAuthorization: [
+          { name: "from", type: "address" },
+          { name: "to", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "validAfter", type: "uint256" },
+          { name: "validBefore", type: "uint256" },
+          { name: "nonce", type: "bytes32" },
+        ],
+      };
+
+      const message = {
+        from: address,
+        to: req.payTo,
+        value: amountRaw,
+        validAfter: BigInt(0),
+        validBefore,
+        nonce,
+      };
+
+      console.log("[x402] address from wagmi:", address);
+      console.log("[x402] payTo:", req.payTo);
+      console.log("[x402] amount (raw):", amountRaw.toString());
+      console.log("[x402] nonce:", nonce);
+      toast.info("Sign the payment authorization in your wallet...");
+
+      // Use wagmi walletClient.signTypedData directly — more reliable with Coinbase Wallet
+      // than going through ethers BrowserProvider wrapper
+      const signature = await walletClient.signTypedData({
+        account: address,
+        domain,
+        types,
+        primaryType: "TransferWithAuthorization",
+        message,
+      });
+
+      // Build X-PAYMENT payload (base64 JSON)
+      const paymentPayload = {
+        x402Version: 1,
+        scheme: "exact",
+        network: req.network,
+        payload: {
+          signature,
+          authorization: {
+            from: address,
+            to: req.payTo,
+            value: amountRaw.toString(),
+            validAfter: "0",
+            validBefore: validBefore.toString(),
+            nonce,
+          },
+        },
+      };
+
+      const xPaymentHeader = btoa(JSON.stringify(paymentPayload));
+      toast.info("Verifying payment with facilitator...");
+
+      const token = localStorage.getItem("authToken") || "";
+      const retryRes = await fetch(`${API_URL}/api/v1/bookings/x402?pay=x402`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-PAYMENT": xPaymentHeader,
+        },
+        body: JSON.stringify({
+          hotelAssetId: hotelId,
+          checkInDate: checkIn.toISOString(),
+          checkOutDate: checkOut.toISOString(),
+          totalPrice,
+          roomType,
+          guests,
+        }),
+      });
+
+      if (retryRes.ok) {
+        setX402Modal(null);
+        setX402Error(null);
+        setBookingInfo({
+          name: user?.name || user?.email || "Guest",
+          hotel: hotel?.name,
+          roomType,
+          guests,
+          checkIn,
+          checkOut,
+          totalPaid: (Number(amountRaw) / 1_000_000).toFixed(2),
+        });
+        setBookingSuccess(true);
+        toast.success("Booking confirmed via x402!");
+      } else {
+        const errData = await retryRes.json().catch(() => ({}));
+        const reason = errData.error || errData.message || "Payment verification failed";
+        setX402Error(reason);
+      }
+    } catch (err) {
+      if (err.code === 4001 || err.message?.includes("rejected") || err.message?.includes("denied")) {
+        setX402Error("Payment was rejected in your wallet. Click below to try again.");
+      } else {
+        console.error("x402 pay error:", err);
+        setX402Error("x402 payment failed: " + (err.shortMessage || err.message || "Unknown error"));
+      }
     } finally {
       setIsX402Loading(false);
     }
@@ -564,13 +693,35 @@ const handleBookingPayment = async () => {
 
               <div className="bg-slate-800/50 rounded-xl p-3 text-xs text-slate-400 space-y-1">
                 <p className="font-semibold text-slate-300">How x402 works:</p>
-                <p>1. Send the exact USDC amount to the address above on Base Sepolia</p>
-                <p>2. Your wallet client includes the payment proof in the <code className="text-violet-300">X-PAYMENT</code> header</p>
-                <p>3. Server verifies and confirms your booking automatically</p>
+                <p>1. Sign a payment authorization in your wallet (no gas needed)</p>
+                <p>2. The <code className="text-violet-300">X-PAYMENT</code> proof is sent with your booking request</p>
+                <p>3. Coinbase facilitator verifies and settles on-chain automatically</p>
               </div>
 
+              {x402Error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                  <p className="text-red-400 text-sm font-medium mb-1">Payment failed</p>
+                  <p className="text-red-300 text-xs">{x402Error}</p>
+                </div>
+              )}
+
+              <Button
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                onClick={() => { setX402Error(null); handleX402Pay(); }}
+                disabled={isX402Loading || !signer}
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                {isX402Loading
+                  ? "Processing..."
+                  : !signer
+                  ? "Connect wallet to pay"
+                  : x402Error
+                  ? "Try Again — Sign with Wallet"
+                  : "Pay Now — Sign with Wallet"}
+              </Button>
+
               <p className="text-center text-xs text-violet-400 font-medium">
-                ✅ x402 Protocol Active — HTTP 402 response confirmed
+                 x402 Protocol Active — HTTP 402 response confirmed
               </p>
             </div>
           </div>

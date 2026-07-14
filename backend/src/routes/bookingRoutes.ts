@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createBooking,
+  createX402Booking,
   getBooking,
   getUserBookings,
   getBookingsByHotelAsset,
@@ -24,7 +25,7 @@ router.post("/confirm-payment", confirmBookingPayment);
 
 // x402 payment route — add ?pay=x402 to trigger x402 flow
 // Price is dynamic per booking (passed as query param or default 1 USDC for the route guard)
-router.post("/x402", x402Middleware(1), createBooking);
+router.post("/x402", x402Middleware(1), createX402Booking);
 
 // User-specific bookings
 router.get("/my", getUserBookings);

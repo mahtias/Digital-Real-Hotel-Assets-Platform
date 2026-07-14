@@ -106,6 +106,186 @@ export const createBooking = async (req: Request, res: Response) => {
   }
 };
 
+// ========================================
+// CREATE + CONFIRM BOOKING VIA x402
+// Called after x402Middleware has already verified & settled the payment
+// ========================================
+export const createX402Booking = async (req: Request, res: Response) => {
+  try {
+    const x402Payment = (req as any).x402Payment as { txHash: string | null; amountUSDC: number; paidAt: string } | undefined;
+    if (!x402Payment) {
+      return res.status(400).json({ success: false, message: "x402 payment info missing" });
+    }
+
+    const userId = (req as any).user?.userId;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { hotelAssetId, checkInDate, checkOutDate, totalPrice, roomType, guests, specialRequests } = req.body;
+
+    if (!hotelAssetId || !checkInDate || !checkOutDate || totalPrice === undefined) {
+      return res.status(400).json({ success: false, message: "Missing required booking fields" });
+    }
+
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+
+    if (checkOut <= checkIn) {
+      return res.status(400).json({ success: false, message: "Check-out must be after check-in" });
+    }
+
+    const conflict = await prisma.booking.findFirst({
+      where: {
+        hotelAssetId,
+        roomType,
+        status: { not: "CANCELLED" },
+        AND: [{ checkInDate: { lte: checkOut } }, { checkOutDate: { gte: checkIn } }],
+      },
+    });
+    if (conflict) {
+      return res.status(409).json({ success: false, message: "Dates already booked" });
+    }
+
+    // Fetch relations needed for PMS sync and email
+    const [user, hotelAsset] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.hotelAsset.findUnique({ where: { id: hotelAssetId } }),
+    ]);
+
+    if (!user || !hotelAsset) {
+      return res.status(404).json({ success: false, message: "User or hotel not found" });
+    }
+
+    const paymentAmount = Number(totalPrice);
+    const platformFee = Number((paymentAmount * 0.01).toFixed(2));
+    const totalYield   = paymentAmount * 0.20;
+    const hotelShare   = paymentAmount * 0.79;
+    const txHash = x402Payment.txHash || `x402-${Date.now()}`;
+
+    // Create booking and commit — settlement must run after commit because
+    // settlementService uses the global prisma client (not the tx proxy)
+    const booking = await prisma.booking.create({
+      data: {
+        userId,
+        hotelAssetId,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        totalPrice,
+        specialRequests: specialRequests || null,
+        guests,
+        roomType,
+        paymentMethod: "x402",
+        paymentToken: "USDC",
+        paymentStatus: "SUCCESS",
+        status: "PAID",
+        txHash,
+        walletAddress: user.walletAddress || null,
+        platformFee,
+        bookingCode: generateBookingCode(),
+      },
+    });
+
+    // Settlement runs after booking is committed so the connect by ID succeeds
+    await settlementService.createSettlement({
+      ...booking,
+      hotelAsset,
+      totalPrice: hotelShare,
+    });
+
+    // Yield distribution (fire-and-forget)
+    yieldService.distributeFromBooking(booking.id, totalYield, "USDC")
+      .catch((err: Error) => console.error(`x402 yield distribution failed for booking ${booking.id}:`, err.message));
+
+    // PMS sync
+    let pmsOrderDetails = null;
+    try {
+      const qloHotelId = hotelAsset.qloHotelId;
+      let roomTypeId: number | null = null;
+      const roomTypeLower = (roomType || "").toLowerCase().trim();
+      if (Number(qloHotelId) === 1) {
+        const map: Record<string, number> = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+        roomTypeId = map[roomTypeLower] ?? null;
+      } else if (Number(qloHotelId) === 13 || Number(qloHotelId) === 14) {
+        const map: Record<string, number> = { standard: 13, deluxe: 14, executive: 15, suite: 16 };
+        roomTypeId = map[roomTypeLower] ?? null;
+      } else {
+        const ROOM_MAP: Record<string, number> = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+        roomTypeId = ROOM_MAP[roomTypeLower] ?? null;
+      }
+
+      console.log(`[x402 PMS] qloHotelId=${qloHotelId}, roomType="${roomType}", roomTypeLower="${roomTypeLower}", roomTypeId=${roomTypeId}`);
+
+      if (!roomTypeId || !qloHotelId) {
+        console.warn(`[x402 PMS] Skipping sync — missing mapping: qloHotelId=${qloHotelId}, roomTypeId=${roomTypeId}`);
+      } else {
+        pmsOrderDetails = await qloService.createBookingInPMS({
+          email: user.email,
+          firstName: user.firstName || "Web3",
+          lastName: user.lastName || "Investor",
+          amount: paymentAmount,
+          hotelId: qloHotelId,
+          roomTypeId,
+          dateFrom: checkIn.toISOString().split("T")[0],
+          dateTo: checkOut.toISOString().split("T")[0],
+        });
+
+        console.log("[x402 PMS] Qlo response:", JSON.stringify(pmsOrderDetails, null, 2));
+
+        const qloOrderId =
+          typeof pmsOrderDetails === "string" || typeof pmsOrderDetails === "number"
+            ? pmsOrderDetails
+            : pmsOrderDetails?.id ||
+              pmsOrderDetails?.id_order ||
+              pmsOrderDetails?.idOrder ||
+              pmsOrderDetails?.order_id ||
+              pmsOrderDetails?.orderId ||
+              pmsOrderDetails?.data?.id ||
+              pmsOrderDetails?.data?.id_order ||
+              pmsOrderDetails?.data?.idOrder ||
+              pmsOrderDetails?.data?.order_id ||
+              pmsOrderDetails?.data?.orderId ||
+              null;
+
+        console.log("[x402 PMS] Extracted qloOrderId:", qloOrderId);
+
+        if (qloOrderId) {
+          await prisma.booking.update({ where: { id: booking.id }, data: { qloOrderId: String(qloOrderId) } });
+          console.log(`[x402 PMS] Synced to QloApp: orderId=${qloOrderId}`);
+        } else {
+          console.warn("[x402 PMS] QloApp responded but no order ID extracted");
+        }
+      }
+    } catch (pmsErr: any) {
+      console.error("[x402 PMS] Sync failed:", pmsErr.message);
+    }
+
+    // Confirmation email (fire-and-forget)
+    sendBookingEmail({
+      to: user.email,
+      bookingCode: booking.bookingCode!,
+      hotelName: hotelAsset.name,
+      hotelLocation: hotelAsset.location ?? "",
+      hotelDescription: hotelAsset.description ?? "",
+      checkIn,
+      checkOut,
+      total: paymentAmount,
+      txHash,
+    }).catch((err: Error) => console.error("x402 email error:", err.message));
+
+    return res.json({
+      success: true,
+      message: "Booking confirmed via x402",
+      data: {
+        booking,
+        pmsSync: pmsOrderDetails ? "SUCCESS" : "SKIPPED",
+        txHash,
+      },
+    });
+  } catch (err: any) {
+    console.error("x402 Booking Error:", err);
+    return res.status(500).json({ success: false, message: "x402 booking failed", error: err.message });
+  }
+};
+
 // ------------------------------------
 // GET BOOKING BY ID
 // ------------------------------------
@@ -423,19 +603,18 @@ try {
   const qloHotelId = booking.hotelAsset?.qloHotelId;
 
   // ⚡ DYNAMIC MAPPING: Matches room IDs relative to the specific Qlo Hotel ID
+  const roomTypeLowerRegular = (booking.roomType || "").toLowerCase().trim();
   let roomTypeId = null;
   if (Number(qloHotelId) === 1) {
-    // Mountain View Lodge Rules
-    if (booking.roomType === "standard") roomTypeId = 1;
-    if (booking.roomType === "deluxe") roomTypeId = 2;
+    const map: Record<string, number> = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+    roomTypeId = map[roomTypeLowerRegular] ?? null;
   } else if (Number(qloHotelId) === 13 || Number(qloHotelId) === 14) {
-    // Marina Bay Sands Rules
-    if (booking.roomType === "standard") roomTypeId = 13;
-    if (booking.roomType === "deluxe") roomTypeId = 14;
+    const map: Record<string, number> = { standard: 13, deluxe: 14, executive: 15, suite: 16 };
+    roomTypeId = map[roomTypeLowerRegular] ?? null;
   } else {
     // Fallback defaults
-    const ROOM_TYPE_MAP: Record<string, number> = { standard: 1, deluxe: 2 };
-    roomTypeId = ROOM_TYPE_MAP[booking.roomType];
+    const ROOM_TYPE_MAP: Record<string, number> = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+    roomTypeId = ROOM_TYPE_MAP[roomTypeLowerRegular] ?? null;
   }
 
   if (!roomTypeId || !qloHotelId) throw new Error(`Missing QloApps mapping for Hotel ${qloHotelId}, Room ${booking.roomType}`);

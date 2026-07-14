@@ -17,7 +17,10 @@ export const createProposal = async (req: Request, res: Response) => {
       hotelAssetId,
       quorumRequired,
       approvalThreshold,
-       category
+      category,
+      status,
+      votingStartDate,
+      votingEndDate,
     } = req.body;
 
     const proposal = await prisma.proposal.create({
@@ -25,12 +28,15 @@ export const createProposal = async (req: Request, res: Response) => {
         title,
         description,
         type: type as ProposalType,
-         category: category as ProposalCategory,
+        category: category as ProposalCategory,
         hotelAssetId,
         quorumRequired,
         approvalThreshold,
         proposerId: req.user.userId,
-        createdById: req.user.userId
+        createdById: req.user.userId,
+        ...(status && { status: status as ProposalStatus }),
+        ...(votingStartDate && { votingStartDate: new Date(votingStartDate) }),
+        ...(votingEndDate && { votingEndDate: new Date(votingEndDate) }),
       }
     });
 

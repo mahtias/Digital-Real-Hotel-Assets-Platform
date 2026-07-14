@@ -109,21 +109,23 @@ const { data: proposals = [], isLoading } = useQuery({
   };
 
   const getStatusIcon = (status) => {
-    switch(status) {
-      case 'active': return Clock;
-      case 'passed': return CheckCircle;
-      case 'rejected': return XCircle;
-      case 'executed': return CheckCircle;
+    switch(status?.toUpperCase()) {
+      case 'ACTIVE': return Clock;
+      case 'APPROVED':
+      case 'PASSED':
+      case 'EXECUTED': return CheckCircle;
+      case 'REJECTED': return XCircle;
       default: return Clock;
     }
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
-      case 'active': return 'text-amber-400';
-      case 'passed': return 'text-emerald-400';
-      case 'rejected': return 'text-red-400';
-      case 'executed': return 'text-sky-400';
+    switch(status?.toUpperCase()) {
+      case 'ACTIVE': return 'text-amber-400';
+      case 'APPROVED':
+      case 'PASSED': return 'text-emerald-400';
+      case 'REJECTED': return 'text-red-400';
+      case 'EXECUTED': return 'text-sky-400';
       default: return 'text-slate-400';
     }
   };
@@ -264,8 +266,8 @@ const { data: proposals = [], isLoading } = useQuery({
             proposals.map((proposal) => {
               const StatusIcon = getStatusIcon(proposal.status);
               const statusColor = getStatusColor(proposal.status);
-              const totalVotes = proposal.total_votes || 0;
-              const forPercentage = totalVotes > 0 ? (proposal.votes_for / totalVotes) * 100 : 50;
+              const totalVotes = (proposal.votesFor || 0) + (proposal.votesAgainst || 0) + (proposal.votesAbstain || 0);
+              const forPercentage = totalVotes > 0 ? ((proposal.votesFor || 0) / totalVotes) * 100 : 50;
               
               return (
                 <
@@ -281,7 +283,7 @@ const { data: proposals = [], isLoading } = useQuery({
                           <StatusIcon 
 
                           className="w-3 h-3 mr-1" />
-                         {t(`governance.status.${proposal.status?.toLowerCase()}`)}
+                         {t(`governance.status.${proposal.status?.toLowerCase()}`) || proposal.status}
                         </Badge>
                       </div>
                       <h3 className="text-xl font-semibold text-white mb-2">{proposal.title}</h3>
@@ -323,8 +325,8 @@ const { data: proposals = [], isLoading } = useQuery({
                   {/* Voting Progress */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-emerald-400">{t('governance.voteFor')} {(proposal.votes_for || 0).toLocaleString()}</span>
-                      <span className="text-red-400">{t('governance.voteAgainst')} {(proposal.votes_against || 0).toLocaleString()}</span>
+                      <span className="text-emerald-400">{t('governance.voteFor')} {(proposal.votesFor || 0).toLocaleString()}</span>
+                      <span className="text-red-400">{t('governance.voteAgainst')} {(proposal.votesAgainst || 0).toLocaleString()}</span>
                     </div>
                     <div className="h-2 bg-slate-800 rounded-full overflow-hidden flex">
                       <div className="bg-emerald-500 h-full transition-all" style={{ width: `${forPercentage}%` }} />
@@ -335,13 +337,12 @@ const { data: proposals = [], isLoading } = useQuery({
                         <Users 
 
                         className="w-3 h-3" />
-                        {t('governance.totalVotes')}: {totalVotes.toLocaleString()} / {(proposal.quorum_required || 1000).toLocaleString()} ({t('governance.quorum')})
+                        {t('governance.totalVotes')}: {totalVotes.toLocaleString()} / {(proposal.quorumRequired || 1000).toLocaleString()} ({t('governance.quorum')})
                       </span>
-                      {proposal.voting_end_date && (
+                      {proposal.votingEndDate && (
                         <span>
-                          {new Date(proposal.voting_end_date) > new Date() 
-                            
-                            ? `${t('governance.remaining')} ${formatDistanceToNow(new Date(proposal.voting_end_date), { locale: language === 'zh' ? zhCN : enUS })}`
+                          {new Date(proposal.votingEndDate) > new Date()
+                            ? `${t('governance.remaining')} ${formatDistanceToNow(new Date(proposal.votingEndDate), { locale: language === 'zh' ? zhCN : enUS })}`
                             : t('governance.votingEnded')
                           }
                         </span>
