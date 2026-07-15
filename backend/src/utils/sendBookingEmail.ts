@@ -147,7 +147,6 @@ export async function sendBookingEmail({
   `,
   attachments,
 });
-
     console.log("Booking email sent to:", to, "and BCC to admin");
   } catch (err) {
     console.error("Booking email failed:", err);
