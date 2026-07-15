@@ -7,6 +7,8 @@
       "rootDir": "./src",
       "removeComments": true,
       "strict": true,
+      "noEmitOnError": false,
+      "ignoreDeprecations": "5.0",
       "esModuleInterop": true,
       "skipLibCheck": true,
       "forceConsistentCasingInFileNames": true,

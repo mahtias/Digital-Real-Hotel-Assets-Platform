@@ -1,48 +1,29 @@
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-} from "viem";
+import { ethers } from "ethers";
+import HotelTokenFactoryJson from "../../../out/HotelTokenFactory.sol/HotelTokenFactory.json";
 
-import { privateKeyToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+const FACTORY_ABI = HotelTokenFactoryJson.abi;
+const FACTORY_ADDRESS = process.env.HOTEL_FACTORY_ADDRESS!;
 
-import type { Abi } from "viem";
-import hotelFactoryJson from "../../../out/HotelTokenFactory.sol/HotelTokenFactory.json";
+function getProvider(): ethers.JsonRpcProvider {
+  const rpc = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC;
+  if (!rpc) throw new Error("Missing RPC_URL environment variable");
+  return new ethers.JsonRpcProvider(rpc);
+}
 
-const hotelFactoryAbi: Abi = hotelFactoryJson.abi as Abi;
-
-const FACTORY_ADDRESS = process.env.HOTEL_FACTORY_ADDRESS as `0x${string}`;
-
-// ----------------------
-// LAZY ACCOUNT CREATION (FIX)
-// ----------------------
-function getWallet() {
+function getWallet(): ethers.Wallet {
   const pk = process.env.PRIVATE_KEY;
+  if (!pk) throw new Error("PRIVATE_KEY missing in environment");
+  return new ethers.Wallet(pk, getProvider());
+}
 
-  if (!pk) {
-    throw new Error("PRIVATE_KEY missing in environment");
-  }
-
-  const account = privateKeyToAccount(pk as `0x${string}`);
-
-  return createWalletClient({
-    chain: base,
-    transport: http(process.env.RPC_URL!),
-    account,
-  });
+function getContract(runner?: ethers.ContractRunner): ethers.Contract {
+  return new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, runner ?? getProvider());
 }
 
 export const hotelFactory = {
-  wallet: null as any, // we will initialize lazily
-
-  public: createPublicClient({
-    chain: base,
-    transport: http(process.env.RPC_URL!),
-  }),
-
-  address: FACTORY_ADDRESS,
-  abi: hotelFactoryAbi,
-
+  getContract,
   getWallet,
+  getProvider,
+  address: FACTORY_ADDRESS,
+  abi: FACTORY_ABI,
 };
