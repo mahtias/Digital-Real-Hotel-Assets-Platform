@@ -122,6 +122,7 @@ declare class KYCService {
             kycSyncAttempts: number;
             kycSyncError: string | null;
             kycDocumentHash: string | null;
+            isActive: boolean;
         };
     } & {
         id: string;
@@ -182,6 +183,7 @@ declare class KYCService {
             kycSyncAttempts: number;
             kycSyncError: string | null;
             kycDocumentHash: string | null;
+            isActive: boolean;
         };
     } & {
         id: string;

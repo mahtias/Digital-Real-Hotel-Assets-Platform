@@ -49,7 +49,7 @@ class QloService {
             return this.parseResponse(response.data, 'order');
         }
         catch (error) {
-            console.error("❌ QloApps Sync Error:", error.response?.data || error.message);
+            console.error(" QloApps Sync Error:", error.response?.data || error.message);
             throw error;
         }
     }
@@ -123,6 +123,34 @@ class QloService {
             headers: { 'Content-Type': 'text/xml' },
         });
         return this.parseResponse(res.data, 'cart');
+    }
+    async getHotelStats(hotelId, dateFrom, dateTo) {
+        try {
+            const url = `${this.apiUrl}/orders?ws_key=${this.apiKey}&filter[date_add]=[${dateFrom} 00:00:00,${dateTo} 23:59:59]&display=full&output_format=JSON`;
+            const res = await axios_1.default.get(url);
+            const allOrders = res.data?.orders ?? [];
+            const orders = hotelId
+                ? allOrders.filter((o) => {
+                    const bookings = o.associations?.cart_bookings?.booking ?? [];
+                    const arr = Array.isArray(bookings) ? bookings : [bookings];
+                    return arr.some((b) => Number(b.id_hotel) === hotelId);
+                })
+                : allOrders;
+            const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_paid ?? 0), 0);
+            const confirmedOrders = orders.filter((o) => Number(o.current_state) === 2);
+            return {
+                hotelId,
+                dateFrom,
+                dateTo,
+                totalOrders: orders.length,
+                confirmedOrders: confirmedOrders.length,
+                totalRevenue: Number(totalRevenue.toFixed(2)),
+            };
+        }
+        catch (error) {
+            console.error(" QloApps getHotelStats error:", error.response?.data || error.message);
+            throw error;
+        }
     }
     async parseResponse(xml, key) {
         const parsed = await (0, xml2js_1.parseStringPromise)(xml);

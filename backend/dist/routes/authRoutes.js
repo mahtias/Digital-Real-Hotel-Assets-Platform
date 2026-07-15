@@ -18,10 +18,12 @@ const loginValidation = [
 ];
 router.post('/register', registerValidation, validation_1.validateRequest, authController_1.register);
 router.post('/login', loginValidation, validation_1.validateRequest, authController_1.login);
+router.post('/admin-login', loginValidation, validation_1.validateRequest, authController_1.adminLogin);
 router.get('/verify-email', authController_1.verifyEmail);
 router.post('/resend-verification', authController_1.resendVerificationEmail);
 router.post('/forgot-password', authController_1.forgotPassword);
 router.post('/reset-password', authController_1.resetPassword);
 router.get('/me', auth_1.authenticate, authController_1.getProfile);
+router.get('/dra-balance', auth_1.authenticate, authController_1.getDRABalance);
 exports.default = router;
 //# sourceMappingURL=authRoutes.js.map

@@ -5,12 +5,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.voteOnProposal = exports.deleteProposal = exports.updateProposal = exports.getProposalById = exports.getAllProposals = exports.createProposal = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const draService_1 = require("../services/draService");
 const createProposal = async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
-        const { title, description, type, hotelAssetId, quorumRequired, approvalThreshold, category } = req.body;
+        const { title, description, type, hotelAssetId, quorumRequired, approvalThreshold, category, status, votingStartDate, votingEndDate, } = req.body;
         const proposal = await database_1.default.proposal.create({
             data: {
                 title,
@@ -21,7 +22,10 @@ const createProposal = async (req, res) => {
                 quorumRequired,
                 approvalThreshold,
                 proposerId: req.user.userId,
-                createdById: req.user.userId
+                createdById: req.user.userId,
+                ...(status && { status: status }),
+                ...(votingStartDate && { votingStartDate: new Date(votingStartDate) }),
+                ...(votingEndDate && { votingEndDate: new Date(votingEndDate) }),
             }
         });
         res.status(201).json(proposal);
@@ -110,7 +114,13 @@ const voteOnProposal = async (req, res) => {
         if (existing) {
             return res.status(400).json({ message: "User already voted" });
         }
-        const votingPower = 1;
+        const voter = await database_1.default.user.findUnique({ where: { id: userId }, select: { walletAddress: true } });
+        let votingPower = 1;
+        if (voter?.walletAddress) {
+            const draBalance = await draService_1.draService.getBalance(voter.walletAddress);
+            if (draBalance > 0)
+                votingPower = Math.max(1, Math.floor(draBalance));
+        }
         const newVote = await database_1.default.vote.create({
             data: {
                 proposalId,

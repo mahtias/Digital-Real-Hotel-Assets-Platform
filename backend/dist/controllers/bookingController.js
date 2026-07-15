@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllBookingsAdmin = exports.confirmBookingPayment = exports.deleteBooking = exports.cancelBooking = exports.updateBookingStatus = exports.getBookingsByHotelAsset = exports.getUserBookings = exports.getBooking = exports.createBooking = void 0;
+exports.getAllBookingsAdmin = exports.confirmBookingPayment = exports.deleteBooking = exports.cancelBooking = exports.updateBookingStatus = exports.getBookingsByHotelAsset = exports.getUserBookings = exports.getBooking = exports.createX402Booking = exports.createBooking = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const web3Service_1 = require("../services/web3Service");
 const sendBookingEmail_1 = require("../utils/sendBookingEmail");
@@ -38,6 +38,7 @@ const createBooking = async (req, res) => {
         const conflict = await database_1.default.booking.findFirst({
             where: {
                 hotelAssetId,
+                roomType,
                 status: { not: "CANCELLED" },
                 AND: [
                     { checkInDate: { lte: checkOut } },
@@ -82,6 +83,160 @@ const createBooking = async (req, res) => {
     }
 };
 exports.createBooking = createBooking;
+const createX402Booking = async (req, res) => {
+    try {
+        const x402Payment = req.x402Payment;
+        if (!x402Payment) {
+            return res.status(400).json({ success: false, message: "x402 payment info missing" });
+        }
+        const userId = req.user?.userId;
+        if (!userId)
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        const { hotelAssetId, checkInDate, checkOutDate, totalPrice, roomType, guests, specialRequests } = req.body;
+        if (!hotelAssetId || !checkInDate || !checkOutDate || totalPrice === undefined) {
+            return res.status(400).json({ success: false, message: "Missing required booking fields" });
+        }
+        const checkIn = new Date(checkInDate);
+        const checkOut = new Date(checkOutDate);
+        if (checkOut <= checkIn) {
+            return res.status(400).json({ success: false, message: "Check-out must be after check-in" });
+        }
+        const conflict = await database_1.default.booking.findFirst({
+            where: {
+                hotelAssetId,
+                roomType,
+                status: { not: "CANCELLED" },
+                AND: [{ checkInDate: { lte: checkOut } }, { checkOutDate: { gte: checkIn } }],
+            },
+        });
+        if (conflict) {
+            return res.status(409).json({ success: false, message: "Dates already booked" });
+        }
+        const [user, hotelAsset] = await Promise.all([
+            database_1.default.user.findUnique({ where: { id: userId } }),
+            database_1.default.hotelAsset.findUnique({ where: { id: hotelAssetId } }),
+        ]);
+        if (!user || !hotelAsset) {
+            return res.status(404).json({ success: false, message: "User or hotel not found" });
+        }
+        const paymentAmount = Number(totalPrice);
+        const platformFee = Number((paymentAmount * 0.01).toFixed(2));
+        const totalYield = paymentAmount * 0.20;
+        const hotelShare = paymentAmount * 0.79;
+        const txHash = x402Payment.txHash || `x402-${Date.now()}`;
+        const booking = await database_1.default.booking.create({
+            data: {
+                userId,
+                hotelAssetId,
+                checkInDate: checkIn,
+                checkOutDate: checkOut,
+                totalPrice,
+                specialRequests: specialRequests || null,
+                guests,
+                roomType,
+                paymentMethod: "x402",
+                paymentToken: "USDC",
+                paymentStatus: "SUCCESS",
+                status: "PAID",
+                txHash,
+                walletAddress: user.walletAddress || null,
+                platformFee,
+                bookingCode: generateBookingCode(),
+            },
+        });
+        await settlementService_1.settlementService.createSettlement({
+            ...booking,
+            hotelAsset,
+            totalPrice: hotelShare,
+        });
+        yieldService_1.yieldService.distributeFromBooking(booking.id, totalYield, "USDC")
+            .catch((err) => console.error(`x402 yield distribution failed for booking ${booking.id}:`, err.message));
+        let pmsOrderDetails = null;
+        try {
+            const qloHotelId = hotelAsset.qloHotelId;
+            let roomTypeId = null;
+            const roomTypeLower = (roomType || "").toLowerCase().trim();
+            if (Number(qloHotelId) === 1) {
+                const map = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+                roomTypeId = map[roomTypeLower] ?? null;
+            }
+            else if (Number(qloHotelId) === 13 || Number(qloHotelId) === 14) {
+                const map = { standard: 13, deluxe: 14, executive: 15, suite: 16 };
+                roomTypeId = map[roomTypeLower] ?? null;
+            }
+            else {
+                const ROOM_MAP = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+                roomTypeId = ROOM_MAP[roomTypeLower] ?? null;
+            }
+            console.log(`[x402 PMS] qloHotelId=${qloHotelId}, roomType="${roomType}", roomTypeLower="${roomTypeLower}", roomTypeId=${roomTypeId}`);
+            if (!roomTypeId || !qloHotelId) {
+                console.warn(`[x402 PMS] Skipping sync — missing mapping: qloHotelId=${qloHotelId}, roomTypeId=${roomTypeId}`);
+            }
+            else {
+                pmsOrderDetails = await qloService_1.qloService.createBookingInPMS({
+                    email: user.email,
+                    firstName: user.firstName || "Web3",
+                    lastName: user.lastName || "Investor",
+                    amount: paymentAmount,
+                    hotelId: qloHotelId,
+                    roomTypeId,
+                    dateFrom: checkIn.toISOString().split("T")[0],
+                    dateTo: checkOut.toISOString().split("T")[0],
+                });
+                console.log("[x402 PMS] Qlo response:", JSON.stringify(pmsOrderDetails, null, 2));
+                const qloOrderId = typeof pmsOrderDetails === "string" || typeof pmsOrderDetails === "number"
+                    ? pmsOrderDetails
+                    : pmsOrderDetails?.id ||
+                        pmsOrderDetails?.id_order ||
+                        pmsOrderDetails?.idOrder ||
+                        pmsOrderDetails?.order_id ||
+                        pmsOrderDetails?.orderId ||
+                        pmsOrderDetails?.data?.id ||
+                        pmsOrderDetails?.data?.id_order ||
+                        pmsOrderDetails?.data?.idOrder ||
+                        pmsOrderDetails?.data?.order_id ||
+                        pmsOrderDetails?.data?.orderId ||
+                        null;
+                console.log("[x402 PMS] Extracted qloOrderId:", qloOrderId);
+                if (qloOrderId) {
+                    await database_1.default.booking.update({ where: { id: booking.id }, data: { qloOrderId: String(qloOrderId) } });
+                    console.log(`[x402 PMS] Synced to QloApp: orderId=${qloOrderId}`);
+                }
+                else {
+                    console.warn("[x402 PMS] QloApp responded but no order ID extracted");
+                }
+            }
+        }
+        catch (pmsErr) {
+            console.error("[x402 PMS] Sync failed:", pmsErr.message);
+        }
+        (0, sendBookingEmail_1.sendBookingEmail)({
+            to: user.email,
+            bookingCode: booking.bookingCode,
+            hotelName: hotelAsset.name,
+            hotelLocation: hotelAsset.location ?? "",
+            hotelDescription: hotelAsset.description ?? "",
+            checkIn,
+            checkOut,
+            total: paymentAmount,
+            txHash,
+        }).catch((err) => console.error("x402 email error:", err.message));
+        return res.json({
+            success: true,
+            message: "Booking confirmed via x402",
+            data: {
+                booking,
+                pmsSync: pmsOrderDetails ? "SUCCESS" : "SKIPPED",
+                txHash,
+            },
+        });
+    }
+    catch (err) {
+        console.error("x402 Booking Error:", err);
+        return res.status(500).json({ success: false, message: "x402 booking failed", error: err.message });
+    }
+};
+exports.createX402Booking = createX402Booking;
 const getBooking = async (req, res) => {
     try {
         const booking = await database_1.default.booking.findUnique({
@@ -111,24 +266,44 @@ exports.getBooking = getBooking;
 const getUserBookings = async (req, res) => {
     try {
         const userId = req.user?.userId;
-        const bookings = await database_1.default.booking.findMany({
-            where: { userId },
-            orderBy: { createdAt: "desc" },
-            include: {
-                hotelAsset: {
-                    select: {
-                        id: true,
-                        name: true,
-                        imageUrl: true,
-                        location: true,
-                        description: true
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
+        const skip = (page - 1) * limit;
+        const [bookings, total] = await Promise.all([
+            database_1.default.booking.findMany({
+                where: { userId },
+                skip,
+                take: limit,
+                orderBy: {
+                    createdAt: "desc",
+                },
+                include: {
+                    hotelAsset: {
+                        select: {
+                            id: true,
+                            name: true,
+                            imageUrl: true,
+                            location: true,
+                            description: true,
+                        },
                     },
                 },
-            },
-        });
+            }),
+            database_1.default.booking.count({
+                where: { userId },
+            }),
+        ]);
         return res.json({
             success: true,
             data: bookings,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasNextPage: page * limit < total,
+                hasPrevPage: page > 1,
+            },
         });
     }
     catch (err) {
@@ -263,11 +438,13 @@ const confirmBookingPayment = async (req, res) => {
         if (!paymentValid) {
             return res.status(400).json({ success: false, message: "Payment verification failed" });
         }
+        const paymentAmount = booking.totalPrice instanceof client_1.Prisma.Decimal
+            ? booking.totalPrice.toNumber()
+            : Number(booking.totalPrice);
+        const platformFee = Number((paymentAmount * 0.01).toFixed(2));
+        const totalYield = paymentAmount * 0.20;
+        const hotelShare = paymentAmount * 0.79;
         const result = await database_1.default.$transaction(async (tx) => {
-            const paymentAmount = booking.totalPrice instanceof client_1.Prisma.Decimal
-                ? booking.totalPrice.toNumber()
-                : Number(booking.totalPrice);
-            const platformFee = Number((paymentAmount * 0.10).toFixed(2));
             const updatedBooking = await tx.booking.update({
                 where: { id: bookingId },
                 data: {
@@ -279,9 +456,6 @@ const confirmBookingPayment = async (req, res) => {
                     platformFee,
                 },
             });
-            const totalYield = paymentAmount * 0.20;
-            await yieldService_1.yieldService.distributeFromBooking(updatedBooking.id, totalYield);
-            const hotelShare = paymentAmount * 0.70;
             await settlementService_1.settlementService.createSettlement({
                 ...updatedBooking,
                 hotelAsset: booking.hotelAsset,
@@ -289,21 +463,32 @@ const confirmBookingPayment = async (req, res) => {
             });
             return { updatedBooking };
         });
+        yieldService_1.yieldService.distributeFromBooking(result.updatedBooking.id, totalYield, "USDC")
+            .catch((err) => {
+            console.error(`Yield distribution failed for booking ${result.updatedBooking.id}, will retry:`, err.message);
+        });
         let pmsOrderDetails = null;
         try {
             const amountNumber = booking.totalPrice instanceof client_1.Prisma.Decimal
                 ? booking.totalPrice.toNumber()
                 : Number(booking.totalPrice);
-            const ROOM_TYPE_MAP = {
-                standard: 1,
-                deluxe: 2,
-                executive: 3,
-                suite: 4,
-            };
             const qloHotelId = booking.hotelAsset?.qloHotelId;
-            const roomTypeId = ROOM_TYPE_MAP[booking.roomType];
+            const roomTypeLowerRegular = (booking.roomType || "").toLowerCase().trim();
+            let roomTypeId = null;
+            if (Number(qloHotelId) === 1) {
+                const map = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+                roomTypeId = map[roomTypeLowerRegular] ?? null;
+            }
+            else if (Number(qloHotelId) === 13 || Number(qloHotelId) === 14) {
+                const map = { standard: 13, deluxe: 14, executive: 15, suite: 16 };
+                roomTypeId = map[roomTypeLowerRegular] ?? null;
+            }
+            else {
+                const ROOM_TYPE_MAP = { standard: 1, deluxe: 2, executive: 3, suite: 4 };
+                roomTypeId = ROOM_TYPE_MAP[roomTypeLowerRegular] ?? null;
+            }
             if (!roomTypeId || !qloHotelId)
-                throw new Error("Missing QloApps mapping");
+                throw new Error(`Missing QloApps mapping for Hotel ${qloHotelId}, Room ${booking.roomType}`);
             pmsOrderDetails = await qloService_1.qloService.createBookingInPMS({
                 email: booking.user.email,
                 firstName: booking.user.firstName || "Web3",
@@ -378,35 +563,122 @@ const confirmBookingPayment = async (req, res) => {
 exports.confirmBookingPayment = confirmBookingPayment;
 const getAllBookingsAdmin = async (req, res) => {
     try {
-        const bookings = await database_1.default.booking.findMany({
-            orderBy: {
-                createdAt: "desc",
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+        const skip = (page - 1) * limit;
+        const search = req.query.search;
+        const paymentStatus = req.query.paymentStatus;
+        const hotelId = req.query.hotelId;
+        const where = {};
+        if (paymentStatus && paymentStatus !== "ALL") {
+            where.paymentStatus = paymentStatus;
+        }
+        if (hotelId) {
+            where.hotelAssetId = hotelId;
+        }
+        if (search) {
+            where.OR = [
+                {
+                    bookingCode: {
+                        contains: search,
+                        mode: "insensitive",
+                    },
+                },
+                {
+                    user: {
+                        email: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                },
+                {
+                    user: {
+                        firstName: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                },
+                {
+                    user: {
+                        lastName: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                },
+                {
+                    hotelAsset: {
+                        name: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                },
+            ];
+        }
+        const [bookings, total] = await Promise.all([
+            database_1.default.booking.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: {
+                    createdAt: "desc",
+                },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            walletAddress: true,
+                        },
+                    },
+                    hotelAsset: {
+                        select: {
+                            id: true,
+                            name: true,
+                            location: true,
+                        },
+                    },
+                    settlements: {
+                        select: {
+                            id: true,
+                            amount: true,
+                            createdAt: true,
+                        },
+                    },
+                },
+            }),
+            database_1.default.booking.count({
+                where,
+            }),
+        ]);
+        return res.json({
+            success: true,
+            count: bookings.length,
+            data: bookings,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasNextPage: page * limit < total,
+                hasPrevPage: page > 1,
             },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        walletAddress: true,
-                    },
-                },
-                hotelAsset: {
-                    select: {
-                        id: true,
-                        name: true,
-                        location: true,
-                    },
-                },
-                settlements: true,
+            filters: {
+                paymentStatus,
+                hotelId,
+                search,
             },
         });
-        return res.json(bookings);
     }
     catch (err) {
         console.error("Admin Bookings Error:", err);
         return res.status(500).json({
+            success: false,
             error: err.message,
         });
     }

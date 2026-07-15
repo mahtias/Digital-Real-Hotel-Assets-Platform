@@ -55,7 +55,7 @@ exports.settlementService = {
                 },
             });
             if (existingSettlement) {
-                console.log("⚠️ Settlement already exists:", existingSettlement.id);
+                console.log(" Settlement already exists:", existingSettlement.id);
                 return existingSettlement;
             }
             const settlement = await database_1.default.settlement.create({
@@ -81,7 +81,7 @@ exports.settlementService = {
                 },
             });
             console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            console.log("🧾 SETTLEMENT CREATED");
+            console.log(" SETTLEMENT CREATED");
             console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             console.log("Booking:", booking.id);
             console.log("Hotel:", booking.hotelAssetId);
@@ -92,7 +92,7 @@ exports.settlementService = {
             return settlement;
         }
         catch (err) {
-            console.error("❌ Settlement creation error:", err.message);
+            console.error(" Settlement creation error:", err.message);
             throw err;
         }
     },
@@ -134,7 +134,7 @@ exports.settlementService = {
                 throw new Error(`Insufficient ${stablecoin.symbol} treasury balance`);
             }
             console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            console.log("💸 PROCESSING HOTEL PAYOUT");
+            console.log(" PROCESSING HOTEL PAYOUT");
             console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             console.log("Hotel:", hotelAssetId);
             console.log("Currency:", stablecoin.symbol);
@@ -152,7 +152,7 @@ exports.settlementService = {
                     status: "PROCESSING",
                 },
             });
-            console.log(`🔄 Sending ${stablecoin.symbol} transfer...`);
+            console.log(` Sending ${stablecoin.symbol} transfer...`);
             const tx = await tokenContract.transfer(hotelWallet, amountWei);
             console.log("📤 Transaction sent:", tx.hash);
             const receipt = await tx.wait(SETTLEMENT_CONFIG.MIN_CONFIRMATIONS);
@@ -163,7 +163,7 @@ exports.settlementService = {
                 throw new Error("Blockchain transaction failed");
             }
             const txHash = receipt.hash;
-            console.log("✅ Blockchain payout confirmed");
+            console.log(" Blockchain payout confirmed");
             console.log("TX:", txHash);
             await database_1.default.settlement.updateMany({
                 where: {
@@ -189,7 +189,7 @@ exports.settlementService = {
             };
         }
         catch (err) {
-            console.error("❌ Payout processing error:", err.message);
+            console.error(" Payout processing error:", err.message);
             try {
                 await database_1.default.settlement.updateMany({
                     where: {
@@ -207,7 +207,7 @@ exports.settlementService = {
                 });
             }
             catch (dbErr) {
-                console.error("❌ Failed updating settlement failure state:", dbErr);
+                console.error(" Failed updating settlement failure state:", dbErr);
             }
             throw err;
         }
@@ -227,7 +227,7 @@ exports.settlementService = {
                 },
                 distinct: ["hotelAssetId", "currency"],
             });
-            console.log(`🔁 Retrying ${failedSettlements.length} payout groups`);
+            console.log(` Retrying ${failedSettlements.length} payout groups`);
             for (const item of failedSettlements) {
                 try {
                     await this.processHotelPayout(item.hotelAssetId, item.currency);
@@ -242,7 +242,7 @@ exports.settlementService = {
             };
         }
         catch (err) {
-            console.error("❌ Retry payouts failed:", err.message);
+            console.error(" Retry payouts failed:", err.message);
             throw err;
         }
     },
@@ -258,7 +258,7 @@ exports.settlementService = {
         };
     },
     async processAllPendingPayouts() {
-        console.log("🔄 Processing all pending hotel payouts...");
+        console.log(" Processing all pending hotel payouts...");
         const hotelAssetsWithPending = await database_1.default.settlement.findMany({
             where: { status: "PENDING" },
             select: { hotelAssetId: true, currency: true },
@@ -267,10 +267,10 @@ exports.settlementService = {
         for (const item of hotelAssetsWithPending) {
             try {
                 await this.processHotelPayout(item.hotelAssetId, item.currency);
-                console.log(`✅ Payout processed for hotel ${item.hotelAssetId}`);
+                console.log(` Payout processed for hotel ${item.hotelAssetId}`);
             }
             catch (err) {
-                console.error(`❌ Payout failed for hotel ${item.hotelAssetId}:`, err);
+                console.error(` Payout failed for hotel ${item.hotelAssetId}:`, err);
             }
         }
         console.log("🔄 All pending hotel payouts processed.");

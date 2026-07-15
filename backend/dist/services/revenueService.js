@@ -6,9 +6,9 @@ const settlementService_1 = require("./settlementService");
 const treasuryService_1 = require("./treasuryService");
 exports.revenueService = {
     async processBookingRevenue({ booking, paymentAmount, tx, }) {
-        const hotelShare = paymentAmount * 0.70;
+        const hotelShare = paymentAmount * 0.79;
         const investorPool = paymentAmount * 0.20;
-        const platformFee = paymentAmount * 0.10;
+        const platformFee = paymentAmount * 0.01;
         console.log("💰 Revenue Split:", {
             hotelShare,
             investorPool,

@@ -1,1 +1,1 @@
-{"version":3,"file":"revenueController.d.ts","sourceRoot":"","sources":["../../src/controllers/revenueController.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAC;AAG5C,eAAO,MAAM,eAAe,GAC1B,KAAK,OAAO,EACZ,KAAK,QAAQ,gDAqGd,CAAC"}
+{"version":3,"file":"revenueController.d.ts","sourceRoot":"","sources":["../../src/controllers/revenueController.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAC;AAI5C,eAAO,MAAM,eAAe,GAC1B,KAAK,OAAO,EACZ,KAAK,QAAQ,gDAsLd,CAAC;AAEF,eAAO,MAAM,gBAAgB,GAAU,KAAK,OAAO,EAAE,KAAK,QAAQ,gDAsBjE,CAAC"}

@@ -8,10 +8,10 @@ export declare const settlementService: {
         createdAt: Date | null;
         status: string;
         chainId: number | null;
+        txHash: string | null;
         amount: Prisma.Decimal;
         stablecoinAddress: string | null;
         hotelAssetId: string;
-        txHash: string | null;
         bookingId: string;
         hotelWallet: string;
         currency: string;

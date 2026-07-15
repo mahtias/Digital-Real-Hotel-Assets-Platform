@@ -6,34 +6,53 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleQloWebhook = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const yieldService_1 = require("../services/yieldService");
+const EVENT_STATUS_MAP = {
+    PAYMENT_CONFIRMED: "PAID",
+    BOOKING_CONFIRMED: "CONFIRMED",
+    GUEST_CHECKED_IN: "CONFIRMED",
+    GUEST_CHECKED_OUT: "COMPLETED",
+    BOOKING_COMPLETED: "COMPLETED",
+    BOOKING_CANCELLED: "CANCELLED",
+};
 const handleQloWebhook = async (req, res) => {
     try {
         const event = req.body;
-        console.log("📩 QloApps Webhook:", event);
-        if (event.type !== "PAYMENT_CONFIRMED") {
-            return res.json({ message: "Ignored event" });
+        console.log(" QloApps Webhook:", event);
+        const { type, orderId, total_paid } = event;
+        if (!EVENT_STATUS_MAP[type]) {
+            return res.json({ message: `Ignored event: ${type}` });
         }
-        const orderId = event.orderId;
-        const amount = Number(event.total_paid);
-        if (!orderId || !amount) {
-            return res.status(400).json({ error: "Missing fields" });
+        if (!orderId) {
+            return res.status(400).json({ error: "Missing orderId" });
         }
         const booking = await database_1.default.booking.findFirst({
-            where: { qloOrderId: orderId },
+            where: { qloOrderId: String(orderId) },
         });
         if (!booking) {
-            console.error("❌ Booking not found for Qlo order:", orderId);
+            console.error(" Booking not found for Qlo order:", orderId);
             return res.status(404).json({ message: "Booking not found" });
         }
-        const alreadyDistributed = await database_1.default.yield_distributions.findFirst({
-            where: { booking_id: booking.id },
+        const newStatus = EVENT_STATUS_MAP[type];
+        await database_1.default.booking.update({
+            where: { id: booking.id },
+            data: { status: newStatus },
         });
-        if (alreadyDistributed) {
-            return res.json({ message: "Already processed" });
+        console.log(` Booking ${booking.id} status → ${newStatus} (from QloApps event: ${type})`);
+        if (type === "PAYMENT_CONFIRMED") {
+            const amount = Number(total_paid);
+            if (!amount || amount <= 0) {
+                return res.status(400).json({ error: "Missing or invalid total_paid" });
+            }
+            const alreadyDistributed = await database_1.default.yield_distributions.findFirst({
+                where: { booking_id: booking.id },
+            });
+            if (alreadyDistributed) {
+                return res.json({ message: "Yield already processed", status: newStatus });
+            }
+            await yieldService_1.yieldService.distributeFromBooking(booking.id, amount);
+            console.log(" Yield distributed from QloApps PAYMENT_CONFIRMED");
         }
-        await yieldService_1.yieldService.distributeFromBooking(booking.id, amount);
-        console.log("✅ Yield distributed from QloApps");
-        return res.json({ success: true });
+        return res.json({ success: true, status: newStatus });
     }
     catch (err) {
         console.error("Webhook Error:", err);

@@ -323,7 +323,7 @@ const checkKYCStatus = async (req, res) => {
                 console.log('✅ Blockchain verification result:', blockchainVerified);
             }
             catch (error) {
-                console.error('❌ Blockchain check error:', error.message);
+                console.error(' Blockchain check error:', error.message);
                 blockchainError = error.message;
             }
         }

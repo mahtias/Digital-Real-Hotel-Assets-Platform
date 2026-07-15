@@ -35,10 +35,11 @@ const authenticate = async (req, res, next) => {
             where: { id: decoded.userId },
         });
         if (!user) {
-            res.status(401).json({
-                success: false,
-                message: 'User not found',
-            });
+            res.status(401).json({ success: false, message: 'User not found' });
+            return;
+        }
+        if (!user.isActive) {
+            res.status(403).json({ success: false, message: 'Account is deactivated' });
             return;
         }
         req.user = {

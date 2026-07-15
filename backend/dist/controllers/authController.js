@@ -3,13 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPassword = exports.forgotPassword = exports.getProfile = exports.resendVerificationEmail = exports.verifyEmail = exports.login = exports.register = void 0;
+exports.getDRABalance = exports.adminLogin = exports.resetPassword = exports.forgotPassword = exports.getProfile = exports.resendVerificationEmail = exports.verifyEmail = exports.login = exports.register = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const database_1 = __importDefault(require("../config/database"));
 const client_1 = require("@prisma/client");
 const crypto_1 = __importDefault(require("crypto"));
 const resendEmail_1 = require("../utils/resendEmail");
+const draService_1 = require("../services/draService");
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const register = async (req, res) => {
     try {
@@ -133,14 +134,19 @@ const login = async (req, res) => {
                 message: "Please verify your email before logging in."
             });
         }
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been deactivated. Contact support."
+            });
+        }
         const isValidPassword = await bcrypt_1.default.compare(password, user.password);
         if (!isValidPassword) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
         const token = jsonwebtoken_1.default.sign({
             userId: user.id,
-            role: user.role,
-            walletAddress: user.walletAddress || null
+            role: user.role
         }, JWT_SECRET, { expiresIn: '7d' });
         const isProduction = process.env.NODE_ENV === "production";
         res.cookie("token", token, {
@@ -379,35 +385,151 @@ exports.forgotPassword = forgotPassword;
 const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;
+        console.log("RESET PASSWORD REQUEST");
+        console.log("Body:", req.body);
         if (!token) {
-            return res.status(400).json({ message: "Invalid token" });
+            return res.status(400).json({
+                success: false,
+                message: "Reset token is required",
+            });
+        }
+        if (!newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "New password is required",
+            });
+        }
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 8 characters long",
+            });
         }
         const user = await database_1.default.user.findFirst({
             where: {
                 resetPasswordToken: token,
-            }
+            },
         });
         if (!user) {
-            return res.status(400).json({ message: "Invalid or expired reset token" });
+            console.warn("Reset password failed: invalid token");
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or expired reset token",
+            });
         }
-        if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
-            return res.status(400).json({ message: "Reset token expired" });
+        if (user.resetPasswordExpires &&
+            user.resetPasswordExpires < new Date()) {
+            console.warn(`Reset token expired for user ${user.email}`);
+            await database_1.default.user.update({
+                where: {
+                    id: user.id,
+                },
+                data: {
+                    resetPasswordToken: null,
+                    resetPasswordExpires: null,
+                },
+            });
+            return res.status(400).json({
+                success: false,
+                message: "Reset token expired",
+            });
         }
+        console.log(`Resetting password for user: ${user.email}`);
         const hashedPassword = await bcrypt_1.default.hash(newPassword, 10);
+        console.log("Password hashed successfully");
         await database_1.default.user.update({
-            where: { id: user.id },
+            where: {
+                id: user.id,
+            },
             data: {
                 password: hashedPassword,
                 resetPasswordToken: null,
-                resetPasswordExpires: null
-            }
+                resetPasswordExpires: null,
+            },
         });
-        return res.json({ message: "Password successfully reset. You may now log in." });
+        console.log(`Password reset completed for ${user.email}`);
+        return res.status(200).json({
+            success: true,
+            message: "Password successfully reset. You may now log in.",
+        });
     }
     catch (error) {
-        console.error("Reset password error:", error);
-        res.status(500).json({ message: "Server error resetting password" });
+        console.error("================================");
+        console.error("RESET PASSWORD ERROR");
+        console.error("Message:", error?.message);
+        console.error("Stack:", error?.stack);
+        console.error("Full Error:", error);
+        console.error("================================");
+        return res.status(500).json({
+            success: false,
+            message: "Server error resetting password",
+            error: process.env.NODE_ENV === "development"
+                ? error?.message
+                : undefined,
+        });
     }
 };
 exports.resetPassword = resetPassword;
+const adminLogin = async (req, res) => {
+    const { email, password } = req.body;
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    try {
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: "Email and password required" });
+        }
+        const user = await database_1.default.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+        const INVALID = "Invalid credentials or insufficient permissions";
+        if (!user) {
+            console.warn(`[ADMIN LOGIN FAILED] unknown email: ${email} from IP: ${ip}`);
+            return res.status(401).json({ success: false, message: INVALID });
+        }
+        const isValidPassword = await bcrypt_1.default.compare(password, user.password);
+        if (!isValidPassword) {
+            console.warn(`[ADMIN LOGIN FAILED] wrong password for: ${email} from IP: ${ip}`);
+            return res.status(401).json({ success: false, message: INVALID });
+        }
+        if (user.role !== "ADMIN") {
+            console.warn(`[ADMIN LOGIN BLOCKED] non-admin attempt: ${email} (role: ${user.role}) from IP: ${ip}`);
+            return res.status(403).json({ success: false, message: INVALID });
+        }
+        const token = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "8h" });
+        console.info(`[ADMIN LOGIN] ${email} from IP: ${ip}`);
+        return res.json({
+            success: true,
+            message: "Admin login successful",
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role,
+            },
+        });
+    }
+    catch (error) {
+        console.error("[ADMIN LOGIN ERROR]", error);
+        return res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+exports.adminLogin = adminLogin;
+const getDRABalance = async (req, res) => {
+    try {
+        if (!req.user)
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        const user = await database_1.default.user.findUnique({
+            where: { id: req.user.userId },
+            select: { walletAddress: true },
+        });
+        if (!user?.walletAddress) {
+            return res.json({ success: true, balance: 0, walletAddress: null });
+        }
+        const balance = await draService_1.draService.getBalance(user.walletAddress);
+        return res.json({ success: true, balance, walletAddress: user.walletAddress });
+    }
+    catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to fetch DRA balance" });
+    }
+};
+exports.getDRABalance = getDRABalance;
 //# sourceMappingURL=authController.js.map

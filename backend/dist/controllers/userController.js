@@ -255,12 +255,28 @@ const updateWalletAddress = async (req, res) => {
                 message: 'Wallet address already registered to another account'
             });
         }
+        const currentUser = await database_1.default.user.findUnique({
+            where: { id: userId },
+            select: {
+                walletAddress: true,
+            },
+        });
+        const walletChanged = currentUser?.walletAddress?.toLowerCase() !== walletAddress.toLowerCase();
         const updatedUser = await database_1.default.user.update({
             where: { id: userId },
-            data: { walletAddress },
+            data: {
+                walletAddress,
+                ...(walletChanged && {
+                    kycBlockchainSynced: false,
+                    kycBlockchainTxHash: null,
+                    kycLastVerified: null,
+                    kycSyncAttempts: 0,
+                    kycSyncError: null,
+                }),
+            },
             include: {
-                kyc: true
-            }
+                kyc: true,
+            },
         });
         console.log(' Wallet updated in database');
         if (updatedUser.kyc && updatedUser.kyc.status === client_1.KycStatus.APPROVED) {
@@ -446,32 +462,21 @@ const updateUserRole = async (req, res) => {
         const { userId } = req.params;
         const { role } = req.body;
         const adminId = req.user?.userId;
-        const validRoles = ['user', 'admin', 'property_manager', 'compliance_officer', 'finance_manager'];
-        if (!validRoles.includes(role)) {
-            res.status(400).json({
-                success: false,
-                message: 'Invalid role',
-                validRoles
-            });
+        const validRoles = ['USER', 'ADMIN', 'PROPERTY_MANAGER', 'COMPLIANCE_OFFICER', 'FINANCE_MANAGER'];
+        if (!role || !validRoles.includes(role.toUpperCase())) {
+            res.status(400).json({ success: false, message: 'Invalid role', validRoles });
             return;
         }
         if (userId === adminId) {
-            res.status(403).json({
-                success: false,
-                message: 'Cannot change your own role'
-            });
+            res.status(403).json({ success: false, message: 'Cannot change your own role' });
             return;
         }
-        res.json({
-            success: true,
-            message: 'User role updated successfully',
-            data: {
-                userId,
-                role,
-                updatedBy: adminId,
-                updatedAt: new Date()
-            }
+        const updated = await database_1.default.user.update({
+            where: { id: userId },
+            data: { role: role.toUpperCase() },
+            select: { id: true, email: true, role: true },
         });
+        res.json({ success: true, message: 'User role updated', data: updated });
     }
     catch (error) {
         res.status(500).json({
@@ -485,25 +490,17 @@ exports.updateUserRole = updateUserRole;
 const deactivateUser = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { reason } = req.body;
         const adminId = req.user?.userId;
         if (userId === adminId) {
-            res.status(403).json({
-                success: false,
-                message: 'Cannot deactivate your own account'
-            });
+            res.status(403).json({ success: false, message: 'Cannot deactivate your own account' });
             return;
         }
-        res.json({
-            success: true,
-            message: 'User deactivated successfully',
-            data: {
-                userId,
-                deactivatedBy: adminId,
-                reason,
-                deactivatedAt: new Date()
-            }
+        const updated = await database_1.default.user.update({
+            where: { id: userId },
+            data: { isActive: false },
+            select: { id: true, email: true, isActive: true },
         });
+        res.json({ success: true, message: 'User deactivated', data: updated });
     }
     catch (error) {
         res.status(500).json({
@@ -555,16 +552,12 @@ exports.getUserStatistics = getUserStatistics;
 const reactivateUser = async (req, res) => {
     try {
         const { userId } = req.params;
-        const adminId = req.user?.userId;
-        res.json({
-            success: true,
-            message: 'User reactivated successfully',
-            data: {
-                userId,
-                reactivatedBy: adminId,
-                reactivatedAt: new Date()
-            }
+        const updated = await database_1.default.user.update({
+            where: { id: userId },
+            data: { isActive: true },
+            select: { id: true, email: true, isActive: true },
         });
+        res.json({ success: true, message: 'User reactivated', data: updated });
     }
     catch (error) {
         res.status(500).json({

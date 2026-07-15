@@ -14,6 +14,14 @@ export declare class QloService {
     }): Promise<any>;
     private ensureCustomer;
     private createCart;
+    getHotelStats(hotelId: number, dateFrom: string, dateTo: string): Promise<{
+        hotelId: number;
+        dateFrom: string;
+        dateTo: string;
+        totalOrders: number;
+        confirmedOrders: number;
+        totalRevenue: number;
+    }>;
     private parseResponse;
 }
 export declare const qloService: QloService;

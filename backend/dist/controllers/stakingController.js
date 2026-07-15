@@ -7,18 +7,25 @@ exports.unstake = exports.claimStakingRewards = exports.getUserStakings = export
 const database_1 = __importDefault(require("../config/database"));
 const date_fns_1 = require("date-fns");
 const createStaking = async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ message: "Unauthorized" });
     try {
-        const { userId, stakedAmount, lockPeriodDays, apyRate, createdById } = req.body;
+        const userId = req.user.userId;
+        const { stakedAmount, lockPeriodDays, apyRate, votingPowerMultiplier } = req.body;
+        if (!stakedAmount || !lockPeriodDays || !apyRate) {
+            return res.status(400).json({ message: "stakedAmount, lockPeriodDays, apyRate are required" });
+        }
         const now = new Date();
         const stake = await database_1.default.staking.create({
             data: {
                 userId,
-                stakedAmount,
-                lockPeriodDays,
-                apyRate,
+                createdById: userId,
+                stakedAmount: Number(stakedAmount),
+                lockPeriodDays: Number(lockPeriodDays),
+                apyRate: Number(apyRate),
+                votingPowerMultiplier: Number(votingPowerMultiplier || 1),
                 stakeStartDate: now,
-                stakeEndDate: (0, date_fns_1.addDays)(now, lockPeriodDays),
-                createdById
+                stakeEndDate: (0, date_fns_1.addDays)(now, Number(lockPeriodDays)),
             }
         });
         return res.status(201).json(stake);

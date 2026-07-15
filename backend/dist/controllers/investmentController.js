@@ -8,6 +8,7 @@ const database_1 = __importDefault(require("../config/database"));
 const client_1 = require("@prisma/client");
 const kyc_1 = __importDefault(require("../blockchain/kyc"));
 const blockchain_1 = require("../utils/blockchain");
+const draService_1 = require("../services/draService");
 const toNumber = (value) => {
     if (value === null || value === undefined)
         return 0;
@@ -83,7 +84,7 @@ const createInvestment = async (req, res) => {
             }
         }
         catch (error) {
-            console.error('❌ Blockchain KYC check failed:', error);
+            console.error(' Blockchain KYC check failed:', error);
             return res.status(500).json({
                 message: 'Failed to verify KYC status on blockchain',
                 error: error instanceof Error ? error.message : 'Unknown error'
@@ -271,9 +272,13 @@ const confirmInvestment = async (req, res) => {
                 }
             })
         ]);
+        if (user.walletAddress) {
+            draService_1.draService.mintReward(user.walletAddress, netInvestedAmount).catch(() => { });
+        }
         return res.json({
             success: true,
             investment,
+            draReward: netInvestedAmount * Number(process.env.DRA_EARN_RATE ?? 10),
             message: `Investment confirmed. Platform fee: $${platformFee}, Net invested: $${netInvestedAmount}`,
         });
     }

@@ -18,6 +18,11 @@ const settlementRoutes_1 = __importDefault(require("./settlementRoutes"));
 const paymentRoutes_1 = __importDefault(require("./paymentRoutes"));
 const revenueRoutes_1 = __importDefault(require("./revenueRoutes"));
 const adminRoutes_1 = __importDefault(require("./adminRoutes"));
+const yieldRoutes_1 = __importDefault(require("./yieldRoutes"));
+const snapshotRoutes_1 = __importDefault(require("./snapshotRoutes"));
+const performanceRoutes_1 = __importDefault(require("./performanceRoutes"));
+const oracleRoutes_1 = __importDefault(require("./oracleRoutes"));
+const engineRoutes_1 = __importDefault(require("./engineRoutes"));
 const router = (0, express_1.Router)();
 router.get('/health', (req, res) => {
     res.json({
@@ -41,5 +46,10 @@ router.use('/payments', paymentRoutes_1.default);
 router.use('/settlements', settlementRoutes_1.default);
 router.use('/admin/revenue', revenueRoutes_1.default);
 router.use('/admin', adminRoutes_1.default);
+router.use('/yield', yieldRoutes_1.default);
+router.use('/admin/snapshot', snapshotRoutes_1.default);
+router.use('/performance', performanceRoutes_1.default);
+router.use('/admin/oracle', oracleRoutes_1.default);
+router.use('/admin/engine', engineRoutes_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

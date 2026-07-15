@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 export declare const createBooking: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const createX402Booking: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const getBooking: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const getUserBookings: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const getBookingsByHotelAsset: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;

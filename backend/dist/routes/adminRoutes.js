@@ -4,12 +4,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const path_1 = __importDefault(require("path"));
 const bookingController_1 = require("../controllers/bookingController");
+const adminController_1 = require("../controllers/adminController");
+const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
-router.get("/admin/settlements", (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, "../frontend/build", "adminSettlements.html"));
-});
+router.use(auth_1.authenticate);
+router.use((0, auth_1.authorize)("ADMIN"));
 router.get("/bookings", bookingController_1.getAllBookingsAdmin);
+router.get("/users", adminController_1.getAdminUsers);
+router.get("/investments", adminController_1.getAdminInvestments);
 exports.default = router;
 //# sourceMappingURL=adminRoutes.js.map

@@ -1,0 +1,1 @@
+{"version":3,"file":"snapshotController.d.ts","sourceRoot":"","sources":["../../src/controllers/snapshotController.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAC;AAG5C,eAAO,MAAM,YAAY,GAAU,KAAK,OAAO,EAAE,KAAK,QAAQ,gDAe7D,CAAC;AAEF,eAAO,MAAM,aAAa,GAAU,KAAK,OAAO,EAAE,KAAK,QAAQ,gDAS9D,CAAC;AAEF,eAAO,MAAM,WAAW,GAAU,KAAK,OAAO,EAAE,KAAK,QAAQ,gDAa5D,CAAC"}
