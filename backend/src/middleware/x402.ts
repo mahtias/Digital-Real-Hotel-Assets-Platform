@@ -2,9 +2,13 @@ import { Request, Response, NextFunction } from "express";
 import { ethers } from "ethers";
 
 const TREASURY_ADDRESS = (process.env.TREASURY_ADDRESS || "") as string;
-const NETWORK = "base-sepolia";
-const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-const CHAIN_ID = 84532;
+const CHAIN_ID = Number(process.env.CHAIN_ID || 84532);
+const NETWORK = CHAIN_ID === 8453 ? "base" : "base-sepolia";
+// Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 | Testnet: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+const USDC_ADDRESS = process.env.USDC_CONTRACT_ADDRESS ||
+  (CHAIN_ID === 8453
+    ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+    : "0x036CbD53842c5426634e7929541eC2318f3dCF7e");
 
 const TRANSFER_WITH_AUTH_TYPES = {
   TransferWithAuthorization: [
@@ -214,7 +218,7 @@ export const x402Middleware = (priceUSDC: number) => {
 
       (req as any).x402Payment = {
         txHash,
-        amountUSDC: priceUSDC,
+        amountUSDC: effectivePrice,
         paidAt: new Date().toISOString(),
       };
 

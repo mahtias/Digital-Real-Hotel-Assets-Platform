@@ -29,6 +29,7 @@ const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 // --------------------------
 const allowedOrigins: string[] = [
   process.env.FRONTEND_URL,
+  process.env.ADMIN_URL,
   "https://digirealassets.io",
   "http://localhost:5173",
   "http://localhost:5174"

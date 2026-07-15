@@ -1,6 +1,5 @@
-// @ts-nocheck  
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Coins, Lock, Unlock, Gift, TrendingUp, Vote, Clock, CheckCircle, 
-  
+import {Coins, Lock, Unlock, Gift, TrendingUp, Vote, Clock, CheckCircle, 
   AlertTriangle, Sparkles, ArrowRight, Zap} from "lucide-react";
 
 import { format, differenceInDays, addDays } from 'date-fns';
@@ -28,33 +25,34 @@ export default function Staking() {
   const [selectedPeriod, setSelectedPeriod] = useState(90);
   const [stakeSuccess, setStakeSuccess] = useState(false);
   const queryClient = useQueryClient();
-  const { authFetch } = useAuth();  
-  const draBalance = user?.dra_balance || 5000;
+  const { authFetch } = useAuth();
+  const [draBalance, setDraBalance] = useState(0);
 
-//  useEffect(() => {
-//    authFetch("/api/v1/auth/me")
-//      .then(res => res.json())
-//      .then(data => setUser(data.user))
-//      .catch(() => setUser(null));
-//  }, [])
+  useEffect(() => {
+    authFetch("/api/v1/auth/me")
+      .then(res => res.json())
+      .then(data => setUser(data.user))
+      .catch(() => setUser(null));
 
+    authFetch(`${API_URL}/api/v1/auth/dra-balance`)
+      .then(res => res.json())
+      .then(data => { if (data.success) setDraBalance(data.balance); })
+      .catch(() => {});
+  }, []);
 
-const { data: stakes = [], isLoading } = useQuery({
-  queryKey: ['dra-staking', user?.email],
-  enabled: !!user,
- queryFn: async () => {
-  const res = await fetch(`${API_URL}/api/v1/staking/me`) 
-    .catch(() => null);
-
-  if (!res) return [];
-
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res.stakes)) return res.stakes;
-  if (Array.isArray(res.data)) return res.data;
-
-  return [];
-}
-});
+  const { data: stakes = [], isLoading } = useQuery({
+    queryKey: ['dra-staking', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const res = await authFetch(`${API_URL}/api/v1/staking/me`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.stakes)) return data.stakes;
+      if (Array.isArray(data.data)) return data.data;
+      return [];
+    }
+  });
 
 
   const lockPeriodConfig = {
@@ -64,24 +62,25 @@ const { data: stakes = [], isLoading } = useQuery({
     365: { apy: 25, multiplier: 3 },
   };
 
- const stakeMutation = useMutation({
-  mutationFn: async () => {
-    const config = lockPeriodConfig[selectedPeriod];
-    const startDate = new Date();
-    const endDate = addDays(startDate, selectedPeriod);
-
-    await fetch(`${API_URL}/api/v1/staking`, {
-      method: "POST",
-      body: JSON.stringify({
-        staked_amount: stakeAmount,
-        lock_period_days: selectedPeriod,
-        stake_start_date: startDate.toISOString(),
-        stake_end_date: endDate.toISOString(),
-        apy_rate: config.apy,
-        voting_power_multiplier: config.multiplier
-      })
-    });
-  },
+  const stakeMutation = useMutation({
+    mutationFn: async () => {
+      const config = lockPeriodConfig[selectedPeriod];
+      const res = await authFetch(`${API_URL}/api/v1/staking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stakedAmount: stakeAmount,
+          lockPeriodDays: selectedPeriod,
+          apyRate: config.apy,
+          votingPowerMultiplier: config.multiplier,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to stake");
+      }
+      return res.json();
+    },
   onSuccess: () => {
     setStakeSuccess(true);
     queryClient.invalidateQueries(["dra-staking"]);
@@ -95,38 +94,35 @@ const { data: stakes = [], isLoading } = useQuery({
 });
 
   const claimMutation = useMutation({
-  mutationFn: async (stakeId) => {
-    await fetch(`${API_URL}/api/v1/staking/${stakeId}/claim`, {
-      method: "POST"
-    });
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries(["dra-staking"]);
-  }
-});;
+    mutationFn: async (stakeId) => {
+      const res = await authFetch(`${API_URL}/api/v1/staking/${stakeId}/claim`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to claim rewards");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries(["dra-staking"]); },
+    onError: (err) => alert(err.message),
+  });
 
- const unstakeMutation = useMutation({
-  mutationFn: async (stakeId) => {
-    await fetch(`${API_URL}/api/v1/staking/${stakeId}/unstake`, {
-      method: "POST"
-    });
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries(["dra-staking"]);
-  }
-});
+  const unstakeMutation = useMutation({
+    mutationFn: async (stakeId) => {
+      const res = await authFetch(`${API_URL}/api/v1/staking/${stakeId}/unstake`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to unstake");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries(["dra-staking"]); },
+    onError: (err) => alert(err.message),
+  });
 
-  const activeStakes = stakes.filter(s => s.status === 'active');
-  const totalStaked = activeStakes.reduce((acc, s) => acc + (s.staked_amount || 0), 0);
-  const totalVotingPower = activeStakes.reduce((acc, s) => 
-    acc + (s.staked_amount * (s.voting_power_multiplier || 1)), 0);
+  const activeStakes = stakes.filter(s => s.status === 'ACTIVE');
+  const totalStaked = activeStakes.reduce((acc, s) => acc + (s.stakedAmount || 0), 0);
+  const totalVotingPower = activeStakes.reduce((acc, s) =>
+    acc + (s.stakedAmount * (s.votingPowerMultiplier || 1)), 0);
   const totalPendingRewards = activeStakes.reduce((acc, s) => {
-    
-    const daysPassed = differenceInDays(new Date(), new Date(s.stake_start_date));
-    return acc + (s.staked_amount * s.apy_rate / 100) * (daysPassed / 365);
+    const daysPassed = differenceInDays(new Date(), new Date(s.stakeStartDate));
+    return acc + (s.stakedAmount * s.apyRate / 100) * (daysPassed / 365);
   }, 0);
-  const avgApy = activeStakes.length > 0 
-    ? activeStakes.reduce((acc, s) => acc + s.apy_rate, 0) / activeStakes.length 
+  const avgApy = activeStakes.length > 0
+    ? activeStakes.reduce((acc, s) => acc + s.apyRate, 0) / activeStakes.length
     : 0;
 
   const expectedRewards = (stakeAmount * lockPeriodConfig[selectedPeriod].apy / 100);
@@ -404,12 +400,11 @@ const { data: stakes = [], isLoading } = useQuery({
               <div className="space-y-4">
                 {activeStakes.map((stake) => {
                   
-                  const daysLeft = differenceInDays(new Date(stake.stake_end_date), new Date());
+                  const daysLeft = differenceInDays(new Date(stake.stakeEndDate), new Date());
                   const isUnlocked = daysLeft <= 0;
-                  const progress = ((stake.lock_period_days - Math.max(0, daysLeft)) / stake.lock_period_days) * 100;
-                  const pendingReward = (stake.staked_amount * stake.apy_rate / 100) * 
-                    
-                    (differenceInDays(new Date(), new Date(stake.stake_start_date)) / 365);
+                  const progress = ((stake.lockPeriodDays - Math.max(0, daysLeft)) / stake.lockPeriodDays) * 100;
+                  const pendingReward = (stake.stakedAmount * stake.apyRate / 100) *
+                    (differenceInDays(new Date(), new Date(stake.stakeStartDate)) / 365);
 
                   return (
                     <
@@ -428,7 +423,7 @@ const { data: stakes = [], isLoading } = useQuery({
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-2xl font-bold text-white">{stake.staked_amount.toLocaleString()} DRA</span>
+                              <span className="text-2xl font-bold text-white">{stake.stakedAmount.toLocaleString()} DRA</span>
                               <
 
                               Badge className={`${isUnlocked ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'} border`}>
@@ -437,22 +432,22 @@ const { data: stakes = [], isLoading } = useQuery({
                             </div>
                             <div className="flex items-center gap-4 text-sm text-slate-400">
                               <span className="flex items-center gap-1">
-                                <TrendingUp 
+                                <TrendingUp
 
                                 className="w-3 h-3 text-emerald-400" />
-                                {stake.apy_rate}% APY
+                                {stake.apyRate}% APY
                               </span>
                               <span className="flex items-center gap-1">
-                                <Zap 
+                                <Zap
 
                                 className="w-3 h-3 text-violet-400" />
-                                {stake.voting_power_multiplier}x VP
+                                {stake.votingPowerMultiplier}x VP
                               </span>
                               <span className="flex items-center gap-1">
-                                <Clock 
+                                <Clock
 
                                 className="w-3 h-3" />
-                                {stake.lock_period_days} {t('staking.days')}
+                                {stake.lockPeriodDays} {t('staking.days')}
                               </span>
                             </div>
                           </div>
@@ -460,9 +455,7 @@ const { data: stakes = [], isLoading } = useQuery({
 
                         <div className="flex-1 max-w-xs">
                           <div className="flex justify-between text-xs text-slate-400 mb-1">
-                            <span>{t('staking.unlockDate')}: {
-
-                            format(new Date(stake.stake_end_date), 'yyyy/MM/dd')}</span>
+                            <span>{t('staking.unlockDate')}: {format(new Date(stake.stakeEndDate), 'yyyy/MM/dd')}</span>
                             <span>{isUnlocked ? '100%' : `${Math.max(0, daysLeft)} ${t('staking.daysLeft')}`}</span>
                           </div>
                           <Progress 
@@ -540,31 +533,27 @@ const { data: stakes = [], isLoading } = useQuery({
           <
 
           TabsContent value="history" className="mt-6">
-            {stakes.filter(s => s.status === 'completed').length > 0 ? (
+            {stakes.filter(s => s.status !== 'ACTIVE').length > 0 ? (
               <div className="space-y-4">
-                {stakes.filter(s => s.status === 'completed').map((stake) => (
+                {stakes.filter(s => s.status !== 'ACTIVE').map((stake) => (
                   <
 
                   Card key={stake.id} className="bg-slate-900/50 border-slate-800 p-5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="p-2 rounded-lg bg-slate-800">
-                          <CheckCircle 
-
-                          className="w-5 h-5 text-slate-400" />
+                          <CheckCircle className="w-5 h-5 text-slate-400" />
                         </div>
                         <div>
-                          <p className="text-white font-semibold">{stake.staked_amount.toLocaleString()} DRA</p>
+                          <p className="text-white font-semibold">{stake.stakedAmount.toLocaleString()} DRA</p>
                           <p className="text-slate-500 text-sm">
-                            {
-
-                            format(new Date(stake.stake_start_date), 'yyyy/MM/dd')} - {format(new Date(stake.stake_end_date), 'yyyy/MM/dd')}
+                            {format(new Date(stake.stakeStartDate), 'yyyy/MM/dd')} - {format(new Date(stake.stakeEndDate), 'yyyy/MM/dd')}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-slate-400 text-xs">{t('staking.earned')}</p>
-                        <p className="text-emerald-400 font-semibold">+{(stake.claimed_rewards || 0).toFixed(2)} DRA</p>
+                        <p className="text-emerald-400 font-semibold">+{(stake.claimedRewards || 0).toFixed(2)} DRA</p>
                       </div>
                     </div>
                   </Card>

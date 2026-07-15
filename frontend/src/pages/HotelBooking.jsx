@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useWalletClient, useChainId, useSwitchChain } from "wagmi";
 import { ethers } from "ethers";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -24,6 +24,10 @@ export default function BookingDetail() {
   const { authFetch, user } = useAuth();
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+
+  const TARGET_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID || 84532);
 
   const [checkIn, setCheckIn] = useState();
   const [checkOut, setCheckOut] = useState();
@@ -265,6 +269,17 @@ const handleBookingPayment = async () => {
     if (!signer || !address) { toast.error("Connect your wallet first"); return; }
     if (!x402Modal?.accepts?.[0]) return;
 
+    // Ensure wallet is on the correct chain before signing
+    if (chainId !== TARGET_CHAIN_ID) {
+      try {
+        toast.info(`Switching to ${TARGET_CHAIN_ID === 8453 ? "Base Mainnet" : "Base Sepolia"}...`);
+        await switchChain({ chainId: TARGET_CHAIN_ID });
+      } catch {
+        toast.error("Please switch your wallet to the correct network manually.");
+        return;
+      }
+    }
+
     const req = x402Modal.accepts[0];
     setIsX402Loading(true);
 
@@ -273,11 +288,10 @@ const handleBookingPayment = async () => {
       const validBefore = BigInt(Math.floor(Date.now() / 1000) + (req.maxTimeoutSeconds || 300));
       const nonce = ethers.hexlify(ethers.randomBytes(32));
 
-      // EIP-712 domain for USDC on Base Sepolia — name is "USDC" (not "USD Coin") on this chain
       const domain = {
         name: "USDC",
         version: "2",
-        chainId: 84532,
+        chainId: TARGET_CHAIN_ID,
         verifyingContract: req.asset,
       };
 

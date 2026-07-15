@@ -4,11 +4,12 @@ import { yieldService } from "../services/yieldService";
 
 // Maps QloApps event types to platform BookingStatus
 const EVENT_STATUS_MAP: Record<string, string> = {
-  PAYMENT_CONFIRMED: "PAID",
-  BOOKING_CONFIRMED: "CONFIRMED",
-  GUEST_CHECKED_IN:  "CONFIRMED",
-  BOOKING_COMPLETED: "COMPLETED",
-  BOOKING_CANCELLED: "CANCELLED",
+  PAYMENT_CONFIRMED:  "PAID",
+  BOOKING_CONFIRMED:  "CONFIRMED",
+  GUEST_CHECKED_IN:   "CONFIRMED",
+  GUEST_CHECKED_OUT:  "COMPLETED",
+  BOOKING_COMPLETED:  "COMPLETED",
+  BOOKING_CANCELLED:  "CANCELLED",
 };
 
 export const handleQloWebhook = async (req: Request, res: Response) => {
