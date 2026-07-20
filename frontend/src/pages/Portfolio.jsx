@@ -228,35 +228,35 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
         <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between mb-6">
           <div>
             <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
-              💎 My Portfolio
+              💎 {t('portfolio.title')}
             </h1>
-            <p className="text-xl text-slate-400 mt-2">Track your investments & rewards</p>
+            <p className="text-xl text-slate-400 mt-2">{t('portfolio.subtitle')}</p>
             {isConnected && <div className="text-sm text-slate-500 mt-2">Wallet: {address?.slice(0,6)}...{address?.slice(-4)}</div>}
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 w-full lg:w-auto">
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-black text-white mb-1">${totalInvested.toLocaleString()}</div>
-              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Total Invested</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">{t('portfolio.totalInvested')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-black text-emerald-400">{totalTokens.toFixed(2)}</div>
-              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">HAT Tokens</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">{t('portfolio.hatTokens')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-black text-emerald-400">${totalPendingRewards.toFixed(2)}</div>
-              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Pending Yield</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">{t('portfolio.pendingYield')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-black text-green-500">${totalEarned.toFixed(2)}</div>
-              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Total Earned</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">{t('portfolio.totalEarned')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl sm:text-2xl font-black text-amber-400">{totalProperties}</div>
-              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Properties</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">{t('portfolio.properties')}</div>
             </div>
             <div className="text-center sm:border-l sm:border-slate-700 sm:pl-4">
               <div className="text-xl sm:text-2xl font-black text-violet-400">{draBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">DRA Tokens</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">{t('portfolio.draTokens')}</div>
             </div>
           </div>
           <div className="flex gap-3 ml-auto">
@@ -278,7 +278,7 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
               disabled={investmentsLoading}
               className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold flex items-center gap-2"
             >
-              <RefreshCw className="w-4 h-4" /> Refresh
+              <RefreshCw className="w-4 h-4" /> {t('portfolio.refresh')}
             </Button>
           </div>
         </div>
@@ -287,13 +287,13 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-slate-900/50 border p-2 rounded-2xl mb-8">
             <TabsTrigger value="active" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-slate-900 font-bold rounded-xl">
-              Active Investments
+              {t('portfolio.activeInvestments')}
             </TabsTrigger>
             <TabsTrigger value="performance" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white font-bold rounded-xl">
-              Performance
+              {t('portfolio.performance')}
             </TabsTrigger>
             <TabsTrigger value="staked" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white font-bold rounded-xl">
-              Staked Assets
+              {t('portfolio.stakedAssets')}
             </TabsTrigger>
           </TabsList>
 
@@ -326,7 +326,7 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
 
                         <div>
                           <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
-                            Investment
+                            {t('portfolio.investment')}
                           </div>
                           <div className="font-bold text-lg text-white">
                             ${inv.amount.toFixed(2)}
@@ -335,7 +335,7 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
 
                         <div>
                           <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
-                            Platform Fee
+                            {t('portfolio.platformFee')}
                           </div>
                           <div className="font-bold text-red-400">
                             ${inv.platformFee.toFixed(2)}
@@ -344,7 +344,7 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
 
                         <div>
                           <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
-                            Net Invested
+                            {t('portfolio.netInvested')}
                           </div>
                           <div className="font-bold text-emerald-400">
                             ${inv.netInvested.toFixed(2)}
@@ -353,31 +353,31 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
 
                         <div>
                           <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
-                            HAT Tokens
+                            {t('portfolio.hatTokens')}
                           </div>
                           <div className="font-bold text-lg text-emerald-400">
                             {inv.tokenAmount.toFixed(2)} HAT
                           </div>
                         </div>
                         <div>
-                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Location</div>
+                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">{t('portfolio.location')}</div>
                           <div className="font-bold text-white">{inv.hotel?.location}</div>
                         </div>
                         <div>
-                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Yield</div>
+                          <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">{t('portfolio.yield')}</div>
                           <div className="font-bold text-lg text-amber-400">{inv.hotel?.expectedYield}%</div>
                         </div>
                         <div className="col-span-2 mt-2">
                         <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">
-                          Earnings
+                          {t('portfolio.earnings')}
                         </div>
 
                         <div className="flex flex-col gap-1 text-sm mt-1">
                       <span className="text-green-400">
-                        Earned: ${Number(inv.earnedRewards ?? 0).toFixed(2)}
+                        {t('portfolio.earned')}: ${Number(inv.earnedRewards ?? 0).toFixed(2)}
                       </span>
                       <span className="text-amber-400">
-                        Pending: ${inv.pendingRewards.toFixed(2)}
+                        {t('portfolio.pending')}: ${inv.pendingRewards.toFixed(2)}
                       </span>
                     </div>
                      <div className="text-xs text-slate-500 mt-1">
@@ -392,9 +392,9 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
             ) : (
               <Card className="p-16 text-center bg-slate-900/50 border rounded-xl">
                 <Building2 className="w-16 h-16 text-slate-600 mx-auto mb-6 opacity-50"/>
-                <h3 className="text-2xl font-bold text-white mb-3">No Active Investments</h3>
+                <h3 className="text-2xl font-bold text-white mb-3">{t('portfolio.noInvestments')}</h3>
                 <Link to={createPageUrl('Marketplace')}>
-                  <Button className="bg-amber-500 text-slate-900 font-bold px-12 py-6">Browse Assets →</Button>
+                  <Button className="bg-amber-500 text-slate-900 font-bold px-12 py-6">{t('portfolio.browseAssets')} →</Button>
                 </Link>
               </Card>
             )}
@@ -404,8 +404,8 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
             {performanceData.length === 0 ? (
               <Card className="p-16 text-center bg-slate-900/50 border rounded-xl">
                 <TrendingUp className="w-16 h-16 text-slate-600 mx-auto mb-6 opacity-50"/>
-                <h3 className="text-2xl font-bold text-white mb-3">No Performance Data Yet</h3>
-                <p className="text-slate-400">Performance records are generated monthly by the admin after bookings are completed.</p>
+                <h3 className="text-2xl font-bold text-white mb-3">{t('portfolio.noPerformanceData')}</h3>
+                <p className="text-slate-400">{t('portfolio.performanceNote')}</p>
               </Card>
             ) : (
               <div className="flex flex-col gap-8">

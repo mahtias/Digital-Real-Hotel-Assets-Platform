@@ -126,8 +126,6 @@ const isFullyKycApproved = backendKycApproved && blockchainKycApproved;
 const hotelTokenAddress = hotel?.tokenAddress as `0x${string}` | undefined;
 const blockchainId = hotel?.blockchainId;
 
-console.log("🏨 Hotel Token Address:", hotelTokenAddress);
-console.log("🔢 Blockchain ID:", blockchainId);
 
 const { data: isHotelAvailable, isLoading: isLoadingHotelOnChain } = useReadContract({
   address: HOTEL_ASSET_MANAGER_ADDRESS,
@@ -485,7 +483,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
   if (isLoadingHotel) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-xl">Loading hotel details...</div>
+        <div className="text-white text-xl">{t('hotelDetail.loadingDetails')}</div>
       </div>
     );
   }
@@ -494,13 +492,13 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <Card className="bg-slate-900/50 border-slate-800 p-8 max-w-md">
-          <h2 className="text-white text-2xl font-bold mb-4"> Hotel Not Found</h2>
+          <h2 className="text-white text-2xl font-bold mb-4">{t('hotelDetail.notFound')}</h2>
           <p className="text-slate-400 mb-6">
             {hotelError?.message || `Invalid hotel ID: ${id}`}
           </p>
           <Button onClick={() => navigate('/marketplace')} className="w-full">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Marketplace
+            {t('hotelDetail.backToMarketplace')}
           </Button>
         </Card>
       </div>
@@ -519,7 +517,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
           className="text-slate-400 hover:text-white"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Hotels
+          {t('hotelDetail.backToHotels')}
         </Button>
       </div>
 
@@ -569,60 +567,56 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
                   <DollarSign className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">${tokenPriceFormatted}</div>
-                  <div className="text-xs text-slate-400">Token Price (USD)</div>
+                  <div className="text-xs text-slate-400">{t('hotelDetail.tokenPriceUsd')}</div>
                 </div>
 
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
                   <TrendingUp className="w-6 h-6 text-amber-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">{apyFormatted}%</div>
-                  <div className="text-xs text-slate-400">Expected APY</div>
+                  <div className="text-xs text-slate-400">{t('hotelDetail.expectedApy')}</div>
                 </div>
 
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
                   <Coins className="w-6 h-6 text-blue-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">{maxSupplyFormatted}</div>
-                  <div className="text- xs text-slate-400">Max Supply</div>
+                  <div className="text-xs text-slate-400">{t('hotelDetail.maxSupply')}</div>
                 </div>
 
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
                   <Users className="w-6 h-6 text-purple-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">{totalSupplyFormatted}</div>
-                  <div className="text-xs text-slate-400">Total Sold</div>
+                  <div className="text-xs text-slate-400">{t('hotelDetail.totalSold')}</div>
                 </div>
               </div>
             </Card>
 
             {/* 📊 FUNDING PROGRESS */}
             <Card className="bg-slate-900/50 border-slate-800 p-6">
-              <h3 className="text-white font-bold text-lg mb-4">Funding Progress</h3>
+              <h3 className="text-white font-bold text-lg mb-4">{t('hotelDetail.fundingProgress')}</h3>
               <Progress value={soldPercentage} className="h-3 mb-3 bg-slate-700 [&>div]:bg-white" />
               <div className="flex justify-between text-sm text-slate-300">
-                <span>{totalSupplyFormatted} / {maxSupplyFormatted} {hotel.tokenSymbol} Tokens</span>
+                <span>{totalSupplyFormatted} / {maxSupplyFormatted} {hotel.tokenSymbol} {t('hotelDetail.tokens')}</span>
                 <span className="font-bold">{soldPercentage.toFixed(1)}%</span>
               </div>
             </Card>
 
             {/* 📍 CONTRACT INFO */}
             <Card className="bg-slate-900/50 border-slate-800 p-6">
-              <h3 className="text-white font-bold text-lg mb-4">Contract Information</h3>
+              <h3 className="text-white font-bold text-lg mb-4">{t('hotelDetail.contractInfo')}</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Hotel Token Address:</span>
+                  <span className="text-slate-400">{t('hotelDetail.tokenAddress')}:</span>
                   <code className="text-emerald-400">{hotelTokenAddress?.slice(0, 10)}...{hotelTokenAddress?.slice(-8)}</code>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Symbol:</span>
+                  <span className="text-slate-400">{t('hotelDetail.symbol')}:</span>
                   <span className="text-white font-mono">{hotel.tokenSymbol}</span>
-                   {/* <span className="text-white font-mono">{hotelSymbol || hotel.tokenSymbol}</span> */}
                 </div>
+
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Blockchain ID:</span>
-                  <span className="text-white font-mono">{blockchainId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status:</span>
+                  <span className="text-slate-400">{t('hotelDetail.status')}:</span>
                   <Badge variant={isActive ? "default" : "destructive"}>
-                    {isActive ? 'Active' : 'Inactive'}
+                    {isActive ? t('hotelDetail.active') : t('hotelDetail.inactive')}
                   </Badge>
                 </div>
               </div>
@@ -632,19 +626,19 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
           {/* 💰 RIGHT: INVESTMENT PANEL */}
           <div className="space-y-6">
             <Card className="bg-slate-900/50 border-slate-800 p-6 sticky top-6">
-              <h3 className="text-white font-bold text-xl mb-6">💎 Invest Now</h3>
+              <h3 className="text-white font-bold text-xl mb-6">💎 {t('hotelDetail.investNow')}</h3>
 
               {isConnected ? (
                 <>
                   {/* 🔐 KYC STATUS DISPLAY */}
                   <div className="mb-6 p-4 bg-slate-800/50 rounded-lg space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">Backend KYC:</span>
+                      <span className="text-slate-400">{t('hotelDetail.backendKyc')}:</span>
                       <div className="flex items-center gap-2">
                         {backendKycApproved ? (
                           <>
                             <CheckCircle className="w-4 h-4 text-green-400" />
-                            <span className="text-green-400 font-semibold">APPROVED</span>
+                            <span className="text-green-400 font-semibold">{t('hotelDetail.approved')}</span>
                           </>
                         ) : (
                           <>
@@ -656,19 +650,19 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">Blockchain KYC:</span>
+                      <span className="text-slate-400">{t('hotelDetail.blockchainKyc')}:</span>
                       <div className="flex items-center gap-2">
                         {isLoadingKyc ? (
-                          <span className="text-slate-400">Loading...</span>
+                          <span className="text-slate-400">{t('common.loading')}</span>
                         ) : blockchainKycApproved ? (
                           <>
                             <CheckCircle className="w-4 h-4 text-green-400" />
-                            <span className="text-green-400 font-semibold">VERIFIED</span>
+                            <span className="text-green-400 font-semibold">{t('hotelDetail.verified')}</span>
                           </>
                         ) : (
                           <>
                             <XCircle className="w-4 h-4 text-red-400" />
-                            <span className="text-red-400 font-semibold">NOT VERIFIED</span>
+                            <span className="text-red-400 font-semibold">{t('hotelDetail.notVerified')}</span>
                           </>
                         )}
                       </div>
@@ -690,7 +684,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
   {/* Stablecoin Selector */}
   <div>
     <label className="text-slate-400 text-sm mb-2 block">
-      Payment Currency
+      {t('hotelDetail.paymentCurrency')}
     </label>
 
     <select
@@ -710,7 +704,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
   {/* Amount */}
   <div>
     <label className="text-slate-400 text-sm mb-2 block">
-      Investment Amount ({selectedStablecoin})
+      {t('hotelDetail.investAmount')} ({selectedStablecoin})
     </label>
 
     <input
@@ -722,7 +716,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
     />
 
    <p className="text-xs text-slate-500 mt-1">
-  Available: {
+  {t('hotelDetail.available')}: {
     userStablecoinBalance
       ? Number(
           formatUnits(
@@ -735,10 +729,10 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
 </p>
 
 <p className="text-xs text-slate-500">
-  Minimum: $1
+  {t('hotelDetail.minimum')}: $1
 </p>
 <p className="text-xs text-slate-500">
-  Gas Wallet: {ethers.formatEther(ethBalance)} ETH
+  {t('hotelDetail.gasWallet')}: {ethers.formatEther(ethBalance)} ETH
 </p>
   </div>
 </div>
@@ -751,23 +745,23 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
   {isInvesting ? (
     <>
       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-      Processing...
+      {t('hotelDetail.processing')}
     </>
   ) : (
-    "💎 Invest Now"
+    `💎 ${t('hotelDetail.investNow')}`
   )}
 </Button>
 
     {!isOnChain && !isLoadingHotelOnChain && (
       <div className="mt-4 p-3 bg-amber-500/20 border border-amber-500 rounded-lg text-amber-400 text-sm">
-        This hotel is not yet deployed on-chain.
+        {t('hotelDetail.notOnChain')}
       </div>
     )}
                         </>
                   ) : (
                     <div className="text-center py-8">
                       <Shield className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-                      <p className="text-slate-300 mb-4 font-semibold">🔐 KYC Verification Required</p>
+                      <p className="text-slate-300 mb-4 font-semibold">🔐 {t('hotelDetail.kycRequired')}</p>
 
                       <div className="text-left mb-6 space-y-2">
                         {!backendKycApproved && (
@@ -779,7 +773,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                         {!blockchainKycApproved && (
                           <p className="text-sm text-red-400 flex items-center gap-2">
                             <XCircle className="w-4 h-4" />
-                            Blockchain verification needed
+                            {t('hotelDetail.blockchainVerificationNeeded')}
                           </p>
                         )}
                       </div>
@@ -793,12 +787,12 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                     {isSubmittingKyc ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Submitting...
+                        {t('hotelDetail.submitting')}
                       </>
                     ) : isVerified ? (
-                      "✅ Blockchain KYC Verified"
+                      t('hotelDetail.blockchainKycVerified')
                     ) : (
-                      "Retry Blockchain KYC"
+                      t('hotelDetail.retryBlockchainKyc')
                     )}
                   </Button>
                   )}
@@ -808,7 +802,7 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                       className="w-full bg-amber-500 hover:bg-amber-600"
                       onClick={() => window.open('/kyc/submit', '_blank')}
                     >
-                      Complete KYC
+                      {t('hotelDetail.completeKyc')}
                     </Button>
                   )}
 
@@ -817,8 +811,8 @@ console.log("User HAT Balance:", userHatBalanceFormatted);
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-slate-400 mb-4">Connect wallet to invest</p>
-                  <Button className="w-full">Connect Wallet</Button>
+                  <p className="text-slate-400 mb-4">{t('hotelDetail.connectToInvest')}</p>
+                  <Button className="w-full">{t('hotelDetail.connectWallet')}</Button>
                 </div>
               )}
             </Card>

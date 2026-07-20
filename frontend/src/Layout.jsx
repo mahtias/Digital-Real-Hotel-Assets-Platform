@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LanguageProvider, useLanguage } from '@/components/common/LanguageContext';
+import { useLanguage } from '@/components/common/LanguageContext';
 import WalletConnect from '@/components/common/WalletConnect';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/context/AuthContext';
@@ -379,8 +379,6 @@ function LayoutContent({ children }) {
 
 export default function Layout({ children }) {
   return (
-    <LanguageProvider>
-      <LayoutContent>{children}</LayoutContent>
-    </LanguageProvider>
+    <LayoutContent>{children}</LayoutContent>
   );
 }

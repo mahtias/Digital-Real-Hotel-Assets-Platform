@@ -62,9 +62,10 @@ const soldPercentage =
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case "ACTIVE": return t('hotelCard.active') || 'Active';
-      case "UPCOMING": return t('hotelCard.upcoming') || 'Upcoming';
-      case "SOLD_OUT": return t('hotelCard.soldOut') || 'Sold Out';
+      case "ACTIVE":
+      case "FUNDRAISING": return t('hotelCard.active');
+      case "UPCOMING": return t('hotelCard.upcoming');
+      case "SOLD_OUT": return t('hotelCard.soldOut');
       default: return status;
     }
   };
@@ -165,7 +166,7 @@ const soldPercentage =
           <div className="font-mono text-white font-bold">
              {totalSupplyScaled.toLocaleString()}
           </div>
-          <div className="text-slate-400 mt-1">Total sold</div>
+          <div className="text-slate-400 mt-1">{t('hotelCard.totalSold')}</div>
         </div>
       </div>
 
@@ -173,7 +174,7 @@ const soldPercentage =
        <div className="space-y-2">
   <div className="flex justify-between text-xs">
     <span className="text-slate-400 uppercase tracking-wider font-medium">
-      Progress
+      {t('hotelCard.progress')}
     </span>
 
     <span className="text-white font-mono font-bold">
@@ -185,7 +186,7 @@ const soldPercentage =
     value={Math.min(soldPercentage,100)}
     className="h-1.5 bg-slate-800 [&>div]:bg-white"/>
   <p className="text-xs text-slate-400 font-mono">
-  {totalSupplyScaled.toLocaleString()} /  {maxSupplyScaled.toLocaleString()} {hotel.tokenSymbol} Tokens </p> 
+  {totalSupplyScaled.toLocaleString()} / {maxSupplyScaled.toLocaleString()} {hotel.tokenSymbol} {t('hotelCard.tokens')}</p>
 </div>
  
         {/* 🚀 INVEST BUTTON */}
@@ -198,7 +199,7 @@ const soldPercentage =
                      text-sm tracking-wide transition-all duration-200 border-0"
           disabled={soldPercentage >= 100}
         >
-          {soldPercentage >= 100 ? "🎉 Sold Out" : "💎 Invest Now"}
+          {soldPercentage >= 100 ? `🎉 ${t('hotelCard.soldOut')}` : `💎 ${t('hotelCard.investNow')}`}
         </Button>
 
         {/* 👁️ VIEW DETAILS */}

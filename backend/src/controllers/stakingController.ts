@@ -13,6 +13,15 @@ export const createStaking = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "stakedAmount, lockPeriodDays, apyRate are required" });
     }
 
+    const VALID_TIERS: Record<number, number> = { 30: 8, 90: 12, 180: 18, 365: 25 };
+    const expectedApy = VALID_TIERS[Number(lockPeriodDays)];
+    if (!expectedApy) {
+      return res.status(400).json({ message: "Invalid lockPeriodDays. Allowed: 30, 90, 180, 365" });
+    }
+    if (Number(apyRate) !== expectedApy) {
+      return res.status(400).json({ message: `Invalid apyRate for ${lockPeriodDays}-day lock. Expected ${expectedApy}%` });
+    }
+
     const now = new Date();
 
     const stake = await prisma.staking.create({

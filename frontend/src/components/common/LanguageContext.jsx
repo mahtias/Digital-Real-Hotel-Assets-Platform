@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 const translations = {
   en: {
@@ -88,7 +88,9 @@ const translations = {
       tokenPrice: 'Token Price',
       apy: 'APY',
       progress: 'Progress',
-      tokens: 'tokens',
+      tokens: 'Tokens',
+      totalSold: 'Total Sold',
+      investNow: 'Invest Now',
       viewDetails: 'View Details',
     },
     // Portfolio
@@ -98,17 +100,34 @@ const translations = {
       totalInvested: 'Total Invested',
       totalEarned: 'Total Earned',
       pendingRewards: 'Pending Rewards',
+      pendingYield: 'Pending Yield',
+      hatTokens: 'HAT Tokens',
+      properties: 'Properties',
+      draTokens: 'DRA Tokens',
       stakedTokens: 'Staked Tokens',
       activeInvestments: 'Active Investments',
+      performance: 'Performance',
+      stakedAssets: 'Staked Assets',
       staking: 'Staking',
-      noInvestments: 'No Investments Yet',
+      noInvestments: 'No Active Investments',
+      noPerformanceData: 'No Performance Data Yet',
+      performanceNote: 'Performance records are generated monthly by the admin after bookings are completed.',
       startInvesting: 'Start investing in tokenized hotel assets for stable returns',
-      browseAssets: 'Browse Hotel Assets',
+      browseAssets: 'Browse Assets',
+      refresh: 'Refresh',
       claim: 'Claim',
       details: 'Details',
       holdingTokens: 'Holding Tokens',
       loginRequired: 'Please Login',
       loginToView: 'Login to view your portfolio',
+      investment: 'Investment',
+      platformFee: 'Platform Fee',
+      netInvested: 'Net Invested',
+      location: 'Location',
+      yield: 'Yield',
+      earnings: 'Earnings',
+      earned: 'Earned',
+      pending: 'Pending',
     },
     // Marketplace
     marketplace: {
@@ -130,12 +149,28 @@ const translations = {
     // Hotel Detail
     hotelDetail: {
       back: 'Back',
+      backToHotels: 'Back to Hotels',
+      backToMarketplace: 'Back to Marketplace',
+      loadingDetails: 'Loading hotel details...',
+      notFound: 'Hotel Not Found',
       tokenPrice: 'Token Price',
+      tokenPriceUsd: 'Token Price (USD)',
       apy: 'APY',
+      expectedApy: 'Expected APY',
       totalValue: 'Total Value',
       totalTokens: 'Total Tokens',
+      maxSupply: 'Max Supply',
+      totalSold: 'Total Sold',
       progress: 'Progress',
+      fundingProgress: 'Funding Progress',
       remaining: 'remaining tokens available',
+      tokens: 'Tokens',
+      contractInfo: 'Contract Information',
+      tokenAddress: 'Hotel Token Address',
+      symbol: 'Symbol',
+      status: 'Status',
+      active: 'Active',
+      inactive: 'Inactive',
       investNow: 'Invest Now',
       bookStay: '🏨 Book a Stay',
       overview: 'Asset Overview',
@@ -151,14 +186,32 @@ const translations = {
       auditReport: 'Audit Report',
       contractAddress: 'Token Contract Address',
       investIn: 'Invest in',
-      investAmount: 'Investment Amount (USDC)',
+      paymentCurrency: 'Payment Currency',
+      investAmount: 'Investment Amount',
+      available: 'Available',
+      minimum: 'Minimum',
+      gasWallet: 'Gas Wallet',
       tokensReceive: 'Tokens to Receive',
       expectedYield: 'Expected Annual Yield',
       confirmInvest: 'Confirm Investment',
       processing: 'Processing...',
+      submitting: 'Submitting...',
       pleaseLogin: 'Please Login',
       investSuccess: 'Investment Successful!',
       purchased: 'You have successfully purchased',
+      kycRequired: 'KYC Verification Required',
+      backendKyc: 'Backend KYC',
+      blockchainKyc: 'Blockchain KYC',
+      approved: 'APPROVED',
+      verified: 'VERIFIED',
+      notVerified: 'NOT VERIFIED',
+      blockchainVerificationNeeded: 'Blockchain verification needed',
+      retryBlockchainKyc: 'Retry Blockchain KYC',
+      blockchainKycVerified: '✅ Blockchain KYC Verified',
+      completeKyc: 'Complete KYC',
+      connectToInvest: 'Connect wallet to invest',
+      connectWallet: 'Connect Wallet',
+      notOnChain: 'This hotel is not yet deployed on-chain.',
     },
     // Booking
     booking: {
@@ -193,7 +246,8 @@ const translations = {
       bookingSuccess: 'Booking Successful!',
       confirmationCode: 'Your Confirmation Code',
       hotel: 'Hotel',
-      bookNow:'Book Now',
+      bookNow: 'Book Now',
+      myBookings: 'My Bookings',
       continueBooking: 'Continue Booking',
       holderExclusive: 'Holder Exclusive',
     },
@@ -437,6 +491,8 @@ const translations = {
       apy: '年化收益',
       progress: '募集进度',
       tokens: '代币',
+      totalSold: '已售出',
+      investNow: '立即投资',
       viewDetails: '查看详情',
     },
     // Portfolio
@@ -446,17 +502,34 @@ const translations = {
       totalInvested: '总投资额',
       totalEarned: '累计收益',
       pendingRewards: '待领取收益',
+      pendingYield: '待领收益',
+      hatTokens: 'HAT代币',
+      properties: '资产数量',
+      draTokens: 'DRA代币',
       stakedTokens: '已质押代币',
       activeInvestments: '活跃投资',
+      performance: '收益表现',
+      stakedAssets: '质押资产',
       staking: '质押中',
-      noInvestments: '暂无投资',
+      noInvestments: '暂无活跃投资',
+      noPerformanceData: '暂无收益数据',
+      performanceNote: '收益记录在每月由管理员在预订完成后生成。',
       startInvesting: '开始投资代币化酒店资产，享受稳定收益',
-      browseAssets: '浏览酒店资产',
+      browseAssets: '浏览资产',
+      refresh: '刷新',
       claim: '领取',
       details: '详情',
       holdingTokens: '持有代币',
       loginRequired: '请先登录',
       loginToView: '登录后查看您的投资组合',
+      investment: '投资额',
+      platformFee: '平台费用',
+      netInvested: '实际投资',
+      location: '位置',
+      yield: '年化收益',
+      earnings: '收益',
+      earned: '已获得',
+      pending: '待领取',
     },
     // Marketplace
     marketplace: {
@@ -478,12 +551,28 @@ const translations = {
     // Hotel Detail
     hotelDetail: {
       back: '返回',
+      backToHotels: '返回酒店列表',
+      backToMarketplace: '返回市场',
+      loadingDetails: '加载酒店详情...',
+      notFound: '酒店未找到',
       tokenPrice: '代币价格',
+      tokenPriceUsd: '代币价格 (USD)',
       apy: '年化收益率',
+      expectedApy: '预期年化收益',
       totalValue: '资产总价值',
       totalTokens: '代币总量',
+      maxSupply: '最大供应量',
+      totalSold: '已售出',
       progress: '募集进度',
+      fundingProgress: '募集进度',
       remaining: '代币可购',
+      tokens: '代币',
+      contractInfo: '合约信息',
+      tokenAddress: '酒店代币地址',
+      symbol: '代币符号',
+      status: '状态',
+      active: '活跃',
+      inactive: '未活跃',
       investNow: '立即投资',
       bookStay: '🏨 预订入住',
       overview: '资产概览',
@@ -499,14 +588,32 @@ const translations = {
       auditReport: '审计报告',
       contractAddress: '代币合约地址',
       investIn: '投资',
-      investAmount: '投资金额 (USDC)',
+      paymentCurrency: '支付货币',
+      investAmount: '投资金额',
+      available: '可用余额',
+      minimum: '最低金额',
+      gasWallet: '手续费钱包',
       tokensReceive: '获得代币',
       expectedYield: '预期年收益',
       confirmInvest: '确认投资',
       processing: '处理中...',
+      submitting: '提交中...',
       pleaseLogin: '请先登录',
       investSuccess: '投资成功!',
       purchased: '您已成功购买',
+      kycRequired: '需要KYC验证',
+      backendKyc: '后台KYC',
+      blockchainKyc: '链上KYC',
+      approved: '已批准',
+      verified: '已验证',
+      notVerified: '未验证',
+      blockchainVerificationNeeded: '需要链上验证',
+      retryBlockchainKyc: '重试链上KYC',
+      blockchainKycVerified: '✅ 链上KYC已验证',
+      completeKyc: '完成KYC',
+      connectToInvest: '连接钱包以投资',
+      connectWallet: '连接钱包',
+      notOnChain: '此酒店尚未在链上部署。',
     },
     // Booking
     booking: {
@@ -541,6 +648,8 @@ const translations = {
       bookingSuccess: '预订成功!',
       confirmationCode: '您的预订确认码',
       hotel: '酒店',
+      bookNow: '立即预订',
+      myBookings: '我的预订',
       continueBooking: '继续预订',
       holderExclusive: '持有者专属',
     },
@@ -716,8 +825,7 @@ export function LanguageProvider({ children }) {
     localStorage.setItem('language', language);
   }, [language]);
 
-  // @ts-ignore
-  const t = (key) => {
+  const t = useCallback((/** @type {string} */ key) => {
     const keys = key.split('.');
     // @ts-ignore
     let value = translations[language];
@@ -725,14 +833,19 @@ export function LanguageProvider({ children }) {
       value = value?.[k];
     }
     return value || key;
-  };   
+  }, [language]);
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     setLanguage(prev => prev === 'zh' ? 'en' : 'zh');
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({ language, setLanguage, toggleLanguage, t }),
+    [language, toggleLanguage, t]
+  );
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, toggleLanguage, t }}>
+    <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
   );
