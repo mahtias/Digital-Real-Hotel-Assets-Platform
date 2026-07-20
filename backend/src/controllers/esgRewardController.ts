@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../config/database";
+import { draService } from "../services/draService";
 
 // GET /esg-rewards?email=
 export const getRewardsByUser = async (req: Request, res: Response) => {
@@ -48,10 +49,25 @@ export const claimReward = async (req: Request, res: Response) => {
   try {
     const rewardId = req.params.id;
 
+    const existing = await prisma.esgReward.findUnique({ where: { id: rewardId } });
+    if (!existing) return res.status(404).json({ error: "Reward not found" });
+    if (existing.status === "claimed") return res.status(400).json({ error: "Already claimed" });
+
     const reward = await prisma.esgReward.update({
       where: { id: rewardId },
       data: { status: "claimed" }
     });
+
+    // Fire-and-forget DRA mint to user's wallet
+    const user = await prisma.user.findFirst({
+      where: { email: existing.user_email },
+      select: { walletAddress: true }
+    });
+    if (user?.walletAddress) {
+      draService.mintReward(user.walletAddress, existing.reward_amount).catch((err: any) => {
+        console.error(`ESG DRA mint failed for ${existing.user_email}:`, err.message);
+      });
+    }
 
     return res.json(reward);
   } catch (err) {

@@ -241,7 +241,7 @@ export const settlementService = {
       }
 
       // ======================================================
-      // ✅ CALCULATE TOTAL PAYOUT
+      // ✅ CALCULATE TOTAL PAYOUT + RESERVE FUND
       // ======================================================
 
       const totalAmount = settlements.reduce(
@@ -255,6 +255,10 @@ export const settlementService = {
         throw new Error("Invalid payout amount");
       }
 
+      const RESERVE_PCT = Number(process.env.RESERVE_FUND_PERCENT ?? 5) / 100;
+      const reserveAmount = Number((totalAmount * RESERVE_PCT).toFixed(stablecoin.decimals));
+      const payoutAmount  = Number((totalAmount - reserveAmount).toFixed(stablecoin.decimals));
+
       const hotelWallet = settlements[0].hotelWallet;
 
       // ======================================================
@@ -266,11 +270,11 @@ export const settlementService = {
       }
 
       // ======================================================
-      // ✅ CONVERT TO TOKEN UNITS
+      // ✅ CONVERT TO TOKEN UNITS (payout only — reserve held)
       // ======================================================
 
       const amountWei = ethers.parseUnits(
-        totalAmount.toFixed(stablecoin.decimals),
+        payoutAmount.toFixed(stablecoin.decimals),
         stablecoin.decimals
       );
 
@@ -294,6 +298,8 @@ export const settlementService = {
       console.log("Currency:", stablecoin.symbol);
       console.log("Settlements:", settlements.length);
       console.log("Total:", totalAmount);
+      console.log("Reserve (5%):", reserveAmount);
+      console.log("Payout:", payoutAmount);
       console.log("Wallet:", hotelWallet);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
@@ -369,6 +375,18 @@ export const settlementService = {
         },
       });
 
+      // Record reserve fund in Treasury (non-blocking)
+      if (reserveAmount > 0) {
+        prisma.treasury.create({
+          data: {
+            hotelAssetId,
+            amount: reserveAmount,
+            type: "RESERVE",
+            status: "HELD",
+          },
+        }).catch((err: any) => console.error("Treasury reserve record failed:", err.message));
+      }
+
       // ======================================================
       // ✅ RETURN SUCCESS
       // ======================================================
@@ -381,6 +399,8 @@ export const settlementService = {
         currency: stablecoin.symbol,
 
         totalAmount,
+        reserveAmount,
+        payoutAmount,
 
         txHash,
 

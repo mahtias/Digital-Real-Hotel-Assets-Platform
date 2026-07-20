@@ -76,9 +76,9 @@ function LayoutContent({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
+    <div className="min-h-screen bg-slate-950 flex flex-col overflow-x-hidden">
       {/* Desktop & Mobile Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/50">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/50 overflow-x-hidden">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-14 sm:h-16">
             
@@ -112,7 +112,7 @@ function LayoutContent({ children }) {
             <div className="flex items-center gap-1 sm:gap-2">
               
               {/* Wallet Connect - Hide text on small screens */}
-              <div className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
+              <div className="flex-shrink-0">
                 <WalletConnect />
               </div>
 

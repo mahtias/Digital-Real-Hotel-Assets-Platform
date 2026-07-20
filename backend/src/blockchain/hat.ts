@@ -1,34 +1,29 @@
-import { 
-  createPublicClient, 
-  createWalletClient, 
-  http 
-} from "viem";
-
-import { privateKeyToAccount } from "viem/accounts";
-import { base } from "viem/chains";
-
-import type { Abi } from "viem";
-
+import { ethers } from "ethers";
 import hatJson from "../../../out/HotelAssetToken.sol/HotelAssetToken.json";
 
-const hatAbi: Abi = hatJson.abi as Abi;
-console.log("DEBUG PRIVATE KEY:", process.env.PRIVATE_KEY);
-const HAT_CONTRACT = process.env.HAT_CONTRACT_ADDRESS as `0x${string}`;
-const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
+const hatAbi = hatJson.abi;
+const HAT_CONTRACT = process.env.HAT_CONTRACT_ADDRESS!;
 
+function getProvider(): ethers.JsonRpcProvider {
+  const rpc = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC;
+  if (!rpc) throw new Error("Missing RPC_URL environment variable");
+  return new ethers.JsonRpcProvider(rpc);
+}
 
-export const hat: any = {
-  wallet: createWalletClient({
-    chain: base,
-    transport: http(process.env.RPC_URL!),
-    account,
-  }),
+function getWallet(): ethers.Wallet {
+  const pk = process.env.PRIVATE_KEY;
+  if (!pk) throw new Error("PRIVATE_KEY missing in environment");
+  return new ethers.Wallet(pk, getProvider());
+}
 
-  public: createPublicClient({
-    chain: base,
-    transport: http(process.env.RPC_URL!),
-  }),
+function getContract(runner?: ethers.ContractRunner): ethers.Contract {
+  return new ethers.Contract(HAT_CONTRACT, hatAbi, runner ?? getProvider());
+}
 
+export const hat = {
+  getContract,
+  getWallet,
+  getProvider,
   address: HAT_CONTRACT,
   abi: hatAbi,
-};  
+};

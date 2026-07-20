@@ -233,38 +233,30 @@ const enrichedInvestments = investmentsRaw.map(inv => ({
             <p className="text-xl text-slate-400 mt-2">Track your investments & rewards</p>
             {isConnected && <div className="text-sm text-slate-500 mt-2">Wallet: {address?.slice(0,6)}...{address?.slice(-4)}</div>}
           </div>
-          <div className="flex gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 w-full lg:w-auto">
             <div className="text-center">
-              <div className="text-2xl font-black text-white mb-1">${totalInvested.toLocaleString()}</div>
-              <div className="text-sm text-slate-500 uppercase tracking-wider">Total Invested</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-black text-emerald-400">{totalTokens.toFixed(2)}</div>
-              <div className="text-sm text-slate-500 uppercase tracking-wider">HAT Tokens</div>
+              <div className="text-xl sm:text-2xl font-black text-white mb-1">${totalInvested.toLocaleString()}</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Total Invested</div>
             </div>
             <div className="text-center">
-            <div className="text-2xl font-black text-emerald-400">
-              ${totalPendingRewards.toFixed(2)}
+              <div className="text-xl sm:text-2xl font-black text-emerald-400">{totalTokens.toFixed(2)}</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">HAT Tokens</div>
             </div>
-            <div className="text-sm text-slate-500 uppercase tracking-wider">
-              Pending Yield
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-black text-green-500">
-              ${totalEarned.toFixed(2)}
-            </div>
-            <div className="text-sm text-slate-500 uppercase tracking-wider">
-              Total Earned
-            </div>
-          </div>
             <div className="text-center">
-              <div className="text-2xl font-black text-amber-400">{totalProperties}</div>
-              <div className="text-sm text-slate-500 uppercase tracking-wider">Properties</div>
+              <div className="text-xl sm:text-2xl font-black text-emerald-400">${totalPendingRewards.toFixed(2)}</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Pending Yield</div>
             </div>
-            <div className="text-center border-l border-slate-700 pl-4">
-              <div className="text-2xl font-black text-violet-400">{draBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              <div className="text-sm text-slate-500 uppercase tracking-wider">DRA Tokens</div>
+            <div className="text-center">
+              <div className="text-xl sm:text-2xl font-black text-green-500">${totalEarned.toFixed(2)}</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Total Earned</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl sm:text-2xl font-black text-amber-400">{totalProperties}</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">Properties</div>
+            </div>
+            <div className="text-center sm:border-l sm:border-slate-700 sm:pl-4">
+              <div className="text-xl sm:text-2xl font-black text-violet-400">{draBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+              <div className="text-xs sm:text-sm text-slate-500 uppercase tracking-wider">DRA Tokens</div>
             </div>
           </div>
           <div className="flex gap-3 ml-auto">

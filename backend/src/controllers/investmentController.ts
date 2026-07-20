@@ -359,6 +359,18 @@ const [investment] = await prisma.$transaction([
 
 ]);
 
+    // Record platform fee in Treasury (non-blocking)
+    if (platformFee > 0) {
+      prisma.$transaction([
+        prisma.treasury.create({
+          data: { hotelAssetId: hotelId, amount: platformFee * 0.5, type: "PLATFORM_REVENUE", status: "COLLECTED" }
+        }),
+        prisma.treasury.create({
+          data: { hotelAssetId: hotelId, amount: platformFee * 0.5, type: "DRA_BUYBACK", status: "PENDING" }
+        }),
+      ]).catch((err: any) => console.error("Treasury fee record failed:", err.message));
+    }
+
     // Fire-and-forget DRA reward mint — does not block the response
     if (user.walletAddress) {
       draService.mintReward(user.walletAddress, netInvestedAmount).catch(() => {});
