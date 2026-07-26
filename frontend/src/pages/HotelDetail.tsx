@@ -101,7 +101,7 @@ useEffect(() => {
       }
       
       const data = await res.json();
-      console.log('✅ Hotel data received:', data);
+      console.log('Hotel data received:', data);
       return data;
     },
     enabled: !!id,

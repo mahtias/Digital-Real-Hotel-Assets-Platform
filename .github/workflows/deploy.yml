@@ -1,0 +1,56 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    name: Deploy to Hostinger VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 300s
+          script: |
+            set -e
+            cd /var/www/digirealassets
+
+            echo "==> Pulling latest code..."
+            git fetch origin dev
+            git reset --hard origin/dev
+
+            echo "==> Installing backend dependencies..."
+            cd backend
+            npm ci --legacy-peer-deps
+            npx prisma generate
+            npx prisma db push --accept-data-loss
+            npm run build
+
+            echo "==> Restarting backend..."
+            pm2 restart digirealassets-api --update-env
+            pm2 save
+
+            echo "==> Building frontend..."
+            cd ../frontend
+            npm ci --legacy-peer-deps
+            npm run build
+
+            echo "==> Building admin..."
+            cd ../admin
+            npm ci --legacy-peer-deps
+            npm run build
+
+            echo "==> Reloading Nginx..."
+            systemctl reload nginx
+
+            echo "==> Deploy complete!"
