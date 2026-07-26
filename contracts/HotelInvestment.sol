@@ -177,8 +177,7 @@ contract HotelInvestment is ReentrancyGuard, Ownable {
         assetManager.mintShares(hotelId, msg.sender, scaledShares, normalizedNetAmount);
 
         // Record investment
-        userInvestments[msg.sender]
-        .push(
+        userInvestments[msg.sender].push(
             UserInvestment({
                 hotelId: hotelId,
                 stablecoin: stablecoin,

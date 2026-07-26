@@ -167,7 +167,9 @@ contract HotelAssetManager is AccessControl, ReentrancyGuard {
             address(kycRegistry),
             address(this), // Admin = HotelAssetManager
             requiredKYCLevel
-        ) returns (HotelAssetToken newToken) {
+        ) returns (
+            HotelAssetToken newToken
+        ) {
             tokenAddress = address(newToken);
         } catch {
             revert TokenDeploymentFailed();

@@ -115,7 +115,9 @@ contract RegisterHotelsScript is Script {
                 hotels[i].minimumInvestment, // 9
                 hotels[i].fundingDuration, // 10
                 IKYCRegistry.KYCLevel.BASIC // 11
-            ) returns (uint256 hotelIndex, address tokenAddress) {
+            ) returns (
+                uint256 hotelIndex, address tokenAddress
+            ) {
                 console.log("SUCCESS");
                 console.log("Hotel Index:", hotelIndex);
                 console.log("Token:", tokenAddress);

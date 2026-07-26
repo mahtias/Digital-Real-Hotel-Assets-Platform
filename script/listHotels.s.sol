@@ -72,7 +72,9 @@ contract ListHotels is Script {
                     100 * 1e6,
                     90 days,
                     IKYCRegistry.KYCLevel.BASIC
-                ) returns (uint256 hotelIndex, address tokenAddress) {
+                ) returns (
+                    uint256 hotelIndex, address tokenAddress
+                ) {
                     console.log("SUCCESS");
                     console.log("Hotel:", batch[k].name);
                     console.logUint(hotelIndex);
