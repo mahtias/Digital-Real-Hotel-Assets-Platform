@@ -16,7 +16,7 @@ export const config = getDefaultConfig({
     [baseSepolia.id]: http('https://sepolia.base.org'),
   },
 
-  // 🔥 CRITICAL FIX (PERSIST CONNECTION)
+  //  CRITICAL FIX (PERSIST CONNECTION)
   storage: createStorage({
     storage: localStorage,
   }),

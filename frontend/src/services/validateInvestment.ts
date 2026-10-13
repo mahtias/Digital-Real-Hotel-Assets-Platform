@@ -67,7 +67,7 @@ export async function validateInvestment({
       };
     }
 
-    // ✅ OK
+    // OK
     return {
       success: true,
       message: "OK",

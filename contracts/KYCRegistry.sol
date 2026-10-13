@@ -52,7 +52,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable, IKYCRegistry {
 
         usedDocumentHashes[_documentHash] = true;
 
-        // ✅ Event is inherited from IKYCRegistry
+        //  Event is inherited from IKYCRegistry
         emit KYCSubmitted(msg.sender, _level, _documentHash);
     }
 
@@ -79,7 +79,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable, IKYCRegistry {
         record.expiresAt = block.timestamp + _validityDuration;
         record.verifiedBy = msg.sender;
 
-        // ✅ Event is inherited from IKYCRegistry
+        //  Event is inherited from IKYCRegistry
         emit KYCApproved(_user, requestedLevel, _approvedLevel, msg.sender, record.expiresAt);
     }
 
@@ -98,7 +98,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable, IKYCRegistry {
         record.rejectionReason = _reason;
         record.verifiedBy = msg.sender;
 
-        // ✅ Event is inherited from IKYCRegistry
+        //  Event is inherited from IKYCRegistry
         emit KYCRejected(_user, msg.sender, _reason);
     }
 
@@ -121,7 +121,7 @@ contract KYCRegistry is AccessControl, ReentrancyGuard, Pausable, IKYCRegistry {
         record.status = IKYCRegistry.KYCStatus.REJECTED;
         record.rejectionReason = _reason;
 
-        // ✅ Event is inherited from IKYCRegistry
+        //  Event is inherited from IKYCRegistry
         emit KYCRevoked(_user, msg.sender, _reason);
     }
 

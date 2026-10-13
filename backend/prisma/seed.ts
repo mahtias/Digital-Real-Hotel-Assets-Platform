@@ -23,7 +23,7 @@ async function main() {
     },
   });
 
-  console.log('✅ Created admin user');
+  console.log(' Created admin user');
 
   // 🔥 CREATE THE 4 HOTELS ACTUALLY DEPLOYED ON BLOCKCHAIN
   const hotels = await Promise.all([
@@ -37,8 +37,8 @@ async function main() {
         description: 'Luxury hotel in the heart of Manhattan with premium amenities',
         imageUrl: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800',
 
-        // ✅ ADD BOTH tokenId AND blockchainId
-        blockchainId: 0, // ✅ ADD THIS!
+        //  ADD BOTH tokenId AND blockchainId
+        blockchainId: 0, 
         tokenId: 0,
         tokenSymbol: 'GPH',
         tokenAddress: '0x1aD854F22927bB91c54e8FbC5F59b286eE3965a3',
@@ -70,7 +70,7 @@ async function main() {
         description: 'Second location of Grand Plaza Hotel in Manhattan',
         imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
 
-        blockchainId: 1, // ✅ ADD THIS!
+        blockchainId: 1, 
         tokenId: 1,
         tokenSymbol: 'GPH4',
         tokenAddress: '0xFd9F285B5b4759d7c38BF71CBe10A07aCA09610B',
@@ -102,7 +102,7 @@ async function main() {
         description: 'Tropical beachfront resort with stunning ocean views',
         imageUrl: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800',
 
-        blockchainId: 2, // ✅ ADD THIS!
+        blockchainId: 2, 
         tokenId: 2,
         tokenSymbol: 'BRP5',
         tokenAddress: '0x3AA7703D6464199279F0DA98AC54C7CA7EA4BfB0',
@@ -134,7 +134,7 @@ async function main() {
         description: 'Luxury mountain resort perfect for skiing and outdoor activities',
         imageUrl: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
 
-        blockchainId: 3, // ✅ ADD THIS!
+        blockchainId: 3, 
         tokenId: 3,
         tokenSymbol: 'MVL6',
         tokenAddress: '0xa01763D10df5D90f64309aCE98Be62f9908A5086',
@@ -157,29 +157,29 @@ async function main() {
     }),
   ]);
 
-  console.log(`✅ Created ${hotels.length} hotel assets`);
+  console.log(` Created ${hotels.length} hotel assets`);
 
   // Display summary
-  console.log('\n📊 Seeding Summary:');
+  console.log('\n Seeding Summary:');
   console.log('├─ Admin User:', adminUser.walletAddress);
   console.log('├─ Hotels Created:', hotels.length);
   console.log('│');
   hotels.forEach((hotel, index) => {
     console.log(`├─ Hotel ${index}:`);
     console.log(`│  ├─ Name: ${hotel.name}`);
-    console.log(`│  ├─ Blockchain ID: ${hotel.blockchainId}`); // ✅ UPDATED!
+    console.log(`│  ├─ Blockchain ID: ${hotel.blockchainId}`); 
     console.log(`│  ├─ Token ID: ${hotel.tokenId}`);
     console.log(`│  ├─ Token Address: ${hotel.tokenAddress}`);
     console.log(`│  ├─ Symbol: ${hotel.tokenSymbol}`);
     console.log(`│  └─ Total Value: $${hotel.totalValue?.toLocaleString()}`);
   });
 
-  console.log('\n✅ Seeding completed successfully!');
+  console.log('\n Seeding completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding failed:', e);
+    console.error(' Seeding failed:', e);
   })
   .finally(async () => {
     await prisma.$disconnect();

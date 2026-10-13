@@ -54,14 +54,14 @@ export const BASE_SEPOLIA = {
 // HELPER FUNCTIONS
 // ===================================
 
-export const getHotelTokenAddress = (hotelId) => {
-  return HOTEL_TOKENS[hotelId] || null;
-};
+// export const getHotelTokenAddress = (hotelId) => {
+//   return HOTEL_TOKENS[hotelId] || null;
+// };
 
-export const getAllHotelAddresses = () => {
-  return Object.values(HOTEL_TOKENS);
-};
+// export const getAllHotelAddresses = () => {
+//   return Object.values(HOTEL_TOKENS);
+// };
 
-export const getExplorerUrl = (address) => {
-  return `${BASE_SEPOLIA.blockExplorers.default.url}/address/${address}`;
-};
+// export const getExplorerUrl = (address) => {
+//   return `${BASE_SEPOLIA.blockExplorers.default.url}/address/${address}`;
+// };

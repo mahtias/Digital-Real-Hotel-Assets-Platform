@@ -207,7 +207,7 @@ const translations = {
       notVerified: 'NOT VERIFIED',
       blockchainVerificationNeeded: 'Blockchain verification needed',
       retryBlockchainKyc: 'Retry Blockchain KYC',
-      blockchainKycVerified: '✅ Blockchain KYC Verified',
+      blockchainKycVerified: 'Blockchain KYC Verified',
       completeKyc: 'Complete KYC',
       connectToInvest: 'Connect wallet to invest',
       connectWallet: 'Connect Wallet',

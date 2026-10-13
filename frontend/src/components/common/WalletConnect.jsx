@@ -36,7 +36,7 @@ export default function WalletConnect() {
     try {
       setIsSyncing(true);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔐 LINKING WALLET WITH SIGNATURE");
+      console.log(" LINKING WALLET WITH SIGNATURE");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("Address:", address);
 
@@ -67,10 +67,9 @@ export default function WalletConnect() {
         }
       );
 
-      // ✅ Refresh user data
+      //  Refresh user data
       await refreshUser();
       toast.success(" Wallet verified and linked!");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     } catch (error) {
       
@@ -100,10 +99,10 @@ export default function WalletConnect() {
     if (!address || !chain) return '#';
     
     let base;
-    if (chain.id === 80002) base = 'https://amoy.polygonscan.com';
-    else if (chain.id === 84532) base = 'https://sepolia.basescan.org';
+    if (chain.id === 80002) base = 'https://amoy.polygonscan.com'; // polygon
+    else if (chain.id === 84532) base = 'https://sepolia.basescan.org'; // base sepolia 
     else if (chain.id === 137) base = 'https://polygonscan.com';
-    else if (chain.id === 8453) base = 'https://basescan.org';
+    else if (chain.id === 8453) base = 'https://basescan.org'; // base mainnet
     else base = 'https://basescan.org';
     
     return `${base}/address/${address}`;
@@ -151,7 +150,7 @@ export default function WalletConnect() {
 
   const t = texts[language] || texts.en;
 
-  // ✅ Check if wallet is verified (linked to account)
+  // Check if wallet is verified (linked to account)
   const isWalletVerified = user?.walletAddress?.toLowerCase() === address?.toLowerCase();
 
   if (isConnected && address) {
@@ -190,7 +189,7 @@ export default function WalletConnect() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* ✅ VERIFICATION STATUS */}
+            {/*  VERIFICATION STATUS */}
             {!isWalletVerified && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <div className="flex items-start gap-2">
