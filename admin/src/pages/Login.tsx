@@ -1,7 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../context/AdminAuthContext";
-import { IconLock, IconLogo, IconUser } from "../components/Icons";
+import { IconLock, IconUser } from "../components/Icons";
 
 export default function Login() {
   const { login } = useAdminAuth();
@@ -74,7 +74,7 @@ export default function Login() {
 
           {/* Brand panel */}
           <div className="md:w-[44%] bg-primary text-white p-8 sm:p-10 flex flex-col items-center justify-center text-center">
-            <IconLogo size={56} className="mb-4 opacity-90" />
+            <img src="/logo.png" alt="DigiRealAssets" className="w-24 h-24 mb-4 object-contain drop-shadow-lg" />
             <h2 className="text-2xl font-medium text-white mb-2">DRA Admin Panel</h2>
             <p className="text-sm text-white/80 max-w-xs">
               This portal is restricted to authorised DigiRealAssets administrators.

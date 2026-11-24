@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { NAV, isActivePath } from "./nav";
-import { IconChevronDown, IconChevronLeft, IconClose, IconLogo } from "./Icons";
+import { IconChevronDown, IconChevronLeft, IconClose } from "./Icons";
 
 interface SidebarProps {
   isOpen: boolean;          // shown (mobile overlay / desktop visible)
@@ -42,7 +42,7 @@ export default function Sidebar({ isOpen, narrow, onClose, onToggleNarrow }: Sid
       {/* Brand */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 shrink-0">
         <Link to="/" className={`flex items-center gap-2.5 min-w-0 text-white no-underline ${narrow ? "lg:mx-auto" : ""}`}>
-          <IconLogo size={30} className="shrink-0" />
+          <img src="/logo.png" alt="DigiRealAssets" className="w-8 h-8 shrink-0 object-contain" />
           <div className={`min-w-0 leading-tight ${hideWhenNarrow}`}>
             <div className="font-semibold tracking-wide">DIGIREAL<span className="font-light opacity-70">ASSETS</span></div>
             <div className="text-[0.68rem] uppercase tracking-wider text-white/40">Admin Control Center</div>
