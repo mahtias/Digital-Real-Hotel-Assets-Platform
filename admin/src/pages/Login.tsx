@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../context/AdminAuthContext";
+import { IconLock, IconLogo, IconUser } from "../components/Icons";
 
 export default function Login() {
   const { login } = useAdminAuth();
@@ -28,64 +29,62 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <span className="text-5xl">💎</span>
-          <h1 className="text-2xl font-bold text-white mt-3">DRA Admin Panel</h1>
-          <p className="text-gray-500 text-sm mt-1">Authorised access only</p>
-        </div>
+    <div className="min-h-screen bg-light flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-4xl">
+        <div className="flex flex-col md:flex-row rounded-md overflow-hidden shadow-card border border-line">
+          {/* Login card */}
+          <form onSubmit={handleSubmit} className="flex-1 bg-white p-8 sm:p-10">
+            <h1 className="text-3xl font-medium mb-1">Login</h1>
+            <p className="text-medium-emphasis mb-6">Sign in to your admin account</p>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-gray-900 border border-gray-800 rounded-2xl p-8 space-y-5"
-        >
-          {error && (
-            <div className="bg-red-900/40 border border-red-700 text-red-300 text-sm rounded-lg px-4 py-3">
-              {error}
+            {error && <div className="alert alert-danger mb-4">{error}</div>}
+
+            <div className="input-group mb-3">
+              <span className="input-group-text"><IconUser size={18} /></span>
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="form-control py-2"
+                placeholder="admin@digirealassets.io"
+                aria-label="Email"
+              />
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Email</label>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-              placeholder="admin@digirealassets.io"
-            />
+            <div className="input-group mb-6">
+              <span className="input-group-text"><IconLock size={18} /></span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="form-control py-2"
+                placeholder="Password"
+                aria-label="Password"
+              />
+            </div>
+
+            <button type="submit" disabled={loading} className="btn btn-primary px-5 py-2">
+              {loading ? "Signing in…" : "Login"}
+            </button>
+          </form>
+
+          {/* Brand panel */}
+          <div className="md:w-[44%] bg-primary text-white p-8 sm:p-10 flex flex-col items-center justify-center text-center">
+            <IconLogo size={56} className="mb-4 opacity-90" />
+            <h2 className="text-2xl font-medium text-white mb-2">DRA Admin Panel</h2>
+            <p className="text-sm text-white/80 max-w-xs">
+              This portal is restricted to authorised DigiRealAssets administrators.
+              All access attempts are logged.
+            </p>
+            <span className="mt-6 inline-flex items-center gap-2 text-xs uppercase tracking-wider text-white/70 border border-white/30 rounded-md px-3 py-1.5">
+              <IconLock size={14} /> Authorised access only
+            </span>
           </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Password</label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
-          >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-
-        <p className="text-center text-xs text-gray-700 mt-6">
-          This portal is restricted to authorised DRA administrators.
-          All access attempts are logged.
-        </p>
+        </div>
       </div>
     </div>
   );

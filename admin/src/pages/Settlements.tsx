@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Callout, Empty, Loading, PageHeader } from "../components/ui";
+import { IconRefresh } from "../components/Icons";
 
 export default function Settlements() {
   const [hotelAssets, setHotelAssets] = useState<any[]>([]);
@@ -55,80 +57,70 @@ export default function Settlements() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Payout Control</h1>
-        <p className="text-gray-400 mt-1">
-          Trigger blockchain USDC payouts from DRA treasury to hotel wallets.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title="Payout Control"
+        subtitle="Trigger blockchain USDC payouts from DRA treasury to hotel wallets."
+        actions={
+          <button onClick={fetchData} disabled={loading} className="btn btn-outline-secondary">
+            <IconRefresh size={16} /> {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        }
+      />
 
-      {loading && (
-        <div className="text-center py-10 text-gray-400">Loading settlement data...</div>
+      {loading && hotelAssets.length === 0 ? (
+        <div className="card"><Loading label="Loading settlement data…" /></div>
+      ) : hotelAssets.length === 0 ? (
+        <div className="card"><Empty>No hotels found.</Empty></div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {hotelAssets.map((asset: any) => {
+            const pending = Number(asset.pending) > 0;
+            return (
+              <div key={asset.id} className="card flex flex-col">
+                <div className="card-header">
+                  <div className="min-w-0">
+                    <div className="truncate">{asset.name}</div>
+                    <div className="text-xs font-normal text-medium-emphasis truncate">{asset.location}</div>
+                  </div>
+                  {pending
+                    ? <span className="badge badge-warning">Pending Settlement</span>
+                    : <span className="badge badge-success">Fully Paid</span>}
+                </div>
+
+                <div className="card-body space-y-4 flex-1">
+                  <div className="grid grid-cols-3 gap-4">
+                    <Callout tone="success" label="Total Revenue" value={`$${Number(asset.totalRevenue).toFixed(2)}`} />
+                    <Callout tone="warning" label="Pending"       value={`$${Number(asset.pending).toFixed(2)}`} />
+                    <Callout tone="info"    label="Paid"          value={`$${Number(asset.paid).toFixed(2)}`} />
+                  </div>
+
+                  <div className="info-tile">
+                    <div className="info-tile-label">Hotel Wallet</div>
+                    <div className="text-sm font-mono break-all">
+                      {asset.walletAddress || <span className="text-danger">No wallet assigned</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card-footer">
+                  <button
+                    disabled={!pending || processing === asset.id}
+                    onClick={() => handleProcessSettlement(asset.id)}
+                    className={`btn w-full py-2 ${pending ? "btn-primary" : "btn-outline-secondary"}`}
+                  >
+                    {processing === asset.id
+                      ? "Processing…"
+                      : pending
+                        ? `Process Payout ($${Number(asset.pending).toFixed(2)})`
+                        : "No Pending Payout"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {hotelAssets.map((asset: any) => (
-          <div key={asset.id} className="rounded-3xl overflow-hidden shadow-xl border border-gray-700 bg-gray-800">
-            <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6">
-              <h2 className="text-2xl font-bold mb-1">{asset.name}</h2>
-              <p className="text-orange-100 text-sm">{asset.location}</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-700 p-4 rounded-2xl">
-                  <p className="text-xs text-gray-400 mb-1">Total Revenue</p>
-                  <p className="text-lg font-bold text-emerald-400">${Number(asset.totalRevenue).toFixed(2)}</p>
-                </div>
-                <div className="bg-gray-700 p-4 rounded-2xl">
-                  <p className="text-xs text-gray-400 mb-1">Pending</p>
-                  <p className="text-lg font-bold text-orange-400">${Number(asset.pending).toFixed(2)}</p>
-                </div>
-                <div className="bg-gray-700 p-4 rounded-2xl">
-                  <p className="text-xs text-gray-400 mb-1">Paid</p>
-                  <p className="text-lg font-bold text-cyan-400">${Number(asset.paid).toFixed(2)}</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-700 p-4 rounded-2xl">
-                <p className="text-xs text-gray-400 mb-1">Hotel Wallet</p>
-                <p className="text-sm font-mono break-all text-gray-300">
-                  {asset.walletAddress || "No wallet assigned"}
-                </p>
-              </div>
-
-              <div>
-                {Number(asset.pending) > 0 ? (
-                  <span className="px-4 py-2 rounded-full bg-orange-900/50 text-orange-300 text-sm font-semibold">
-                    Pending Settlement
-                  </span>
-                ) : (
-                  <span className="px-4 py-2 rounded-full bg-emerald-900/50 text-emerald-300 text-sm font-semibold">
-                    Fully Paid
-                  </span>
-                )}
-              </div>
-
-              <button
-                disabled={Number(asset.pending) <= 0 || processing === asset.id}
-                onClick={() => handleProcessSettlement(asset.id)}
-                className={`w-full py-3 rounded-2xl font-semibold transition ${
-                  Number(asset.pending) > 0
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:opacity-90"
-                    : "bg-gray-700 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                {processing === asset.id
-                  ? "Processing..."
-                  : Number(asset.pending) > 0
-                    ? `Process Payout ($${Number(asset.pending).toFixed(2)})`
-                    : "No Pending Payout"}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </>
   );
 }

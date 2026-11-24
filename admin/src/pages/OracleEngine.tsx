@@ -1,5 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, ReactNode } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Loading, PageHeader } from "../components/ui";
+import { IconRefresh } from "../components/Icons";
+
+const StatusBadge = ({ ok, label }: { ok: boolean; label: string }) => (
+  <span className={`badge ${ok ? "badge-success" : "badge-danger"}`}>{label}</span>
+);
+
+const Tile = ({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) => (
+  <div className={`info-tile ${wide ? "col-span-2" : ""}`}>
+    <div className="info-tile-label">{label}</div>
+    <div className="text-sm break-all">{children}</div>
+  </div>
+);
 
 export default function OracleEngine() {
   const [oracle,  setOracle]  = useState<any>(null);
@@ -40,145 +53,108 @@ export default function OracleEngine() {
     }
   };
 
-  const StatusBadge = ({ ok, label }: { ok: boolean; label: string }) => (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-      ok ? "bg-emerald-900/60 text-emerald-300" : "bg-red-900/60 text-red-300"
-    }`}>
-      {label}
-    </span>
-  );
-
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Oracle & Engine</h1>
-          <p className="text-gray-400 mt-1">Monitor Chainlink oracle and thirdweb Engine status.</p>
+    <>
+      <PageHeader
+        title="Oracle & Engine"
+        subtitle="Monitor Chainlink oracle and thirdweb Engine status."
+        actions={
+          <button onClick={fetchStatus} disabled={loading} className="btn btn-outline-secondary">
+            <IconRefresh size={16} /> {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+        {/* Chainlink Oracle */}
+        <div className="card">
+          <div className="card-header">
+            <span>Chainlink Oracle</span>
+            {oracle && <StatusBadge ok={oracle.ready} label={oracle.ready ? "Ready" : "Not Ready"} />}
+          </div>
+
+          {!oracle ? (
+            <Loading />
+          ) : (
+            <div className="card-body space-y-4 text-sm">
+              {!oracle.ready && oracle.reason && <p className="text-xs text-medium-emphasis">{oracle.reason}</p>}
+
+              <div className="grid grid-cols-2 gap-3">
+                <Tile label="Contract"><span className="font-mono text-xs">{oracle.contractAddress ?? "—"}</span></Tile>
+                <Tile label="DON ID"><span className="text-xs">{oracle.donId ?? "—"}</span></Tile>
+                <Tile label="Subscription ID" wide><span className="text-xs">{oracle.subscriptionId || "Not configured"}</span></Tile>
+              </div>
+
+              <div className="alert alert-warning text-xs">
+                ⚠ Chainlink Functions testnet was sunset June 15, 2026. Get a mainnet subscription at{" "}
+                <a href="https://functions.chain.link" target="_blank" rel="noreferrer" className="underline text-warning-emphasis font-medium">
+                  functions.chain.link
+                </a>{" "}
+                to activate.
+              </div>
+
+              {/* Request Performance Update */}
+              <div className="border border-line rounded-md">
+                <div className="px-4 py-2.5 border-b border-line bg-light rounded-t-md">
+                  <div className="font-medium">Request Performance Update</div>
+                  <div className="text-xs text-medium-emphasis">Triggers Chainlink to fetch latest hotel stats on-chain for a selected hotel.</div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex gap-2">
+                    <select value={selectedHotel} onChange={(e) => setSelectedHotel(e.target.value)} className="form-select flex-1">
+                      <option value="">Select hotel…</option>
+                      {hotels.map((h: any) => (
+                        <option key={h.id} value={h.id}>{h.name}</option>
+                      ))}
+                    </select>
+                    <button onClick={handleRequestPerformance} disabled={requesting || !selectedHotel} className="btn btn-primary">
+                      {requesting ? "Requesting…" : "Request Update"}
+                    </button>
+                  </div>
+                  {requestMsg && (
+                    <div className={`alert text-xs ${requestMsg.ok ? "alert-success" : "alert-danger"}`}>{requestMsg.text}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <button
-          onClick={fetchStatus}
-          disabled={loading}
-          className="px-4 py-2 bg-gray-700 text-gray-200 rounded-lg text-sm hover:bg-gray-600 disabled:opacity-50 transition"
-        >
-          {loading ? "Refreshing…" : "↻ Refresh"}
-        </button>
-      </div>
 
-      {/* Chainlink Oracle */}
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-white">Chainlink Oracle</h2>
-
-        {!oracle ? (
-          <p className="text-gray-500 text-sm">Loading…</p>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-3">
-              <StatusBadge ok={oracle.ready} label={oracle.ready ? "Ready" : "Not Ready"} />
-              {!oracle.ready && <span className="text-gray-500 text-xs">{oracle.reason}</span>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-700 rounded-xl p-3">
-                <p className="text-gray-400 text-xs mb-1">Contract</p>
-                <p className="text-white font-mono text-xs break-all">{oracle.contractAddress ?? "—"}</p>
+        {/* thirdweb Engine */}
+        <div className="card">
+          <div className="card-header">
+            <span>thirdweb Engine</span>
+            {engine && (
+              <div className="flex gap-2">
+                <StatusBadge ok={engine.enabled} label={engine.enabled ? "Enabled" : "Disabled (ethers fallback)"} />
+                {engine.enabled && <StatusBadge ok={engine.healthy} label={engine.healthy ? "Healthy" : "Unreachable"} />}
               </div>
-              <div className="bg-gray-700 rounded-xl p-3">
-                <p className="text-gray-400 text-xs mb-1">DON ID</p>
-                <p className="text-white text-xs">{oracle.donId ?? "—"}</p>
-              </div>
-              <div className="bg-gray-700 rounded-xl p-3 col-span-2">
-                <p className="text-gray-400 text-xs mb-1">Subscription ID</p>
-                <p className="text-white text-xs">{oracle.subscriptionId || "Not configured"}</p>
-              </div>
-            </div>
-
-            <div className="bg-yellow-900/20 border border-yellow-800 rounded-xl p-3 text-yellow-300 text-xs">
-              ⚠ Chainlink Functions testnet was sunset June 15, 2026. Get a mainnet subscription at{" "}
-              <a href="https://functions.chain.link" target="_blank" rel="noreferrer" className="underline">
-                functions.chain.link
-              </a>{" "}
-              to activate.
-            </div>
-
-            {/* Request Performance Update */}
-            <div className="bg-gray-700 rounded-xl p-4 space-y-3">
-              <p className="text-white text-sm font-semibold">Request Performance Update</p>
-              <p className="text-gray-400 text-xs">
-                Triggers Chainlink to fetch latest hotel stats on-chain for a selected hotel.
-              </p>
-              <div className="flex gap-3">
-                <select
-                  value={selectedHotel}
-                  onChange={(e) => setSelectedHotel(e.target.value)}
-                  className="flex-1 bg-gray-600 border border-gray-500 text-white rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">Select hotel…</option>
-                  {hotels.map((h: any) => (
-                    <option key={h.id} value={h.id}>{h.name}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleRequestPerformance}
-                  disabled={requesting || !selectedHotel}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition"
-                >
-                  {requesting ? "Requesting…" : "Request Update"}
-                </button>
-              </div>
-              {requestMsg && (
-                <p className={`text-xs rounded-lg px-3 py-2 ${
-                  requestMsg.ok
-                    ? "bg-emerald-900/40 text-emerald-300"
-                    : "bg-red-900/40 text-red-300"
-                }`}>
-                  {requestMsg.text}
-                </p>
-              )}
-            </div>
+            )}
           </div>
-        )}
+
+          {!engine ? (
+            <Loading />
+          ) : (
+            <div className="card-body space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <Tile label="Mode"><span className="text-xs">{engine.mode}</span></Tile>
+                <Tile label="Wallet Configured">
+                  <span className={`text-xs font-semibold ${engine.walletConfigured ? "text-success" : "text-danger"}`}>
+                    {engine.walletConfigured ? "Yes" : "No"}
+                  </span>
+                </Tile>
+                <Tile label="Engine URL" wide><span className="font-mono text-xs">{engine.url || "—"}</span></Tile>
+              </div>
+
+              <div className="alert alert-info text-xs">
+                To enable: set <code className="font-mono">USE_THIRDWEB_ENGINE=true</code> and fill{" "}
+                <code className="font-mono">THIRDWEB_ENGINE_ACCESS_TOKEN</code> +{" "}
+                <code className="font-mono">THIRDWEB_ENGINE_WALLET_ADDRESS</code> in backend .env
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* thirdweb Engine */}
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-white">thirdweb Engine</h2>
-
-        {!engine ? (
-          <p className="text-gray-500 text-sm">Loading…</p>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-3">
-              <StatusBadge ok={engine.enabled} label={engine.enabled ? "Enabled" : "Disabled (ethers fallback)"} />
-              {engine.enabled && (
-                <StatusBadge ok={engine.healthy} label={engine.healthy ? "Healthy" : "Unreachable"} />
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-700 rounded-xl p-3">
-                <p className="text-gray-400 text-xs mb-1">Mode</p>
-                <p className="text-white text-xs">{engine.mode}</p>
-              </div>
-              <div className="bg-gray-700 rounded-xl p-3">
-                <p className="text-gray-400 text-xs mb-1">Wallet Configured</p>
-                <p className={`text-xs font-semibold ${engine.walletConfigured ? "text-emerald-400" : "text-red-400"}`}>
-                  {engine.walletConfigured ? "Yes" : "No"}
-                </p>
-              </div>
-              <div className="bg-gray-700 rounded-xl p-3 col-span-2">
-                <p className="text-gray-400 text-xs mb-1">Engine URL</p>
-                <p className="text-white text-xs font-mono">{engine.url || "—"}</p>
-              </div>
-            </div>
-
-            <div className="bg-blue-900/20 border border-blue-800 rounded-xl p-3 text-blue-300 text-xs">
-              To enable: set <span className="font-mono">USE_THIRDWEB_ENGINE=true</span> and fill{" "}
-              <span className="font-mono">THIRDWEB_ENGINE_ACCESS_TOKEN</span> +{" "}
-              <span className="font-mono">THIRDWEB_ENGINE_WALLET_ADDRESS</span> in backend .env
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

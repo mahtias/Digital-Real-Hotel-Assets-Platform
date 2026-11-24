@@ -1,9 +1,11 @@
 // Placeholder for pages still being migrated from frontend admin components
+import { PageHeader } from "../components/ui";
+
 export default function Placeholder({ title }: { title: string }) {
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
-      <p className="text-gray-500 text-sm">This page is being migrated into the admin panel.</p>
-    </div>
+    <>
+      <PageHeader title={title} />
+      <div className="card card-body text-sm text-medium-emphasis">This page is being migrated into the admin panel.</div>
+    </>
   );
 }

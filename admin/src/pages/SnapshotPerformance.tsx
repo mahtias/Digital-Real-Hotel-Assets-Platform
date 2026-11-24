@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Callout, Empty, PageHeader } from "../components/ui";
+import { IconCamera } from "../components/Icons";
 
 interface Hotel { id: string; name: string; location: string; }
 interface Snapshot { id: string; status: string; takenAt: string; totalEntries: number; hotelAssetId: string | null; }
 interface Perf { period: string; bookingCount: number; totalRevenue: number; occupancyRate: number; revpar: number; investorYield: number; }
+
+const isError = (m?: string) => !!m && m.startsWith("Error");
 
 export default function SnapshotPerformance() {
   const [hotels,     setHotels]     = useState<Hotel[]>([]);
@@ -61,49 +65,47 @@ export default function SnapshotPerformance() {
   };
 
   return (
-    <div className="p-8 space-y-10">
-      <h1 className="text-2xl font-bold text-white">Snapshot & Performance</h1>
+    <>
+      <PageHeader title="Snapshot & Performance" subtitle="Investor snapshots for fair yield distribution, and monthly hotel KPIs." />
 
       {/* ── SNAPSHOT SECTION ── */}
-      <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="card mb-6">
+        <div className="card-header">
           <div>
-            <h2 className="text-lg font-semibold text-white">Investor Snapshot</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Locks who the current investors are for fair yield distribution.</p>
+            <div>Investor snapshot</div>
+            <div className="text-xs font-normal text-medium-emphasis">Locks who the current investors are for fair yield distribution.</div>
           </div>
-          <button
-            onClick={() => takeSnapshot()}
-            disabled={loadSnap}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            {loadSnap ? "Taking…" : "Take Snapshot (All Hotels)"}
+          <button onClick={() => takeSnapshot()} disabled={loadSnap} className="btn btn-primary">
+            <IconCamera size={16} /> {loadSnap ? "Taking…" : "Take Snapshot (All Hotels)"}
           </button>
         </div>
 
-        {snapMsg && <p className="text-sm text-emerald-400 mb-4">{snapMsg}</p>}
+        {snapMsg && (
+          <div className="card-body pb-0">
+            <div className={`alert ${isError(snapMsg) ? "alert-danger" : "alert-success"}`}>{snapMsg}</div>
+          </div>
+        )}
 
         {snapshots.length === 0 ? (
-          <p className="text-gray-600 text-sm">No snapshots yet.</p>
+          <Empty>No snapshots yet.</Empty>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-800 text-gray-400 text-xs uppercase">
+          <div className="overflow-x-auto">
+            <table className="table table-hover">
+              <thead>
                 <tr>
-                  {["Date","Hotel","Investors","Status"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left">{h}</th>
-                  ))}
+                  {["Date", "Hotel", "Investors", "Status"].map(h => <th key={h}>{h}</th>)}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
+              <tbody>
                 {snapshots.map(s => (
-                  <tr key={s.id} className="hover:bg-gray-800/50">
-                    <td className="px-4 py-3 text-gray-300">{new Date(s.takenAt).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-400">{s.hotelAssetId ? hotels.find(h => h.id === s.hotelAssetId)?.name ?? s.hotelAssetId : "All hotels"}</td>
-                    <td className="px-4 py-3 text-white">{s.totalEntries}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${s.status === "ACTIVE" ? "bg-green-900 text-green-300" : "bg-gray-700 text-gray-400"}`}>
-                        {s.status}
-                      </span>
+                  <tr key={s.id}>
+                    <td className="whitespace-nowrap">{new Date(s.takenAt).toLocaleString()}</td>
+                    <td className="text-medium-emphasis">
+                      {s.hotelAssetId ? hotels.find(h => h.id === s.hotelAssetId)?.name ?? s.hotelAssetId : "All hotels"}
+                    </td>
+                    <td className="font-semibold">{s.totalEntries}</td>
+                    <td>
+                      <span className={`badge ${s.status === "ACTIVE" ? "badge-success" : "badge-secondary"}`}>{s.status}</span>
                     </td>
                   </tr>
                 ))}
@@ -111,58 +113,56 @@ export default function SnapshotPerformance() {
             </table>
           </div>
         )}
-      </section>
+      </div>
 
       {/* ── PERFORMANCE SECTION ── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-2">Hotel Performance</h2>
-        <p className="text-sm text-gray-500 mb-5">Record monthly occupancy, RevPAR, and investor yield. Investors see this in their Portfolio.</p>
+      <div className="mb-3">
+        <h2 className="text-lg font-medium">Hotel performance</h2>
+        <p className="text-sm text-medium-emphasis">Record monthly occupancy, RevPAR, and investor yield. Investors see this in their Portfolio.</p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {hotels.length === 0 ? (
+        <div className="card"><Empty>No hotels found.</Empty></div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {hotels.map(h => {
             const p = perfs[h.id];
             return (
-              <div key={h.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-semibold text-white">{h.name}</p>
-                    <p className="text-xs text-gray-500">{h.location}</p>
-                    {p && <p className="text-xs text-gray-600 mt-1">Last recorded: {p.period} • {p.bookingCount} booking{p.bookingCount !== 1 ? "s" : ""} • Revenue: ${Number(p.totalRevenue).toFixed(2)}</p>}
+              <div key={h.id} className="card">
+                <div className="card-header">
+                  <div className="min-w-0">
+                    <div className="truncate">{h.name}</div>
+                    <div className="text-xs font-normal text-medium-emphasis truncate">{h.location}</div>
                   </div>
-                  <button
-                    onClick={() => recordPerf(h.id)}
-                    disabled={recording === h.id}
-                    className="px-3 py-1.5 bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white text-xs rounded-lg transition-colors whitespace-nowrap"
-                  >
+                  <button onClick={() => recordPerf(h.id)} disabled={recording === h.id} className="btn btn-sm btn-info">
                     {recording === h.id ? "Recording…" : "Record Performance"}
                   </button>
                 </div>
+                <div className="card-body">
+                  {perfMsg[h.id] && (
+                    <div className={`alert ${isError(perfMsg[h.id]) ? "alert-danger" : "alert-success"} mb-3 text-xs`}>{perfMsg[h.id]}</div>
+                  )}
 
-                {perfMsg[h.id] && <p className="text-xs text-emerald-400 mb-3">{perfMsg[h.id]}</p>}
-
-                {p ? (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-gray-800 rounded-xl p-3 text-center">
-                      <p className="text-lg font-bold text-blue-400">{Number(p.occupancyRate).toFixed(1)}%</p>
-                      <p className="text-xs text-gray-500">Occupancy</p>
-                    </div>
-                    <div className="bg-gray-800 rounded-xl p-3 text-center">
-                      <p className="text-lg font-bold text-yellow-400">${Number(p.revpar).toFixed(2)}</p>
-                      <p className="text-xs text-gray-500">RevPAR</p>
-                    </div>
-                    <div className="bg-gray-800 rounded-xl p-3 text-center">
-                      <p className="text-lg font-bold text-emerald-400">{Number(p.investorYield).toFixed(2)}%</p>
-                      <p className="text-xs text-gray-500">Investor Yield</p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-600">No performance data yet — click Record Performance.</p>
-                )}
+                  {p ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-4">
+                        <Callout tone="info"    label="Occupancy"      value={`${Number(p.occupancyRate).toFixed(1)}%`} />
+                        <Callout tone="warning" label="RevPAR"         value={`$${Number(p.revpar).toFixed(2)}`} />
+                        <Callout tone="success" label="Investor Yield" value={`${Number(p.investorYield).toFixed(2)}%`} />
+                      </div>
+                      <div className="mt-4 text-xs text-medium-emphasis">
+                        Last recorded: {p.period} • {p.bookingCount} booking{p.bookingCount !== 1 ? "s" : ""} • Revenue: ${Number(p.totalRevenue).toFixed(2)}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-medium-emphasis">No performance data yet — click Record Performance.</p>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
-      </section>
-    </div>
+      )}
+    </>
   );
 }

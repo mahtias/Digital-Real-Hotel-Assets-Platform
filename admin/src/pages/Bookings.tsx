@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Empty, Loading, PageHeader, Pagination } from "../components/ui";
 
 interface Booking {
   id: string;
@@ -13,12 +14,12 @@ interface Booking {
   hotelAsset: { name: string };
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  CONFIRMED: "bg-blue-900 text-blue-300",
-  PAID:      "bg-green-900 text-green-300",
-  COMPLETED: "bg-emerald-900 text-emerald-300",
-  CANCELLED: "bg-red-900 text-red-300",
-  PENDING:   "bg-yellow-900 text-yellow-300",
+const STATUS_BADGE: Record<string, string> = {
+  CONFIRMED: "badge-info",
+  PAID:      "badge-success",
+  COMPLETED: "badge-primary",
+  CANCELLED: "badge-danger",
+  PENDING:   "badge-warning",
 };
 
 export default function Bookings() {
@@ -27,7 +28,7 @@ export default function Bookings() {
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
-  const [msg, setMsg]             = useState<Record<string, string>>({});
+  const [msg, setMsg]             = useState<Record<string, { ok: boolean; text: string }>>({});
   const api = adminApi();
   const limit = 15;
 
@@ -50,79 +51,76 @@ export default function Bookings() {
         txHash: `admin-manual-${Date.now()}`,
         stablecoinSymbol: "USDC",
       });
-      setMsg(p => ({ ...p, [id]: "✓ Paid — yield distributed" }));
+      setMsg(p => ({ ...p, [id]: { ok: true, text: "✓ Paid — yield distributed" } }));
       fetch();
     } catch (e: any) {
-      setMsg(p => ({ ...p, [id]: `✗ ${e.response?.data?.message ?? e.message}` }));
+      setMsg(p => ({ ...p, [id]: { ok: false, text: `✗ ${e.response?.data?.message ?? e.message}` } }));
     } finally { setMarkingId(null); }
   };
 
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-white mb-6">Bookings</h1>
+    <>
+      <PageHeader title="Bookings" subtitle="Hotel bookings, payment status and manual payment confirmation." />
 
-      {loading ? (
-        <div className="text-gray-400">Loading…</div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-800">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-800 text-gray-400 text-xs uppercase">
-              <tr>
-                {["Guest","Hotel","Check-in","Check-out","Total","Status","Action"].map(h => (
-                  <th key={h} className="px-4 py-3 text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {bookings.map(b => (
-                <tr key={b.id} className="hover:bg-gray-800/50 transition-colors">
-                  <td className="px-4 py-3 text-white">
-                    {b.user.firstName} {b.user.lastName}
-                    <div className="text-xs text-gray-500">{b.user.email}</div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-300">{b.hotelAsset?.name}</td>
-                  <td className="px-4 py-3 text-gray-400">{new Date(b.checkInDate).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-gray-400">{new Date(b.checkOutDate).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-emerald-400">${Number(b.totalPrice).toFixed(2)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[b.status] ?? "bg-gray-700 text-gray-300"}`}>
-                      {b.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {msg[b.id] ? (
-                      <span className="text-xs text-green-400">{msg[b.id]}</span>
-                    ) : b.status !== "PAID" && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
-                      <button
-                        onClick={() => markAsPaid(b.id)}
-                        disabled={markingId === b.id}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs rounded-lg transition-colors"
-                      >
-                        {markingId === b.id ? "Processing…" : "Mark Paid"}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-gray-600">—</span>
-                    )}
-                  </td>
+      <div className="card">
+        <div className="card-header">
+          <span>All bookings</span>
+          <span className="text-sm font-normal text-medium-emphasis">{total} total</span>
+        </div>
+
+        {loading ? (
+          <Loading />
+        ) : bookings.length === 0 ? (
+          <Empty>No bookings found.</Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table table-hover">
+              <thead>
+                <tr>
+                  {["Guest", "Hotel", "Check-in", "Check-out", "Total", "Status", "Action"].map(h => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {bookings.map(b => (
+                  <tr key={b.id}>
+                    <td>
+                      <div className="font-medium">{b.user.firstName} {b.user.lastName}</div>
+                      <div className="text-xs text-medium-emphasis">{b.user.email}</div>
+                    </td>
+                    <td>{b.hotelAsset?.name}</td>
+                    <td className="whitespace-nowrap text-medium-emphasis">{new Date(b.checkInDate).toLocaleDateString()}</td>
+                    <td className="whitespace-nowrap text-medium-emphasis">{new Date(b.checkOutDate).toLocaleDateString()}</td>
+                    <td className="font-semibold text-success">${Number(b.totalPrice).toFixed(2)}</td>
+                    <td><span className={`badge ${STATUS_BADGE[b.status] ?? "badge-secondary"}`}>{b.status}</span></td>
+                    <td>
+                      {msg[b.id] ? (
+                        <span className={`text-xs ${msg[b.id].ok ? "text-success" : "text-danger"}`}>{msg[b.id].text}</span>
+                      ) : b.status !== "PAID" && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
+                        <button onClick={() => markAsPaid(b.id)} disabled={markingId === b.id} className="btn btn-sm btn-success">
+                          {markingId === b.id ? "Processing…" : "Mark Paid"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-medium-emphasis">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center gap-3 mt-4 text-sm text-gray-400">
-          <button onClick={() => setPage(p => p - 1)} disabled={page === 1}
-            className="px-3 py-1 bg-gray-800 rounded disabled:opacity-40 hover:bg-gray-700">Prev</button>
-          <span>Page {page} of {totalPages} ({total} total)</span>
-          <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}
-            className="px-3 py-1 bg-gray-800 rounded disabled:opacity-40 hover:bg-gray-700">Next</button>
-        </div>
-      )}
-    </div>
+        {totalPages > 1 && (
+          <div className="card-footer">
+            <Pagination page={page} totalPages={totalPages} onChange={setPage}
+              summary={`Page ${page} of ${totalPages} (${total} total)`} />
+          </div>
+        )}
+      </div>
+    </>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Empty, Loading, PageHeader, Pagination, StatWidget } from "../components/ui";
+import { IconSearch } from "../components/Icons";
 
 interface RevenueItem {
   hotelId: string;
@@ -11,6 +13,8 @@ interface RevenueItem {
   investorYield: number;
   hotelNetRevenue: number;
 }
+
+const usd = (v: number) => `$${Number(v || 0).toFixed(2)}`;
 
 export default function Revenue() {
   const [data, setData] = useState<RevenueItem[]>([]);
@@ -46,100 +50,93 @@ export default function Revenue() {
   const totalPaid        = sum("paid");
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Revenue Dashboard</h1>
-        <p className="text-gray-400 mt-1">
-          Monitor hotel booking revenue, platform fees, investor yield, and settlements.
-        </p>
+    <>
+      <PageHeader
+        title="Revenue Dashboard"
+        subtitle="Monitor hotel booking revenue, platform fees, investor yield, and settlements."
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 mb-6">
+        <StatWidget tone="success"   value={usd(totalRevenue)}  title="Total Revenue" />
+        <StatWidget tone="primary"   value={usd(totalPlatform)} title="Platform Fees" />
+        <StatWidget tone="info"      value={usd(totalYield)}    title="Investor Yield" />
+        <StatWidget tone="danger"    value={usd(totalNet)}      title="Hotel Net" />
+        <StatWidget tone="warning"   value={usd(totalPending)}  title="Pending Payouts" />
+        <StatWidget tone="dark"      value={usd(totalPaid)}     title="Paid to Hotels" />
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
-        {[
-          { label: "Total Revenue",    value: totalRevenue,  color: "from-emerald-500 to-emerald-700" },
-          { label: "Platform Fees",    value: totalPlatform, color: "from-purple-500 to-indigo-700" },
-          { label: "Investor Yield",   value: totalYield,    color: "from-cyan-500 to-blue-700" },
-          { label: "Hotel Net",        value: totalNet,      color: "from-pink-500 to-rose-700" },
-          { label: "Pending Payouts",  value: totalPending,  color: "from-orange-400 to-orange-600" },
-          { label: "Paid to Hotels",   value: totalPaid,     color: "from-green-500 to-teal-700" },
-        ].map(({ label, value, color }) => (
-          <div key={label} className={`bg-gradient-to-br ${color} text-white p-5 rounded-2xl shadow-lg`}>
-            <p className="text-sm font-semibold mb-1 opacity-90">{label}</p>
-            <p className="text-2xl font-bold">${value.toFixed(2)}</p>
+      <div className="card">
+        <div className="card-header">
+          <span>Hotel revenue overview</span>
+        </div>
+
+        <div className="card-body border-b border-line">
+          <div className="input-group max-w-md">
+            <span className="input-group-text"><IconSearch size={16} /></span>
+            <input
+              type="text"
+              placeholder="Search hotel name…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="form-control"
+            />
           </div>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4 mb-6">
-        <input
-          type="text"
-          placeholder="Search hotel name..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2 placeholder-gray-400"
-        />
-      </div>
-
-      {/* Table */}
-      <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-        <div className="p-6 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white">Hotel Revenue Overview</h2>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-gray-400">Loading revenue data...</div>
+          <Loading label="Loading revenue data…" />
         ) : data.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">No revenue data available.</div>
+          <Empty>No revenue data available.</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-700 text-gray-300">
-                <tr>
-                  {["Hotel","Total","Platform Fee","Inv. Yield","Hotel Net","Pending","Paid","Status"].map(h => (
-                    <th key={h} className="text-left p-4 font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((hotel) => (
-                  <tr key={hotel.hotelId} className="border-t border-gray-700 hover:bg-gray-750 transition text-gray-200">
-                    <td className="p-4 font-medium text-white">{hotel.hotelName}</td>
-                    <td className="p-4 text-emerald-400 font-semibold">${Number(hotel.totalRevenue || 0).toFixed(2)}</td>
-                    <td className="p-4 text-purple-400 font-semibold">${Number(hotel.platformFees || 0).toFixed(2)}</td>
-                    <td className="p-4 text-cyan-400 font-semibold">${Number(hotel.investorYield || 0).toFixed(2)}</td>
-                    <td className="p-4 text-pink-400 font-semibold">${Number(hotel.hotelNetRevenue || 0).toFixed(2)}</td>
-                    <td className="p-4 text-orange-400 font-semibold">${Number(hotel.pending || 0).toFixed(2)}</td>
-                    <td className="p-4 text-green-400 font-semibold">${Number(hotel.paid || 0).toFixed(2)}</td>
-                    <td className="p-4">
-                      {Number(hotel.pending) > 0 ? (
-                        <span className="px-3 py-1 rounded-full text-xs bg-orange-900/50 text-orange-300 font-medium">Pending</span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-full text-xs bg-emerald-900/50 text-emerald-300 font-medium">Paid</span>
-                      )}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="table table-hover">
+                <thead>
+                  <tr>
+                    {["Hotel", "Total", "Platform Fee", "Inv. Yield", "Hotel Net", "Pending", "Paid", "Status"].map(h => (
+                      <th key={h}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex items-center justify-between p-4 border-t border-gray-700">
-              <p className="text-sm text-gray-400">Page {page} of {pagination.totalPages}</p>
-              <div className="flex gap-2">
-                <button disabled={!pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}
-                  className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg disabled:opacity-40">
-                  Previous
-                </button>
-                <button disabled={!pagination.hasNextPage} onClick={() => setPage(p => p + 1)}
-                  className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg disabled:opacity-40">
-                  Next
-                </button>
-              </div>
+                </thead>
+                <tbody>
+                  {data.map((hotel) => {
+                    const share = totalRevenue > 0 ? (Number(hotel.totalRevenue || 0) / totalRevenue) * 100 : 0;
+                    return (
+                      <tr key={hotel.hotelId}>
+                        <td className="min-w-[12rem]">
+                          <div className="font-medium">{hotel.hotelName}</div>
+                          {/* CoreUI-style progress bar showing revenue share */}
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="h-1 flex-1 bg-light rounded overflow-hidden">
+                              <div className="h-full bg-success" style={{ width: `${share}%` }} />
+                            </div>
+                            <span className="text-[0.7rem] text-medium-emphasis w-9 text-right">{share.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td className="font-semibold text-success">{usd(hotel.totalRevenue)}</td>
+                        <td className="font-semibold text-primary">{usd(hotel.platformFees)}</td>
+                        <td className="font-semibold text-info">{usd(hotel.investorYield)}</td>
+                        <td className="font-semibold text-danger">{usd(hotel.hotelNetRevenue)}</td>
+                        <td className="font-semibold text-warning">{usd(hotel.pending)}</td>
+                        <td className="font-semibold">{usd(hotel.paid)}</td>
+                        <td>
+                          {Number(hotel.pending) > 0
+                            ? <span className="badge badge-warning">Pending</span>
+                            : <span className="badge badge-success">Paid</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
+
+            <div className="card-footer">
+              <Pagination page={page} totalPages={pagination.totalPages} onChange={setPage} />
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </>
   );
 }

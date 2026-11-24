@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "../context/AdminAuthContext";
+import { Loading, PageHeader } from "../components/ui";
+import { IconArrowLeft, IconCamera } from "../components/Icons";
 
 export default function KYCDetail() {
   const { kycId } = useParams<{ kycId: string }>();
@@ -50,9 +52,15 @@ export default function KYCDetail() {
     }
   };
 
-  if (loading) return <div className="p-6 text-gray-400">Loading KYC details...</div>;
-  if (error)   return <div className="p-6 text-red-400">{error}</div>;
-  if (!kyc)    return <div className="p-6 text-gray-400">KYC not found.</div>;
+  const back = (
+    <button onClick={() => navigate("/kyc")} className="btn btn-outline-secondary">
+      <IconArrowLeft size={16} /> Back to KYC Management
+    </button>
+  );
+
+  if (loading) return <div className="card"><Loading label="Loading KYC details…" /></div>;
+  if (error)   return <><PageHeader title="KYC Review Details" actions={back} /><div className="alert alert-danger">{error}</div></>;
+  if (!kyc)    return <><PageHeader title="KYC Review Details" actions={back} /><div className="alert alert-warning">KYC not found.</div></>;
 
   const docs = [
     { key: "documentFront", label: "Document Front" },
@@ -61,94 +69,79 @@ export default function KYCDetail() {
     { key: "addressProof",  label: "Address Proof" },
   ];
 
+  const statusBadge =
+    kyc.status === "APPROVED" ? "badge-success" :
+    kyc.status === "REJECTED" ? "badge-danger"  : "badge-warning";
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <button
-        onClick={() => navigate("/kyc")}
-        className="mb-6 text-sm text-gray-400 hover:text-white transition"
-      >
-        ← Back to KYC Management
-      </button>
+    <>
+      <PageHeader title="KYC Review Details" actions={back} />
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white">KYC Review Details</h1>
-      </div>
-
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-xl font-bold text-white">{kyc.fullName}</h2>
-            <p className="text-gray-400">{kyc.user?.email}</p>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Applicant */}
+        <div className="card xl:col-span-1 self-start">
+          <div className="card-header">
+            <span>Applicant</span>
+            <span className={`badge ${statusBadge}`}>{kyc.status}</span>
           </div>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            kyc.status === "APPROVED" ? "bg-emerald-900/50 text-emerald-300" :
-            kyc.status === "REJECTED" ? "bg-red-900/50 text-red-300" :
-            "bg-yellow-900/50 text-yellow-300"
-          }`}>
-            {kyc.status}
-          </span>
-        </div>
-
-        {/* Info grid */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          {[
-            ["Date of Birth",    kyc.dateOfBirth],
-            ["Nationality",      kyc.nationality],
-            ["Document Type",    kyc.documentType],
-            ["Document Number",  kyc.documentNumber],
-            ["Address",          kyc.address],
-            ["Level",            kyc.level],
-            ["Submitted",        new Date(kyc.submittedAt).toLocaleString()],
-          ].map(([label, value]) => (
-            <div key={label} className="bg-gray-700 rounded-xl p-3">
-              <p className="text-gray-400 text-xs mb-1">{label}</p>
-              <p className="text-white font-medium">{value || "—"}</p>
+          <div className="card-body">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-lg font-semibold">
+                {(kyc.fullName || "?").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <div className="text-lg font-medium truncate">{kyc.fullName}</div>
+                <div className="text-sm text-medium-emphasis truncate">{kyc.user?.email}</div>
+              </div>
             </div>
-          ))}
+
+            <dl className="divide-y divide-line text-sm">
+              {[
+                ["Date of Birth",    kyc.dateOfBirth],
+                ["Nationality",      kyc.nationality],
+                ["Document Type",    kyc.documentType],
+                ["Document Number",  kyc.documentNumber],
+                ["Address",          kyc.address],
+                ["Level",            kyc.level],
+                ["Submitted",        new Date(kyc.submittedAt).toLocaleString()],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4 py-2">
+                  <dt className="text-medium-emphasis">{label}</dt>
+                  <dd className="font-medium text-right break-words">{value || "—"}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div className="card-footer flex gap-2">
+            <button onClick={handleApprove} disabled={actionLoading} className="btn btn-success flex-1">
+              {actionLoading ? "Processing…" : "Approve"}
+            </button>
+            <button onClick={handleReject} disabled={actionLoading} className="btn btn-danger flex-1">
+              Reject
+            </button>
+          </div>
         </div>
 
         {/* Documents */}
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Documents</h3>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="card xl:col-span-2">
+          <div className="card-header">Documents</div>
+          <div className="card-body grid grid-cols-1 sm:grid-cols-2 gap-4">
             {docs.map(({ key, label }) =>
               kyc[key] ? (
-                <div key={key}>
-                  <p className="text-sm font-medium text-gray-300 mb-2">{label}</p>
-                  <img
-                    src={`/api/v1/${kyc[key]}`}
-                    alt={label}
-                    className="w-full border border-gray-600 rounded-xl"
-                  />
-                </div>
+                <figure key={key} className="border border-line rounded-md overflow-hidden">
+                  <figcaption className="px-3 py-2 text-sm font-medium bg-light border-b border-line">{label}</figcaption>
+                  <img src={`/api/v1/${kyc[key]}`} alt={label} className="w-full" />
+                </figure>
               ) : (
-                <div key={key} className="bg-gray-700 rounded-xl p-4 flex items-center justify-center">
-                  <p className="text-gray-500 text-sm italic">{label} not provided</p>
+                <div key={key} className="border border-dashed border-line-input rounded-md p-6 flex flex-col items-center justify-center text-medium-emphasis min-h-[10rem]">
+                  <IconCamera size={28} className="mb-2 opacity-60" />
+                  <span className="text-sm italic">{label} not provided</span>
                 </div>
               )
             )}
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={handleApprove}
-            disabled={actionLoading}
-            className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 font-medium"
-          >
-            {actionLoading ? "Processing..." : "Approve"}
-          </button>
-          <button
-            onClick={handleReject}
-            disabled={actionLoading}
-            className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
-          >
-            Reject
-          </button>
-        </div>
       </div>
-    </div>
+    </>
   );
 }

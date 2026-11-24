@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminApi } from "../context/AdminAuthContext";
+import { Empty, Loading, PageHeader } from "../components/ui";
 
-const STATUS_COLORS: Record<string, string> = {
-  APPROVED:      "bg-emerald-900/50 text-emerald-300",
-  REJECTED:      "bg-red-900/50 text-red-300",
-  PENDING:       "bg-yellow-900/50 text-yellow-300",
-  UNDER_REVIEW:  "bg-blue-900/50 text-blue-300",
+const STATUS_BADGE: Record<string, string> = {
+  APPROVED:     "badge-success",
+  REJECTED:     "badge-danger",
+  PENDING:      "badge-warning",
+  UNDER_REVIEW: "badge-info",
+};
+
+const STATUS_BORDER: Record<string, string> = {
+  APPROVED:     "border-success",
+  REJECTED:     "border-danger",
+  PENDING:      "border-warning",
+  UNDER_REVIEW: "border-info",
 };
 
 export default function KYCStatusList() {
@@ -31,59 +39,73 @@ export default function KYCStatusList() {
     return acc;
   }, {});
 
-  if (loading) return <div className="p-6 text-center text-gray-400 mt-10">Loading...</div>;
-
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">KYC Status Overview</h1>
-        <p className="text-gray-400 mt-1">Monitor KYC applications across all investors.</p>
-      </div>
+    <>
+      <PageHeader title="KYC Status Overview" subtitle="Monitor KYC applications across all investors." />
 
-      {/* Status counters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {["APPROVED","PENDING","REJECTED","UNDER_REVIEW"].map((s) => (
+      {/* Status counters (click to filter) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {["APPROVED", "PENDING", "REJECTED", "UNDER_REVIEW"].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(filter === s ? "" : s)}
-            className={`p-4 rounded-2xl border text-left transition ${
-              filter === s ? "ring-2 ring-blue-500 border-blue-500" : "border-gray-700"
-            } bg-gray-800 hover:border-gray-500`}
+            className={`card text-left px-4 py-3 border-l-4 ${STATUS_BORDER[s]} transition-shadow hover:shadow-md ${
+              filter === s ? "ring-4 ring-primary/25" : ""
+            }`}
           >
-            <p className="text-2xl font-bold text-white">{counts[s] || 0}</p>
-            <p className={`text-xs font-medium mt-1 px-2 py-0.5 rounded-full inline-block ${STATUS_COLORS[s] || "text-gray-400"}`}>
-              {s.replace("_", " ")}
-            </p>
+            <div className="text-xs uppercase tracking-wide text-medium-emphasis">{s.replace("_", " ")}</div>
+            <div className="text-2xl font-semibold">{loading ? "—" : counts[s] || 0}</div>
           </button>
         ))}
       </div>
 
-      {/* List */}
-      <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 bg-gray-800 rounded-2xl border border-gray-700 text-gray-400">
-            No KYC records{filter ? ` with status "${filter}"` : ""}.
-          </div>
+      <div className="card">
+        <div className="card-header">
+          <span>KYC records</span>
+          {filter && (
+            <button onClick={() => setFilter("")} className="btn btn-sm btn-outline-secondary">
+              Clear filter: {filter.replace("_", " ")}
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <Loading />
+        ) : filtered.length === 0 ? (
+          <Empty>No KYC records{filter ? ` with status "${filter}"` : ""}.</Empty>
         ) : (
-          filtered.map((kyc) => (
-            <div key={kyc.id} className="bg-gray-800 border border-gray-700 rounded-2xl p-5 flex justify-between items-center hover:border-gray-600 transition">
-              <div>
-                <h3 className="font-semibold text-white">{kyc.fullName || "Not provided"}</h3>
-                <p className="text-sm text-gray-400">{kyc.user?.email || "Not provided"}</p>
-                <span className={`mt-2 inline-block px-3 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[kyc.status] || "text-gray-300"}`}>
-                  {kyc.status}
-                </span>
-              </div>
-              <button
-                onClick={() => navigate(`/kyc/${kyc.id}`)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-              >
-                View Details
-              </button>
-            </div>
-          ))
+          <div className="overflow-x-auto">
+            <table className="table table-hover">
+              <thead>
+                <tr>
+                  <th>Applicant</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((kyc) => (
+                  <tr key={kyc.id}>
+                    <td className="font-medium">{kyc.fullName || "Not provided"}</td>
+                    <td className="text-medium-emphasis">{kyc.user?.email || "Not provided"}</td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[kyc.status] || "badge-secondary"}`}>
+                        {kyc.status?.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <button onClick={() => navigate(`/kyc/${kyc.id}`)} className="btn btn-sm btn-primary">
+                        View details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

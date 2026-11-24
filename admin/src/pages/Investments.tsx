@@ -1,18 +1,23 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Empty, Loading, PageHeader, Pagination, StatWidget, shortAddr } from "../components/ui";
+import { IconSearch } from "../components/Icons";
 
 const STATUS_BADGE: Record<string, string> = {
-  CONFIRMED: "bg-emerald-100 text-emerald-700",
-  PENDING:   "bg-yellow-100 text-yellow-700",
-  FAILED:    "bg-red-100 text-red-700",
-  CANCELLED: "bg-gray-100 text-gray-500",
+  CONFIRMED: "badge-success",
+  PENDING:   "badge-warning",
+  FAILED:    "badge-danger",
+  CANCELLED: "badge-secondary",
 };
 
 const CHAIN_BADGE: Record<string, string> = {
-  CONFIRMED: "bg-emerald-100 text-emerald-700",
-  PENDING:   "bg-blue-100 text-blue-700",
-  FAILED:    "bg-red-100 text-red-700",
+  CONFIRMED: "badge-success",
+  PENDING:   "badge-info",
+  FAILED:    "badge-danger",
 };
+
+const money = (v: number) =>
+  `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function Investments() {
   const [investments, setInvestments] = useState<any[]>([]);
@@ -45,46 +50,30 @@ export default function Investments() {
   useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Investments</h1>
-        <p className="text-gray-500 mt-1">Track all investments across hotel asset projects.</p>
+    <>
+      <PageHeader title="Investments" subtitle="Track all investments across hotel asset projects." />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <StatWidget tone="success" value={money(stats.totalInvested)} title="Total invested · across all hotel projects" />
+        <StatWidget tone="primary" value={stats.totalInvestments}     title="Total investments · all-time records" />
+        <StatWidget tone="info"    value={pagination.total}           title="Showing · matching current filter" />
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-6 rounded-2xl shadow-md">
-          <p className="text-sm font-semibold opacity-90 mb-1">Total Invested</p>
-          <p className="text-3xl font-bold">${stats.totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className="text-xs opacity-70 mt-1">Across all hotel projects</p>
-        </div>
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-700 text-white p-6 rounded-2xl shadow-md">
-          <p className="text-sm font-semibold opacity-90 mb-1">Total Investments</p>
-          <p className="text-3xl font-bold">{stats.totalInvestments}</p>
-          <p className="text-xs opacity-70 mt-1">All-time records</p>
-        </div>
-        <div className="bg-gradient-to-br from-violet-500 to-purple-700 text-white p-6 rounded-2xl shadow-md">
-          <p className="text-sm font-semibold opacity-90 mb-1">Showing (filtered)</p>
-          <p className="text-3xl font-bold">{pagination.total}</p>
-          <p className="text-xs opacity-70 mt-1">Matching current filter</p>
-        </div>
-      </div>
+      <div className="card">
+        <div className="card-header">Investment records</div>
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Search investor email or hotel name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
-          >
+        <div className="card-body border-b border-line grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="input-group">
+            <span className="input-group-text"><IconSearch size={16} /></span>
+            <input
+              type="text"
+              placeholder="Search investor email or hotel name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="form-control"
+            />
+          </div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="form-select">
             <option value="">All Statuses</option>
             <option value="CONFIRMED">Confirmed</option>
             <option value="PENDING">Pending</option>
@@ -92,86 +81,56 @@ export default function Investments() {
             <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">Investment Records</h2>
-        </div>
 
         {loading ? (
-          <div className="p-10 text-center text-gray-400">Loading investments...</div>
+          <Loading label="Loading investments…" />
         ) : investments.length === 0 ? (
-          <div className="p-10 text-center text-gray-400">No investments found.</div>
+          <Empty>No investments found.</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500">
-                <tr>
-                  {["Investor","Hotel","Amount (USDC)","Tokens","Status","Blockchain","Wallet","Date"].map(h => (
-                    <th key={h} className="p-4 text-left font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {investments.map((inv) => (
-                  <tr key={inv.id} className="border-t border-gray-100 hover:bg-gray-50 transition">
-                    <td className="p-4">
-                      <div className="font-medium text-gray-900">
-                        {inv.user?.firstName || ""} {inv.user?.lastName || ""}
-                      </div>
-                      <div className="text-xs text-gray-400">{inv.user?.email}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="font-medium text-gray-800">{inv.hotelAsset?.name}</div>
-                      <div className="text-xs text-gray-400">{inv.hotelAsset?.tokenSymbol}</div>
-                    </td>
-                    <td className="p-4 text-emerald-700 font-bold">
-                      ${Number(inv.investedAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 text-indigo-700 font-semibold">
-                      {Number(inv.tokenAmount || 0).toLocaleString()}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_BADGE[inv.status] || "bg-gray-100 text-gray-500"}`}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${CHAIN_BADGE[inv.blockchainStatus || ""] || "bg-gray-100 text-gray-500"}`}>
-                        {inv.blockchainStatus || "—"}
-                      </span>
-                    </td>
-                    <td className="p-4 font-mono text-xs text-gray-400">
-                      {inv.walletAddress
-                        ? `${inv.walletAddress.slice(0,6)}...${inv.walletAddress.slice(-4)}`
-                        : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="p-4 text-gray-500 text-xs">{new Date(inv.createdAt).toLocaleDateString()}</td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="table table-hover">
+                <thead>
+                  <tr>
+                    {["Investor", "Hotel", "Amount (USDC)", "Tokens", "Status", "Blockchain", "Wallet", "Date"].map(h => (
+                      <th key={h}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex items-center justify-between p-4 border-t border-gray-100">
-              <p className="text-sm text-gray-400">
-                Page {page} of {pagination.totalPages} — {pagination.total} records
-              </p>
-              <div className="flex gap-2">
-                <button disabled={!pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}
-                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-40">
-                  Previous
-                </button>
-                <button disabled={!pagination.hasNextPage} onClick={() => setPage(p => p + 1)}
-                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-40">
-                  Next
-                </button>
-              </div>
+                </thead>
+                <tbody>
+                  {investments.map((inv) => (
+                    <tr key={inv.id}>
+                      <td>
+                        <div className="font-medium">{inv.user?.firstName || ""} {inv.user?.lastName || ""}</div>
+                        <div className="text-xs text-medium-emphasis">{inv.user?.email}</div>
+                      </td>
+                      <td>
+                        <div className="font-medium">{inv.hotelAsset?.name}</div>
+                        <div className="text-xs text-medium-emphasis">{inv.hotelAsset?.tokenSymbol}</div>
+                      </td>
+                      <td className="font-semibold text-success">{money(inv.investedAmount)}</td>
+                      <td className="font-semibold text-primary">{Number(inv.tokenAmount || 0).toLocaleString()}</td>
+                      <td><span className={`badge ${STATUS_BADGE[inv.status] || "badge-light"}`}>{inv.status}</span></td>
+                      <td><span className={`badge ${CHAIN_BADGE[inv.blockchainStatus || ""] || "badge-light"}`}>{inv.blockchainStatus || "—"}</span></td>
+                      <td className="font-mono text-xs text-medium-emphasis">{shortAddr(inv.walletAddress)}</td>
+                      <td className="text-xs text-medium-emphasis whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+
+            <div className="card-footer">
+              <Pagination
+                page={page}
+                totalPages={pagination.totalPages}
+                onChange={setPage}
+                summary={`Page ${page} of ${Math.max(pagination.totalPages, 1)} — ${pagination.total} records`}
+              />
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </>
   );
 }

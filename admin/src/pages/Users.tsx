@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { adminApi } from "../context/AdminAuthContext";
+import { Empty, Loading, PageHeader, Pagination, shortAddr } from "../components/ui";
+import { IconSearch } from "../components/Icons";
 
 const KYC_BADGE: Record<string, string> = {
-  APPROVED:     "bg-emerald-100 text-emerald-700",
-  PENDING:      "bg-yellow-100 text-yellow-700",
-  REJECTED:     "bg-red-100 text-red-700",
-  UNDER_REVIEW: "bg-blue-100 text-blue-700",
-  NOT_STARTED:  "bg-gray-100 text-gray-500",
+  APPROVED:     "badge-success",
+  PENDING:      "badge-warning",
+  REJECTED:     "badge-danger",
+  UNDER_REVIEW: "badge-info",
+  NOT_STARTED:  "badge-light",
 };
 
 export default function Users() {
@@ -71,39 +73,37 @@ export default function Users() {
     }
   };
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Users</h1>
-        <p className="text-gray-500 mt-1">
-          View all users, wallets, account status, and activity.
-        </p>
-      </div>
+  const initials = (u: any) =>
+    `${u.firstName?.[0] ?? ""}${u.lastName?.[0] ?? ""}`.toUpperCase() || (u.email?.[0] ?? "?").toUpperCase();
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input
-            type="text"
-            placeholder="Search name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
-          />
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
-          >
+  return (
+    <>
+      <PageHeader title="Users" subtitle="View all users, wallets, account status, and activity." />
+
+      <div className="card">
+        <div className="card-header">
+          <span>All users</span>
+          <span className="text-sm font-normal text-medium-emphasis">{pagination.total} total</span>
+        </div>
+
+        {/* Filters */}
+        <div className="card-body border-b border-line grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="input-group">
+            <span className="input-group-text"><IconSearch size={16} /></span>
+            <input
+              type="text"
+              placeholder="Search name or email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="form-control"
+            />
+          </div>
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="form-select">
             <option value="">All Roles</option>
             <option value="USER">User</option>
             <option value="ADMIN">Admin</option>
           </select>
-          <select
-            value={kycFilter}
-            onChange={(e) => setKycFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
-          >
+          <select value={kycFilter} onChange={(e) => setKycFilter(e.target.value)} className="form-select">
             <option value="">All KYC Status</option>
             <option value="APPROVED">Approved</option>
             <option value="PENDING">Pending</option>
@@ -112,119 +112,100 @@ export default function Users() {
             <option value="NOT_STARTED">Not Started</option>
           </select>
         </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-800">All Users</h2>
-          <p className="text-sm text-gray-400">{pagination.total} total</p>
-        </div>
 
         {loading ? (
-          <div className="p-10 text-center text-gray-400">Loading users...</div>
+          <Loading label="Loading users…" />
         ) : users.length === 0 ? (
-          <div className="p-10 text-center text-gray-400">No users found.</div>
+          <Empty>No users found.</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500">
-                <tr>
-                  {["Name","Email","Wallet","KYC","Role","Status","Invested","Bookings","Joined","Actions"].map(h => (
-                    <th key={h} className="p-4 text-left font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className={`border-t border-gray-100 transition ${
-                    !user.isActive ? "bg-red-50 opacity-70" : "hover:bg-gray-50"
-                  }`}>
-                    <td className="p-4 font-medium text-gray-900 whitespace-nowrap">
-                      {user.firstName || ""} {user.lastName || ""}
-                      {!user.firstName && !user.lastName && <span className="text-gray-400 italic">—</span>}
-                    </td>
-                    <td className="p-4 text-gray-600 text-xs">{user.email}</td>
-                    <td className="p-4 font-mono text-xs text-gray-400">
-                      {user.walletAddress
-                        ? `${user.walletAddress.slice(0,6)}...${user.walletAddress.slice(-4)}`
-                        : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${KYC_BADGE[user.kycStatus] || "bg-gray-100 text-gray-500"}`}>
-                        {user.kycStatus?.replace("_", " ") || "—"}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
-                      }`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                      }`}>
-                        {user.isActive ? "Active" : "Deactivated"}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center text-gray-700 font-semibold">{user._count?.investments ?? 0}</td>
-                    <td className="p-4 text-center text-gray-700 font-semibold">{user._count?.bookings ?? 0}</td>
-                    <td className="p-4 text-gray-400 text-xs whitespace-nowrap">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td className="p-4">
-                      <div className="flex gap-2 flex-nowrap">
-                        {/* Change role */}
-                        <button
-                          onClick={() => handleChangeRole(user.id, user.role)}
-                          disabled={actionLoading === user.id + "-role"}
-                          title={user.role === "ADMIN" ? "Demote to User" : "Promote to Admin"}
-                          className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-200 disabled:opacity-50 whitespace-nowrap"
-                        >
-                          {actionLoading === user.id + "-role"
-                            ? "…"
-                            : user.role === "ADMIN" ? "↓ User" : "↑ Admin"}
-                        </button>
-
-                        {/* Deactivate / Reactivate */}
-                        <button
-                          onClick={() => handleToggleActive(user.id, user.isActive)}
-                          disabled={actionLoading === user.id + "-active"}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50 whitespace-nowrap ${
-                            user.isActive
-                              ? "bg-red-100 text-red-700 hover:bg-red-200"
-                              : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                          }`}
-                        >
-                          {actionLoading === user.id + "-active"
-                            ? "…"
-                            : user.isActive ? "Deactivate" : "Reactivate"}
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="table table-hover">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Wallet</th>
+                    <th>KYC</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th className="text-center">Invested</th>
+                    <th className="text-center">Bookings</th>
+                    <th>Joined</th>
+                    <th className="text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex items-center justify-between p-4 border-t border-gray-100">
-              <p className="text-sm text-gray-400">
-                Page {page} of {pagination.totalPages} — {pagination.total} users
-              </p>
-              <div className="flex gap-2">
-                <button disabled={!pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}
-                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-40">
-                  Previous
-                </button>
-                <button disabled={!pagination.hasNextPage} onClick={() => setPage(p => p + 1)}
-                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-40">
-                  Next
-                </button>
-              </div>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className={!user.isActive ? "bg-danger-subtle/40 opacity-75" : ""}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <span className="relative shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full bg-secondary-subtle text-secondary-emphasis text-xs font-semibold">
+                            {initials(user)}
+                            <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white ${user.isActive ? "bg-success" : "bg-danger"}`} />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-medium whitespace-nowrap">
+                              {user.firstName || user.lastName
+                                ? `${user.firstName || ""} ${user.lastName || ""}`
+                                : <span className="text-medium-emphasis italic">—</span>}
+                            </div>
+                            <div className="text-xs text-medium-emphasis">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="font-mono text-xs text-medium-emphasis">{shortAddr(user.walletAddress)}</td>
+                      <td>
+                        <span className={`badge ${KYC_BADGE[user.kycStatus] || "badge-light"}`}>
+                          {user.kycStatus?.replace("_", " ") || "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${user.role === "ADMIN" ? "badge-primary" : "badge-light"}`}>{user.role}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${user.isActive ? "badge-success" : "badge-danger"}`}>
+                          {user.isActive ? "Active" : "Deactivated"}
+                        </span>
+                      </td>
+                      <td className="text-center font-semibold">{user._count?.investments ?? 0}</td>
+                      <td className="text-center font-semibold">{user._count?.bookings ?? 0}</td>
+                      <td className="text-xs text-medium-emphasis whitespace-nowrap">{new Date(user.createdAt).toLocaleDateString()}</td>
+                      <td>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleChangeRole(user.id, user.role)}
+                            disabled={actionLoading === user.id + "-role"}
+                            title={user.role === "ADMIN" ? "Demote to User" : "Promote to Admin"}
+                            className="btn btn-sm btn-outline-primary"
+                          >
+                            {actionLoading === user.id + "-role" ? "…" : user.role === "ADMIN" ? "↓ User" : "↑ Admin"}
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(user.id, user.isActive)}
+                            disabled={actionLoading === user.id + "-active"}
+                            className={`btn btn-sm ${user.isActive ? "btn-outline-danger" : "btn-success"}`}
+                          >
+                            {actionLoading === user.id + "-active" ? "…" : user.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+
+            <div className="card-footer">
+              <Pagination
+                page={page}
+                totalPages={pagination.totalPages}
+                onChange={setPage}
+                summary={`Page ${page} of ${Math.max(pagination.totalPages, 1)} — ${pagination.total} users`}
+              />
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </>
   );
 }
